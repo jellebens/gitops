@@ -5,6 +5,7 @@ metadata:
   name: platform-services
   namespace: argocd
 spec:
+  project: platform-services
   goTemplate: true
   generators:
     - git:
@@ -16,7 +17,7 @@ spec:
     metadata:
       name: '{{`{{ .path.basenameNormalized }}`}}'
     spec:
-      project: bootstrap
+      project: platform-services
       source:
         repoURL: https://github.com/jellebens/gitops.git
         targetRevision: main
