@@ -1,0 +1,18 @@
+{{- range .Values.repos }}
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: {{ .name }}-repo
+  namespace: argocd
+  annotations:
+    managed-by: argocd.argoproj.io
+  labels:
+    argocd.argoproj.io/secret-type: repository
+data:
+  name: {{ .name | b64enc }}
+  project: {{ .project | b64enc }}
+  type: {{ .type | b64enc }}
+  url: {{ .url | b64enc }}
+---
+{{- end }}
