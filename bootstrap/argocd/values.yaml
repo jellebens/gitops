@@ -7,7 +7,7 @@ argocd:
     insecure: true
 
 ingress:
-  enabled: true
+  enabled: false
   className: cilium
   host: argocd.cluster.local
   tls:
