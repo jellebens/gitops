@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: bootstrap
+  name: platform-services
   namespace: {{ .Values.global.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  description: "Bootstrap and self-management of Argo CD"
+  description: "Platform services for the cluster, such as monitoring, logging, and ingress controllers."
   sourceRepos:
-    - https://github.com/your-org/gitops.git
+    - "*"
   destinations:
     - namespace: "*"
       server: https://kubernetes.default.svc
