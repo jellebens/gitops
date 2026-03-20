@@ -14,21 +14,21 @@ spec:
         repoURL: https://github.com/jellebens/gitops.git
         revision: main
         directories:
-          - path: platform-services/*
+          - path: platform-services/**/*.yaml
   template:
     annotations:
       argocd.argoproj.io/sync-wave: "5"
     metadata:
-      name: '{{`{{ .path.basenameNormalized }}`}}'
+      name: '{{`{{ .name }}`}}'
     spec:
-      project: platform-services
+      project: '{{`{{ .project }}`}}'
       source:
         repoURL: https://github.com/jellebens/gitops.git
         targetRevision: main
-        path: '{{`{{ .path.path }}`}}'
+        path: '{{`{{ .path }}`}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{`{{ .path.basenameNormalized }}`}}'
+        namespace: '{{`{{ .namespace }}`}}'
       syncPolicy:
         automated:
           prune: true
