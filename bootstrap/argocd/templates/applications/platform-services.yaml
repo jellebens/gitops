@@ -8,8 +8,8 @@ spec:
   goTemplate: true
   generators:
     - git:
-        repoURL: {{ .Values.spec.source.repoURL | quote }}
-        revision: {{ .Values.spec.source.targetRevision | quote }}
+        repoURL: https://github.com/jellebens/gitops.git
+        revision: main
         directories:
           - path: platformservices/*
   template:
@@ -18,8 +18,8 @@ spec:
     spec:
       project: platform-services
       source:
-        repoURL: {{ .Values.spec.source.repoURL | quote }}
-        targetRevision: {{ .Values.spec.source.targetRevision | quote }}
+        repoURL: https://github.com/jellebens/gitops.git
+        targetRevision: main
         path: '{{`{{ .path.path }}`}}'
       destination:
         server: https://kubernetes.default.svc
