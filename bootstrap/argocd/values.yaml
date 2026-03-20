@@ -1,0 +1,22 @@
+global:
+  namespace: argocd
+  clusterServer: https://kubernetes.default.svc
+
+argocd:
+  server:
+    insecure: true
+
+ingress:
+  enabled: true
+  className: cilium
+  host: argocd.cluster.local
+  tls:
+    enabled: false
+  annotations: {}
+
+applications:
+  landingZones:
+    enabled: true
+  platformServices:
+    enabled: true
+  

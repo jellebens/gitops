@@ -1,0 +1,24 @@
+{{- if .Values.applications.platformServices.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-services
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: bootstrap
+  source:
+    repoURL: http://github.com/jellebens/gitops.git
+    targetRevision: main
+    path: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bootstrap-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jellebens/gitops.git
+    targetRevision: main
+    path: bootstrap/argocd
+    helm:
+      valueFiles:
+        - ../../bootstrap/argocd/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
