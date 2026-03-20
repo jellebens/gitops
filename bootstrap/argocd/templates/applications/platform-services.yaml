@@ -14,7 +14,7 @@ spec:
           - path: platformservices/*
   template:
     metadata:
-      name: 'platform-{{ .path.basenameNormalized }}'
+      name: 'platform-{{ path.basename }}'
     spec:
       project: platform-services
       source:
@@ -23,7 +23,7 @@ spec:
         path: '{{ .path.path }}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: 'test'
+        namespace: 'test-{{ path.basename }}'
       syncPolicy:
         automated:
           prune: true
