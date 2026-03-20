@@ -2,32 +2,29 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: platform-services
+  name: platform-apps
   namespace: argocd
 spec:
-  goTemplate: true
   generators:
     - git:
         repoURL: https://github.com/jellebens/gitops.git
         revision: main
         directories:
-          - path: platformservices/*
+          - path: platform-services/apps/*
   template:
     metadata:
-      name: 'platform-{{ .path.basenameNormalized }}'
+      name: '{{path.basename}}'
     spec:
-      project: platform-services
+      project: default
       source:
-        repoURL: https://github.com/jellebens/gitops.git
+        repoURL: https://github.com/your-org/your-repo.git
         targetRevision: main
-        path: '{{ .path.path }}'
+        path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{ .path.basenameNormalized }}'
+        namespace: '{{path.basename}}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
-        syncOptions:
-          - CreateNamespace=true
 {{- end }}

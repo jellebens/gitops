@@ -15,10 +15,11 @@ ingress:
   annotations: {}
 
 applications:
-  landingZones:
-    enabled: true
   platformServices:
     enabled: true
+  landingZones:
+    enabled: true
+
   
 repos:
   - name: gitops
