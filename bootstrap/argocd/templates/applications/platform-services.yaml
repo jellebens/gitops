@@ -11,7 +11,7 @@ spec:
         repoURL: https://github.com/jellebens/gitops.git
         revision: main
         directories:
-          - path: platformservices/*
+          - path: platform-services/*
   template:
     metadata:
       name: 'platform-{{`{{ .path.basenameNormalized }}`}}'
