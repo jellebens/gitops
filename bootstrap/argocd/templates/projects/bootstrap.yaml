@@ -4,7 +4,7 @@ metadata:
   name: bootstrap
   namespace: {{ .Values.global.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   description: "Bootstrap and self-management of Argo CD"
   sourceRepos:

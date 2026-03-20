@@ -7,6 +7,7 @@ metadata:
   namespace: argocd
   annotations:
     managed-by: argocd.argoproj.io
+    argocd.argoproj.io/sync-wave: "1"
   labels:
     argocd.argoproj.io/secret-type: repository
 data:

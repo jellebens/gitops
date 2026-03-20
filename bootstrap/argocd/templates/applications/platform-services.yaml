@@ -4,6 +4,8 @@ kind: ApplicationSet
 metadata:
   name: platform-services
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: platform-services
   goTemplate: true
@@ -14,6 +16,8 @@ spec:
         directories:
           - path: platform-services/*
   template:
+    annotations:
+      argocd.argoproj.io/sync-wave: "5"
     metadata:
       name: '{{`{{ .path.basenameNormalized }}`}}'
     spec:

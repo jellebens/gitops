@@ -4,7 +4,7 @@ metadata:
   name: platform-services
   namespace: {{ .Values.global.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   description: "Platform services for the cluster, such as monitoring, logging, and ingress controllers."
   sourceRepos:
