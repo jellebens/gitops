@@ -16,7 +16,7 @@ spec:
     metadata:
       name: 'platform-{{`{{ .path.basenameNormalized }}`}}'
     spec:
-      project: platform-services
+      project: bootstrap
       source:
         repoURL: https://github.com/jellebens/gitops.git
         targetRevision: main
