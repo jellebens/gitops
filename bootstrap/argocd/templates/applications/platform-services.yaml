@@ -8,22 +8,22 @@ spec:
   goTemplate: true
   generators:
     - git:
-        repoURL: https://github.com/jellebens/gitops.git
-        revision: main
+        repoURL: {{ .Values.spec.source.repoURL | quote }}
+        revision: {{ .Values.spec.source.targetRevision | quote }}
         directories:
           - path: platformservices/*
   template:
     metadata:
-      name: 'platform-{{ path.basename }}'
+      name: 'platform-{{`{{ .path.basenameNormalized }}`}}'
     spec:
       project: platform-services
       source:
-        repoURL: https://github.com/jellebens/gitops.git
-        targetRevision: main
-        path: '{{ .path.path }}'
+        repoURL: {{ .Values.spec.source.repoURL | quote }}
+        targetRevision: {{ .Values.spec.source.targetRevision | quote }}
+        path: '{{`{{ .path.path }}`}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: 'test-{{ path.basename }}'
+        namespace: '{{`{{ .path.basenameNormalized }}`}}'
       syncPolicy:
         automated:
           prune: true
