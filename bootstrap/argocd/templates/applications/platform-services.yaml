@@ -14,7 +14,7 @@ spec:
           - path: platform-services/*
   template:
     metadata:
-      name: 'platform-{{`{{ .path.basenameNormalized }}`}}'
+      name: '{{`{{ .path.basenameNormalized }}`}}'
     spec:
       project: bootstrap
       source:

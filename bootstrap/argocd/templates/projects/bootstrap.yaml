@@ -10,7 +10,7 @@ spec:
   sourceRepos:
     - https://github.com/your-org/gitops.git
   destinations:
-    - namespace: argocd
+    - namespace: "*"
       server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"
