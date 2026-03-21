@@ -14,7 +14,7 @@ spec:
       helm:
         releaseName: cilium
         valueFiles:
-          - $values/config/lab/cilium-values.yaml
+          - $values/config/lab/cilium.yaml
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
       ref: values
