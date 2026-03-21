@@ -13,7 +13,7 @@ spec:
     path: platform/argocd-config
     helm:
       valueFiles:
-        - ../config/lab/apps.yaml
+        - ../config/lab/argocd.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

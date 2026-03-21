@@ -13,7 +13,7 @@ spec:
     path: platform/cilium-config
     helm:
       valueFiles:
-        - ../config/lab/apps.yaml
+        - ../config/lab/cilium.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: cilium
