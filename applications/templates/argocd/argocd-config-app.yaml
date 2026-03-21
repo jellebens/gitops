@@ -10,7 +10,8 @@ spec:
   source:
     repoURL: https://github.com/jellebens/gitops.git
     targetRevision: main
-    path: platform/argocd-config
+    path: platform
+    chart: argocd-config
     helm:
       valueFiles:
         - $config/lab/argocd.yaml
