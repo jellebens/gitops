@@ -12,11 +12,13 @@ spec:
     targetRevision: main
     path: platform/cilium-config
     helm:
+      releaseName: cilium-config
       valueFiles:
-        - ../config/lab/cilium.yaml
+            - $values/config/lab/cilium.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: cilium
+    ref: values
   syncPolicy:
     automated:
       prune: true
