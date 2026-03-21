@@ -9,7 +9,6 @@ spec:
   project: platform-services
   sources:  
     - repoURL: https://github.com/jellebens/gitops.git
-      type: git
       targetRevision: main
       path: platform/cilium-config
       helm:
