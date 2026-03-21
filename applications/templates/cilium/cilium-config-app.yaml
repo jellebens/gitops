@@ -7,14 +7,15 @@ metadata:
     cilium.argoproj.io/sync-wave: "5"
 spec:
   project: platform-services
-  sources:
-    - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+  source:
+    repoURL: https://github.com/jellebens/gitops.git
+    targetRevision: main
       path: platform/cilium-config
-      helm:
-        releaseName: cilium-config
-        valueFiles:
-          - $config/config/lab/cilium.yaml
+    helm:
+      releaseName: cilium-config
+      valueFiles:
+        - $config/config/lab/cilium.yaml
+  sources:
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
       ref: config
