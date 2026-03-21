@@ -1,3 +1,4 @@
+# config/lab/cilium.yaml
 ipPools:
   - name: infra
     serviceSelector:
