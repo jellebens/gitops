@@ -1,0 +1,19 @@
+{{- range .Values.ipPools }}
+{{- if not .disabled }}
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: {{ .name | quote }}
+spec:
+  {{- if .serviceSelector }}
+  serviceSelector:
+{{ toYaml .serviceSelector | indent 4 }}
+  {{- end }}
+  blocks:
+  {{- range .blocks }}
+    - start: {{ .start | quote }}
+      stop: {{ .stop | quote }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

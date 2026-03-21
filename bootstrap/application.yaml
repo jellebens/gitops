@@ -1,17 +1,17 @@
-{{- if .Values.applications.landingZones.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: landing-zones
-  namespace: {{ .Values.global.namespace }} 
-  annotations:
-    argocd.argoproj.io/sync-wave: "2"
+  name: bootstrap
+  namespace: argocd
 spec:
-  project: bootstrap
+  project: default
   source:
     repoURL: https://github.com/jellebens/gitops.git
     targetRevision: main
-    path: landing-zones
+    path: platform-servics
+    helm:
+      valueFiles:
+        - ../config/lab/apps-values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -21,4 +21,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-{{- end }}

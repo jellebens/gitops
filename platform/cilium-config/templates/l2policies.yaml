@@ -1,0 +1,22 @@
+{{- range .Values.l2Policies }}
+{{- if not .disabled }}
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: {{ .name | quote }}
+spec:
+  {{- if .nodeSelector }}
+  nodeSelector:
+{{ toYaml .nodeSelector | indent 4 }}
+  {{- end }}
+  {{- if .interfaces }}
+  interfaces:
+  {{- range .interfaces }}
+    - {{ . | quote }}
+  {{- end }}
+  {{- end }}
+  loadBalancerIPs: {{ .loadBalancerIPs | default true }}
+  externalIPs: {{ .externalIPs | default false }}
+---
+{{- end }}
+{{- end }}
