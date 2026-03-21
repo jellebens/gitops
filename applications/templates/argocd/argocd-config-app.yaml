@@ -7,18 +7,15 @@ metadata:
     argocd.argoproj.io/sync-wave: "5"
 spec:
   project: platform-services
-  source:
-    repoURL: https://github.com/jellebens/gitops.git
-    targetRevision: main
-    path: platform
-    chart: argocd-config
-    helm:
-      valueFiles:
-        - $config/lab/argocd.yaml
   sources:
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
-      path: config
+      path: platform/argocd-config
+      helm:
+        valueFiles:
+          - $config/lab/argocd.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
       ref: config
   destination:
     server: https://kubernetes.default.svc
@@ -27,6 +24,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
-  syncOptions:
+    syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
