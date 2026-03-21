@@ -1,21 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd-config
-  namespace: argocd
+  name: cilium-config
+  namespace: cilium
   annotations:
-    argocd.argoproj.io/sync-wave: "5"
+    cilium.argoproj.io/sync-wave: "5"
 spec:
   project: platform-services
   source:
     repoURL: https://github.com/jellebens/gitops.git
     targetRevision: main
-    path: platform/argocd-config
+    path: platform/cilium-config
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: cilium
   syncPolicy:
-    createNamespace: true
     automated:
       prune: true
       selfHeal: true
+  syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
