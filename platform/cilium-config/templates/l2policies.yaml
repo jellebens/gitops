@@ -4,6 +4,7 @@ apiVersion: cilium.io/v2alpha1
 kind: CiliumL2AnnouncementPolicy
 metadata:
   name: {{ .name | quote }}
+  namespace: cilium
 spec:
   {{- if .nodeSelector }}
   nodeSelector:

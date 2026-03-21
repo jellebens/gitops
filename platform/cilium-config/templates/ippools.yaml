@@ -4,6 +4,7 @@ apiVersion: cilium.io/v2alpha1
 kind: CiliumLoadBalancerIPPool
 metadata:
   name: {{ .name | quote }}
+  namespace: cilium
 spec:
   {{- if .serviceSelector }}
   serviceSelector:
