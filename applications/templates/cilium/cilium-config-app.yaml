@@ -11,6 +11,9 @@ spec:
     repoURL: https://github.com/jellebens/gitops.git
     targetRevision: main
     path: platform/cilium-config
+    helm:
+      valueFiles:
+        - ../config/lab/apps.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: cilium
