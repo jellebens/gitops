@@ -4,10 +4,10 @@ metadata:
   name: cilium-config
   namespace: argocd
   annotations:
-    cilium.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   project: platform-services
-  sources:  
+  sources:
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
       path: platform/cilium-config
@@ -20,11 +20,11 @@ spec:
       ref: config
   destination:
     server: https://kubernetes.default.svc
-    namespace: cilium
+    namespace: kube-system
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-  syncOptions:
+    syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
