@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: cilium-config
-  namespace: cilium
+  namespace: argocd
   annotations:
     cilium.argoproj.io/sync-wave: "5"
 spec:
