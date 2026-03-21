@@ -13,7 +13,12 @@ spec:
     path: platform/argocd-config
     helm:
       valueFiles:
-        - ../config/lab/argocd.yaml
+        - $config/lab/argocd.yaml
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      path: config
+      ref: config
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
