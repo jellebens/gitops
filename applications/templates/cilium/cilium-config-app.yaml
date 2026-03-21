@@ -8,17 +8,19 @@ metadata:
 spec:
   project: platform-services
   source:
-    repoURL: https://github.com/jellebens/gitops.git
-    targetRevision: main
-    path: platform/cilium-config
-    helm:
-      releaseName: cilium-config
-      valueFiles:
-            - $values/config/lab/cilium.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      path: platform/cilium-config
+      helm:
+        releaseName: cilium-config
+        valueFiles:
+          - $config/config/lab/cilium.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      ref: config
   destination:
     server: https://kubernetes.default.svc
     namespace: cilium
-    ref: values
   syncPolicy:
     automated:
       prune: true
