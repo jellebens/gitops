@@ -6,7 +6,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-10"
 spec:
-  project: bootstrap
+  project: platform-services
   sources:
     - repoURL: https://helm.cilium.io/
       chart: cilium
