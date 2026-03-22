@@ -19,7 +19,9 @@ grafana:
   ingress:
     enabled: true
     ingressClassName: cilium
-    loadBalancerIP: 192.168.50.161
+    service:
+      type: LoadBalancer
+      loadBalancerIP: 192.168.50.161
     hosts:
       - grafana.lab.local
     path: /
