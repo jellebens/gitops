@@ -5,6 +5,7 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: argocd-server
     app.kubernetes.io/part-of: argocd
+    lb-pool: platform
   name: argocd-server
   namespace: argocd
 spec:
