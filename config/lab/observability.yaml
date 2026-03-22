@@ -1,0 +1,77 @@
+crds:
+  enabled: true
+
+grafana:
+  enabled: true
+  adminPassword: "change-me-now"
+  defaultDashboardsEnabled: true
+
+  persistence:
+    enabled: true
+    type: pvc
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+
+  service:
+    type: ClusterIP
+
+  ingress:
+    enabled: true
+    ingressClassName: cilium
+    loadBalancerIP: 192.168.50.161
+    hosts:
+      - grafana.lab.local
+    path: /
+    pathType: Prefix
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 15d
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 25Gi
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: true
+
+kubeControllerManager:
+  enabled: true
+
+kubeScheduler:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+defaultRules:
+  create: true
+
+prometheusOperator:
+  enabled: true

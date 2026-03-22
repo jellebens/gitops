@@ -12,6 +12,7 @@ spec:
       targetRevision: main
       path: platform/argocd-config
       helm:
+        releaseName: argocd-config
         valueFiles:
           - $config/config/lab/argocd.yaml
     - repoURL: https://github.com/jellebens/gitops.git
