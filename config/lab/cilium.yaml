@@ -28,7 +28,7 @@ l2Policies:
   - name: default
     disabled: false
     nodeSelector: {}
-    interfaces:
-      - eth0
+    # interfaces:
+    #   - eth0
     loadBalancerIPs: true
     externalIPs: false
