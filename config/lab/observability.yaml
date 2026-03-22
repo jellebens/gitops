@@ -15,8 +15,9 @@ grafana:
 
   service:
     type: LoadBalancer
-    annotations:
-      lbipam.cilium.io/ips: "192.168.50.161"
+    LoadBalancerIP: 192.168.50.161
+    # annotations:
+    #   lbipam.cilium.io/ips: "192.168.50.161"
 
   ingress:
     enabled: true
