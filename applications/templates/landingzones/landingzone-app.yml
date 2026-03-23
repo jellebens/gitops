@@ -15,13 +15,13 @@ spec:
           - path: landingzones/*
   template:
     metadata:
-      name: 'clz-{{path.basename}}'
+      name: 'clz-{{ .path.basename }}'
     spec:
       project: landing-zones
       source:
         repoURL: https://github.com/jellebens/gitops.git
         targetRevision: main
-        path: '{{ path.path }}'
+        path: '{{ .path.path }}'
       destination:
         server: https://kubernetes.default.svc
         namespace: 'amarok-system'
