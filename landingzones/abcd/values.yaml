@@ -1,1 +1,4 @@
 # Default values for abcd
+cluster-landing-zone:
+  namespace:
+    name: "abcd-dev"
