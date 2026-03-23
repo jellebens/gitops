@@ -17,9 +17,6 @@ ipPools:
         stop: 192.168.50.199
 
   - name: default
-    serviceSelector:
-      matchLabels:
-        lb-pool: default
     blocks:
       - start: 192.168.50.200
         stop: 192.168.50.240

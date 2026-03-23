@@ -14,15 +14,16 @@ grafana:
     size: 10Gi
 
   service:
-    type: LoadBalancer
-    labels:
-      lb-pool: platform
-    annotations:
-      lbipam.cilium.io/ips: "192.168.50.181"
+    type: ClusterIP
 
   ingress:
     enabled: true
     ingressClassName: cilium
+    annotations:
+      ingress.cilium.io/loadbalancer-mode: dedicated
+      lbipam.cilium.io/ips: "192.168.50.181"
+    labels:
+      lb-pool: platform
     hosts:
       - grafana.lab.local
     path: /
