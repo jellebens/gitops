@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: landingzones
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/jellebens/gitops.git
+        revision: main
+        directories:
+          - path: landingzones/*
+  template:
+    metadata:
+      name: 'clz-{{path.basename}}'
+    spec:
+      project: landing-zones
+      source:
+        repoURL: https://github.com/jellebens/gitops.git
+        targetRevision: main
+        path: '{{path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'amarok-system'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
