@@ -1,0 +1,13 @@
+apiVersion: v2
+name: mnop
+description: Empty Helm chart for mnop
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+
+
+dependencies:
+  - name: cluster-landing-zone
+    version: 0.1.3
+    repository: oci://registry-1.docker.io/jellebens
