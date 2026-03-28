@@ -1,4 +1,0 @@
-# Default values for efgh
-cluster-landing-zone:
-  namespace:
-    name: "efgh-dev"

@@ -1,5 +1,0 @@
-# Default values for landingzones/ijkl
-# Default values for efgh
-cluster-landing-zone:
-  namespace:
-    name: "ijkl-dev"
