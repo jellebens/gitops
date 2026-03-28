@@ -3,8 +3,12 @@ crds:
 
 grafana:
   enabled: true
-  adminPassword: "change-me-now"
   defaultDashboardsEnabled: true
+
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
 
   persistence:
     enabled: true
