@@ -4,6 +4,14 @@ crds:
 grafana:
   enabled: true
   defaultDashboardsEnabled: true
+  
+  grafana.ini:
+    auth.anonymous:
+      enabled: true
+      org_name: Main Org.
+      org_role: Viewer
+    auth.basic:
+      enabled: false
 
   admin:
     existingSecret: grafana-admin
