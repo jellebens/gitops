@@ -5,14 +5,18 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://github.com/jellebens/gitops.git
-    targetRevision: main
-    path: applications
-    helm:
-      valueFiles:
-        - ../.config/shared/values.yaml
-        - ../.config/lab/apps.yaml
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      path: applications
+      helm:
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/apps.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.config.targetRevision | default "HEAD" }}
+      ref: config
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

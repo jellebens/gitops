@@ -18,7 +18,8 @@ spec:
         releaseName: kube-prometheus-stack
         valueFiles:
           - $values/.config/shared/values.yaml
-          - $values/.config/lab/observability.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/observability.yaml  
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
       ref: values

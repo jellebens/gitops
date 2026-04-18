@@ -14,8 +14,9 @@ spec:
       helm:
         releaseName: cilium-config
         valueFiles:
-          - $config/.config/shared/values.yaml
-          - $config/.config/lab/cilium.yaml
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/cilium.yaml
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
       ref: config

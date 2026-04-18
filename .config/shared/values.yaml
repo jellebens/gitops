@@ -6,3 +6,8 @@ repos:
   prometheus: 
     url: https://prometheus-community.github.io/helm-charts
     targetRevison: 2.8.2
+  
+  config:
+    url: https://github.com/jellebens/gitops.git
+    targetRevision: main
+    

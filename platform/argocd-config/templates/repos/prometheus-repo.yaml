@@ -8,7 +8,7 @@ metadata:
   labels:
     argocd.argoproj.io/secret-type: repository
 stringData:
-  name: chaos-mesh
+  name: prometheus-repo 
   project: platform-services
-  url: {{ .Values.repos.prometheus | quote }}
+  url: {{ .Values.repos.prometheus.url | quote }}
   type: helm
