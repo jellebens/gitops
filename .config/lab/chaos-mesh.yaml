@@ -14,7 +14,8 @@ dashboard:
       - name: chaos-mesh.lab.local
     paths:
       - /
-    tls: false
+    tls: true
+    tlsSecret: chaos-mesh-dashboard-tls
 
 controllerManager:
   leaderElection:
