@@ -1,0 +1,20 @@
+chaosDaemon:
+  runtime: containerd
+  socketPath: /run/k3s/containerd/containerd.sock
+
+dashboard:
+  securityMode: false
+  ingress:
+    enabled: true
+    ingressClassName: cilium
+    annotations:
+      ingress.cilium.io/loadbalancer-mode: dedicated
+    hosts:
+      - name: chaos-mesh.minikube.local
+    paths:
+      - /
+    tls: false
+
+controllerManager:
+  leaderElection:
+    enabled: false
