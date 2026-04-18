@@ -12,10 +12,10 @@ dashboard:
       lbipam.cilium.io/ips: "192.168.50.202"
     hosts:
       - name: chaos-mesh.lab.local
+        tls: true
+        tlsSecret: chaos-mesh-dashboard-tls
     paths:
       - /
-    tls: true
-    tlsSecret: chaos-mesh-dashboard-tls
 
 controllerManager:
   leaderElection:
