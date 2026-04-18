@@ -11,9 +11,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: chaos-mesh
   sources:
-    - repoURL: {{.Values.repos.chaosMesh }}
+    - repoURL: {{ .Values.repos.chaosMesh.url | quote }}
       chart: chaos-mesh
-      targetRevision: {{ .Values.repos.chaosMesh.targetRevision }}
+      targetRevision: {{ .Values.repos.chaosMesh.targetRevision | quote }}
       helm:
         valueFiles:
         - $values/.config/shared/values.yaml
@@ -22,8 +22,8 @@ spec:
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
       ref: values
-
-   ignoreDifferences:
+      
+  ignoreDifferences:
     - group: admissionregistration.k8s.io
       kind: MutatingWebhookConfiguration
       jqPathExpressions:
