@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chaos-mesh-repo
+  namespace: {{ .Values.argocd.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-400"
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: chaos-mesh
+  project: platform-services
+  url: {{ .Values.repos.chaosMesh | quote }}
+  type: helm

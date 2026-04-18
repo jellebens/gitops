@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chaos-mesh
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos-mesh
+  sources:
+    - repoURL: {{.Values.repos.chaosMesh }}
+      chart: chaos-mesh
+      targetRevision: {{ .Values.repos.chaosMesh.targetRevision }}
+      helm:
+        valueFiles:
+        - $values/.config/{{ .Values.environment | default "local" }}/chaos-mesh.yaml
+    - repoURL: {{ .Values.repos.configRepo | quote }}
+      targetRevision: {{ .Values.config.targetRevision | default "HEAD" }}
+      ref: values
+
+   ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions:
+        - '.webhooks[]?.clientConfig.caBundle'
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - '.webhooks[]?.clientConfig.caBundle'
+
+    - group: apps
+      kind: Deployment
+      jqPathExpressions:
+        - '.spec.template.metadata.annotations."rollme"'
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - '.spec.template.metadata.annotations."rollme"'
+    - group: apps
+      kind: DaemonSet
+      jqPathExpressions:
+        - '.spec.template.metadata.annotations."rollme"'    
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

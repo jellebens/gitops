@@ -11,9 +11,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: observability
   sources:
-    - repoURL: https://prometheus-community.github.io/helm-charts
+    - repoURL: {{ .Values.repos.prometheus }}
       chart: kube-prometheus-stack
-      targetRevision: 82.2.1
+      targetRevision: {{ .Values.repos.prometheus.targetRevision }}
       helm:
         releaseName: kube-prometheus-stack
         valueFiles:
