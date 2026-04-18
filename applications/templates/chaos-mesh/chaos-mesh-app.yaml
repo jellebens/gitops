@@ -16,6 +16,7 @@ spec:
       targetRevision: {{ .Values.repos.chaosMesh.targetRevision }}
       helm:
         valueFiles:
+        - $values/.config/shared/values.yaml
         - $values/.config/{{ .Values.environment | default "local" }}/chaos-mesh.yaml
     - repoURL: {{ .Values.repos.configRepo | quote }}
       targetRevision: {{ .Values.config.targetRevision | default "HEAD" }}

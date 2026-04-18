@@ -11,7 +11,8 @@ spec:
     path: applications
     helm:
       valueFiles:
-        - ../config/lab/apps.yaml
+        - ../.config/shared/values.yaml
+        - ../.config/lab/apps.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

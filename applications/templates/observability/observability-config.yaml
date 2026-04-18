@@ -14,7 +14,8 @@ spec:
       helm:
         releaseName: observability-config
         valueFiles:
-          - $config/config/lab/argocd.yaml
+          - $config/.config/shared/values.yaml
+          - $config/.config/lab/argocd.yaml
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
       ref: config
