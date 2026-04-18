@@ -1,13 +1,12 @@
 repos:
   chaosMesh: 
    url: https://charts.chaos-mesh.org
-   targetRevision: 82.2.1
+   targetRevision: 2.8.2
 
   prometheus: 
     url: https://prometheus-community.github.io/helm-charts
-    targetRevison: 2.8.2
+    targetRevison: 82.2.2
   
   config:
     url: https://github.com/jellebens/gitops.git
-    targetRevision: main
-    
+    targetRevision: HEAD
