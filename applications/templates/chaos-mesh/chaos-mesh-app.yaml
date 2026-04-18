@@ -19,8 +19,8 @@ spec:
         - $values/.config/shared/values.yaml
         - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
         - $values/.config/{{ .Values.environment | default "lab" }}/chaos-mesh.yaml
-    - repoURL: {{ .Values.repos.configRepo | quote }}
-      targetRevision: {{ .Values.config.targetRevision | default "HEAD" }}
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
       ref: values
 
    ignoreDifferences:
