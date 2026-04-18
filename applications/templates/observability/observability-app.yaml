@@ -11,17 +11,17 @@ spec:
     server: https://kubernetes.default.svc
     namespace: observability
   sources:
-    - repoURL: {{ .Values.repos.prometheus }}
+    - repoURL: {{ .Values.repos.prometheus.url | quote }}
       chart: kube-prometheus-stack
-      targetRevision: {{ .Values.repos.prometheus.targetRevision }}
+      targetRevision: {{ .Values.repos.prometheus.targetRevision | quote }}
       helm:
         releaseName: kube-prometheus-stack
         valueFiles:
           - $values/.config/shared/values.yaml
           - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
           - $values/.config/{{ .Values.environment | default "lab" }}/observability.yaml  
-    - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | quote }}
       ref: values
   syncPolicy:
     automated:
