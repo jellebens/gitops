@@ -45,6 +45,13 @@ spec:
       kind: DaemonSet
       jqPathExpressions:
         - '.spec.template.metadata.annotations."rollme"'    
+    - kind: Secret
+      namespace: chaos-mesh
+      jqPathExpressions:
+        - '.data["ca.crt"]'
+        - '.data["ca.key"]'
+        - '.data["tls.crt"]'
+        - '.data["tls.key"]'
 
   syncPolicy:
     automated:
