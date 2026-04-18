@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: config-repo
-  namespace: {{ .Values.argocd.namespace }}
+  namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-400"
   labels:
