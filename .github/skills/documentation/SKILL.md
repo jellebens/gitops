@@ -7,6 +7,9 @@ user-invocable: true
 
 # Documentation Workflow
 
+## See Also
+- GitOps and Argo CD troubleshooting: ../gitops-argocd/SKILL.md
+
 ## When to Use
 - Writing new project documentation
 - Updating docs after code or config changes

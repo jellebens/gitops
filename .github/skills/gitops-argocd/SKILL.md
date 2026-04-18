@@ -7,6 +7,9 @@ user-invocable: true
 
 # GitOps Argo CD Workflow
 
+## See Also
+- General documentation workflow: ../documentation/SKILL.md
+
 ## When to Use
 - Argo CD `ComparisonError` or `Failed to load target state`
 - Helm render or fetch failures in Argo CD apps

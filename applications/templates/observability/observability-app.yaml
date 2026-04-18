@@ -19,11 +19,8 @@ spec:
         ignoreMissingValueFiles: true
         valueFiles:
           - $values/.config/shared/values.yaml
-          - $values/config/shared/values.yaml
           - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
-          - $values/config/{{ .Values.environment | default "lab" }}/values.yaml
-          - $values/.config/{{ .Values.environment | default "lab" }}/observability.yaml
-          - $values/config/{{ .Values.environment | default "lab" }}/observability.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/observability.yaml  
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | quote }}
       ref: values

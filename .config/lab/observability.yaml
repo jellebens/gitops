@@ -12,7 +12,7 @@ grafana:
       org_role: Viewer
     auth.basic:
       enabled: false
-
+      
   admin:
     existingSecret: grafana-admin
     userKey: admin-user
