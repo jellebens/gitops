@@ -5,7 +5,7 @@ repos:
 
   prometheus: 
     url: https://prometheus-community.github.io/helm-charts
-    targetRevison: 82.2.2
+    targetRevision: 82.2.2
   
   config:
     url: https://github.com/jellebens/gitops.git
