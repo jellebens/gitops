@@ -19,4 +19,4 @@ dashboard:
 
 controllerManager:
   leaderElection:
-    enabled: false
+    enabled: true
