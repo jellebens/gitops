@@ -19,7 +19,7 @@ spec:
           - $values/.config/{{ .Values.environment | default "lab" }}/argocd.yaml
     - repoURL: https://github.com/jellebens/gitops.git
       targetRevision: main
-      ref: config
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

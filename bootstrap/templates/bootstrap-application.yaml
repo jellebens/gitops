@@ -16,7 +16,7 @@ spec:
           - $values/.config/{{ .Values.environment | default "lab" }}/apps.yaml
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.config.targetRevision | default "HEAD" }}
-      ref: config
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
