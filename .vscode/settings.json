@@ -1,5 +1,7 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "argocd": true
+        "argocd": true,
+        "git add": true,
+        "git commit": true
     }
 }

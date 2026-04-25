@@ -1,3 +1,4 @@
 Chart.lock
+.tmp/
 
 **/charts/*.tgz
