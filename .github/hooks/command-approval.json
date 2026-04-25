@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "./.scripts/copilot-command-approval.sh",
+        "windows": "bash ./.scripts/copilot-command-approval.sh",
+        "timeout": 10
+      }
+    ]
+  }
+}
