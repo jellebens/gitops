@@ -17,7 +17,7 @@ spec:
       helm:
         releaseName: cert-manager
         ignoreMissingValueFiles: true
-        values:
+        values: |
           installCRDs: true
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
