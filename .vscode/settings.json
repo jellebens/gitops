@@ -2,6 +2,10 @@
     "chat.tools.terminal.autoApprove": {
         "argocd": true,
         "git add": true,
-        "git commit": true
+        "git commit": true,
+        "command": true,
+        "kubectl version": true,
+        "kubectl -n cert-manager": true,
+        "kubectl get": true
     }
 }

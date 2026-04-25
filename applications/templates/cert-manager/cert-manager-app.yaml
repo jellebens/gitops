@@ -17,8 +17,8 @@ spec:
       helm:
         releaseName: cert-manager
         ignoreMissingValueFiles: true
-        valueFiles:
-          - $values/.config/{{ .Values.environment | default "lab" }}/cert-manager-app.yaml
+        values:
+          installCRDs: true
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
       ref: values
