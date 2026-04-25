@@ -1,6 +1,9 @@
+# Dot-directories are tracked by default unless explicitly ignored below.
+
+# Helm-generated artifacts
 Chart.lock
-.tmp/
-
-.secrets/
-
 **/charts/*.tgz
+
+# Local-only directories
+.tmp/
+.secrets/
