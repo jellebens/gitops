@@ -1,4 +1,6 @@
 Chart.lock
 .tmp/
 
+.secrets/
+
 **/charts/*.tgz
