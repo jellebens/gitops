@@ -1,8 +1,4 @@
 clusterIssuer:
   enabled: true
-  name: letsencrypt-prod
-  email: jellebens@outlook.com
-  server: https://acme-v02.api.letsencrypt.org/directory
-  privateKeySecretName: letsencrypt-prod-account-key
-  solver:
-    ingressClassName: cilium
+  name: letsencrypt
+  type: selfSigned
