@@ -24,8 +24,9 @@ if [[ "$command_text" =~ (^|[[:space:]])(rm[[:space:]]+-rf|git[[:space:]]+reset[
   exit 0
 fi
 
-# Auto-approve safe read-only and dry-run style commands.
-if [[ "$command_text" =~ ^(ls|pwd|cat|sed|awk|head|tail|wc|rg|grep|find|which|command[[:space:]]+-v|echo|git[[:space:]]+status|git[[:space:]]+diff|git[[:space:]]+log|helm[[:space:]]+template|helm[[:space:]]+lint|helm[[:space:]]+version)([[:space:]].*)?$ ]]; then
+# Auto-approve safe read-only and dry-run style commands, including the common
+# 'cd <path> && <command>' prefix used in this repo.
+if [[ "$command_text" =~ ^((cd[[:space:]]+[^;&|]+[[:space:]]*&&[[:space:]]+)?(ls|pwd|cat|sed|awk|head|tail|wc|rg|grep|find|which|command[[:space:]]+-v|echo|git[[:space:]]+status|git[[:space:]]+diff|git[[:space:]]+log|helm[[:space:]]+template|helm[[:space:]]+lint|helm[[:space:]]+version|argocd|kubectl|cilium))([[:space:]].*)?$ ]]; then
   printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Safe command matched allowlist"}}'
   exit 0
 fi
