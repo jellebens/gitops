@@ -18,9 +18,7 @@ spec:
         releaseName: cert-manager
         ignoreMissingValueFiles: true
         valueFiles:
-          - $values/.config/shared/values.yaml
-          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
-          - $values/.config/{{ .Values.environment | default "lab" }}/cert-manager.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/cert-manager-app.yaml
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
       ref: values
