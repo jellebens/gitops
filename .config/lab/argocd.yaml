@@ -1,0 +1,9 @@
+ingress:
+  enabled: true
+  className: cilium
+  host: argocd.lab.local
+  tlsSecretName: argocd-server-tls
+  clusterIssuer: letsencrypt-prod
+  annotations:
+    ingress.cilium.io/loadbalancer-mode: dedicated
+    lbipam.cilium.io/ips: "192.168.50.180"

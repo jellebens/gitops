@@ -1,0 +1,7 @@
+ingress:
+  enabled: false
+  className: cilium
+  host: argocd.lab.local
+  tlsSecretName: argocd-server-tls
+  clusterIssuer: letsencrypt-prod
+  annotations: {}
