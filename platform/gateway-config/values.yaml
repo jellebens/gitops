@@ -1,0 +1,11 @@
+gateway:
+  name: cilium-gateway
+  namespace: gateway
+  className: cilium
+  listenerName: http
+  listenerPort: 80
+  annotations: {}
+
+# List of HTTPRoutes to provision against the shared Gateway.
+# Each entry: name, namespace, hostnames[], backend.{name,port}, [path]
+routes: []

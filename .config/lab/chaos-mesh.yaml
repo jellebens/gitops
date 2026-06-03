@@ -5,15 +5,7 @@ chaosDaemon:
 dashboard:
   securityMode: false
   ingress:
-    enabled: true
-    ingressClassName: cilium
-    annotations:
-      ingress.cilium.io/loadbalancer-mode: dedicated
-      lbipam.cilium.io/ips: "192.168.50.202"
-    hosts:
-      - name: chaos-mesh.lab.local
-    paths:
-      - /
+    enabled: false
 
 controllerManager:
   leaderElection:

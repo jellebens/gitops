@@ -29,15 +29,7 @@ grafana:
     type: ClusterIP
 
   ingress:
-    enabled: true
-    ingressClassName: cilium
-    annotations:
-      ingress.cilium.io/loadbalancer-mode: dedicated
-      lbipam.cilium.io/ips: "192.168.50.201"
-    hosts:
-      - grafana.lab.local
-    path: /
-    pathType: Prefix
+    enabled: false
 
 prometheus:
   enabled: true

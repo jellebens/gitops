@@ -1,0 +1,33 @@
+gateway:
+  name: cilium-gateway
+  namespace: gateway
+  className: cilium
+  listenerName: http
+  listenerPort: 80
+  annotations:
+    io.cilium/lb-ipam-ips: "192.168.50.200"
+
+routes:
+  - name: argocd
+    namespace: argocd
+    hostnames:
+      - argocd.lab.local
+    backend:
+      name: argocd-server
+      port: 80
+
+  - name: chaos-mesh
+    namespace: chaos-mesh
+    hostnames:
+      - chaos-mesh.lab.local
+    backend:
+      name: chaos-dashboard
+      port: 2333
+
+  - name: grafana
+    namespace: observability
+    hostnames:
+      - grafana.lab.local
+    backend:
+      name: kube-prometheus-stack-grafana
+      port: 80
