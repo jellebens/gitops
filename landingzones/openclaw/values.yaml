@@ -12,7 +12,8 @@ service:
 
 gateway:
   enabled: true
-  # Reference to an existing Cilium-managed Gateway (Gateway API)
+  className: cilium
+  annotations: {}
   parentRef:
     name: cilium-gateway
     namespace: gateway
