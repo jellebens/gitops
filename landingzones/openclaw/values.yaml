@@ -34,7 +34,8 @@ config:
     bind: lan
     port: 8080
     auth:
-      mode: none
+      mode: token
+      token: "lab-openclaw-shared-token"
     controlUi:
       allowedOrigins:
         - http://openclaw.lab.local
