@@ -33,6 +33,8 @@ config:
     mode: local
     bind: lan
     port: 8080
+    auth:
+      mode: none
     controlUi:
       allowedOrigins:
         - http://openclaw.lab.local
