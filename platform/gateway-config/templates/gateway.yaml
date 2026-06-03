@@ -3,15 +3,16 @@ kind: Gateway
 metadata:
   name: {{ .Values.gateway.name }}
   namespace: {{ .Values.gateway.namespace }}
-  {{- with .Values.gateway.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
   labels:
     app.kubernetes.io/name: {{ .Values.gateway.name }}
     app.kubernetes.io/part-of: platform
 spec:
   gatewayClassName: {{ .Values.gateway.className }}
+  {{- with .Values.gateway.annotations }}
+  infrastructure:
+    annotations:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
   listeners:
     - name: {{ .Values.gateway.listenerName }}
       protocol: HTTP
