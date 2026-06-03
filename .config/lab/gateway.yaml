@@ -5,7 +5,7 @@ gateway:
   listenerName: http
   listenerPort: 80
   annotations:
-    io.cilium/lb-ipam-ips: "192.168.50.200"
+    lbipam.cilium.io/ips: "192.168.50.200"
 
 routes:
   - name: argocd
