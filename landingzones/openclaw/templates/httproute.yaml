@@ -9,7 +9,9 @@ metadata:
     app.kubernetes.io/part-of: openclaw
 spec:
   parentRefs:
-    - name: {{ .Values.gateway.parentRef.name }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.gateway.parentRef.name }}
       {{- with .Values.gateway.parentRef.namespace }}
       namespace: {{ . }}
       {{- end }}
@@ -24,6 +26,9 @@ spec:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: openclaw
+        - group: ""
+          kind: Service
+          name: openclaw
           port: {{ .Values.service.port }}
+          weight: 1
 {{- end }}

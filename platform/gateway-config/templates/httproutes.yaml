@@ -10,7 +10,9 @@ metadata:
     app.kubernetes.io/part-of: platform
 spec:
   parentRefs:
-    - name: {{ $.Values.gateway.name }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $.Values.gateway.name }}
       namespace: {{ $.Values.gateway.namespace }}
       sectionName: {{ $.Values.gateway.listenerName }}
   hostnames:
@@ -21,6 +23,9 @@ spec:
             type: PathPrefix
             value: {{ .path | default "/" }}
       backendRefs:
-        - name: {{ .backend.name }}
+        - group: ""
+          kind: Service
+          name: {{ .backend.name }}
           port: {{ .backend.port }}
+          weight: 1
 {{- end }}
