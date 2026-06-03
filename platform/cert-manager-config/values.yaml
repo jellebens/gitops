@@ -7,3 +7,12 @@ clusterIssuer:
   privateKeySecretName: letsencrypt-account-key
   solver:
     ingressClassName: cilium
+
+labCA:
+  enabled: false
+  selfSignedIssuerName: lab-selfsigned-root
+  rootSecretName: lab-root-ca
+  caIssuerName: lab-ca-issuer
+  commonName: lab-root-ca
+  duration: 87600h
+  renewBefore: 720h

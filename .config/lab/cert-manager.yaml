@@ -2,3 +2,9 @@ clusterIssuer:
   enabled: true
   name: letsencrypt
   type: selfSigned
+
+labCA:
+  enabled: true
+  selfSignedIssuerName: lab-selfsigned-root
+  rootSecretName: lab-root-ca
+  caIssuerName: lab-ca-issuer

@@ -9,3 +9,15 @@ ingress:
 cmdParams:
   server:
     insecure: "true"
+
+tlsCertificate:
+  enabled: false
+  secretName: argocd-server-tls
+  commonName: argocd.lab.local
+  dnsNames:
+    - argocd.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer

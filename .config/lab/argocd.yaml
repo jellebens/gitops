@@ -1,2 +1,8 @@
 ingress:
   enabled: false
+
+tlsCertificate:
+  enabled: true
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
