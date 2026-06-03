@@ -5,3 +5,7 @@ ingress:
   tlsSecretName: argocd-server-tls
   clusterIssuer: letsencrypt
   annotations: {}
+
+cmdParams:
+  server:
+    insecure: "true"
