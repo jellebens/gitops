@@ -20,3 +20,18 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    {{- if .Values.gateway.https.enabled }}
+    - name: {{ .Values.gateway.https.listenerName }}
+      protocol: HTTPS
+      port: {{ .Values.gateway.https.listenerPort }}
+      {{- with .Values.gateway.https.hostname }}
+      hostname: {{ . | quote }}
+      {{- end }}
+      tls:
+        mode: {{ .Values.gateway.https.tls.mode | default "Terminate" }}
+        certificateRefs:
+          {{- toYaml .Values.gateway.https.tls.certificateRefs | nindent 10 }}
+      allowedRoutes:
+        namespaces:
+          from: All
+    {{- end }}

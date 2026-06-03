@@ -1,0 +1,21 @@
+{{- if and .Values.gateway.https.enabled .Values.gateway.https.tls.certificateRefs }}
+{{- range .Values.gateway.https.tls.certificateRefs }}
+{{- if and .namespace (ne .namespace $.Values.gateway.namespace) }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gateway-cert-{{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: {{ $.Values.gateway.namespace }}
+  to:
+    - group: ""
+      kind: Secret
+      name: {{ .name }}
+{{- end }}
+{{- end }}
+{{- end }}

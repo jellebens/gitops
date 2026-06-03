@@ -4,6 +4,14 @@ gateway:
   className: cilium
   listenerName: http
   listenerPort: 80
+  https:
+    enabled: false
+    listenerName: https
+    listenerPort: 443
+    hostname: ""
+    tls:
+      mode: Terminate
+      certificateRefs: []
   annotations: {}
 
 # List of HTTPRoutes to provision against the shared Gateway.

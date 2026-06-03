@@ -4,12 +4,26 @@ gateway:
   className: cilium
   listenerName: http
   listenerPort: 80
+  https:
+    enabled: true
+    listenerName: https
+    listenerPort: 443
+    hostname: argocd.lab.local
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - kind: Secret
+          name: argocd-server-tls
+          namespace: argocd
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
 routes:
   - name: argocd
     namespace: argocd
+    listeners:
+      - http
+      - https
     hostnames:
       - argocd.lab.local
     backend:

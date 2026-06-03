@@ -10,11 +10,14 @@ metadata:
     app.kubernetes.io/part-of: platform
 spec:
   parentRefs:
+    {{- $listeners := .listeners | default (list $.Values.gateway.listenerName) }}
+    {{- range $ln := $listeners }}
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: {{ $.Values.gateway.name }}
       namespace: {{ $.Values.gateway.namespace }}
-      sectionName: {{ $.Values.gateway.listenerName }}
+      sectionName: {{ $ln }}
+    {{- end }}
   hostnames:
     {{- toYaml .hostnames | nindent 4 }}
   rules:
