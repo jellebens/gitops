@@ -31,3 +31,8 @@ resources:
 config:
   gateway:
     mode: local
+    bind: lan
+    port: 8080
+    controlUi:
+      allowedOrigins:
+        - http://openclaw.lab.local
