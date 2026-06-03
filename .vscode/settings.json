@@ -6,6 +6,10 @@
         "command": true,
         "kubectl version": true,
         "kubectl -n cert-manager": true,
-        "kubectl get": true
+        "kubectl get": true,
+        "readFile": true,
+        "writeFile": true,
+        "fileSearch": true,
+        "listDirectory": true
     }
 }
