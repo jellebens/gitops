@@ -12,8 +12,7 @@ service:
 
 gateway:
   enabled: true
-  className: cilium
-  annotations: {}
+  # Reference to an existing Cilium-managed Gateway (Gateway API)
   parentRef:
     name: cilium-gateway
     namespace: gateway
@@ -28,3 +27,7 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
+
+config:
+  gateway:
+    mode: local
