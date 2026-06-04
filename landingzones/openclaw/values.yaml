@@ -40,6 +40,14 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+# Gateway shared token sourced from a SealedSecret and injected as the
+# OPENCLAW_GATEWAY_TOKEN env var. When enabled, omit config.gateway.auth.token
+# so the token is never rendered into the plaintext ConfigMap.
+gatewayToken:
+  enabled: true
+  secretName: openclaw-gateway-token
+  secretKey: gateway-token
+
 config:
   gateway:
     mode: local
@@ -47,7 +55,6 @@ config:
     port: 8080
     auth:
       mode: token
-      token: "lab-openclaw-shared-token"
     controlUi:
       allowedOrigins:
         - http://openclaw.lab.local

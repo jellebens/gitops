@@ -25,6 +25,14 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          {{- if .Values.gatewayToken.enabled }}
+          env:
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.gatewayToken.secretName | quote }}
+                  key: {{ .Values.gatewayToken.secretKey | quote }}
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /home/node/.openclaw/openclaw.json
