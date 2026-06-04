@@ -10,12 +10,20 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: openclaw
-  source:
-    repoURL: https://github.com/jellebens/gitops.git
-    targetRevision: main
-    path: landingzones/openclaw
-    helm:
-      releaseName: openclaw
+  sources:
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      path: landingzones/openclaw
+      helm:
+        releaseName: openclaw
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/openclaw.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
   syncPolicy:
     automated:
       prune: true

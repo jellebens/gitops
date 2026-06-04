@@ -1,0 +1,3 @@
+# OpenClaw lab overrides.
+# Defaults from landingzones/openclaw/values.yaml are used; add lab-specific
+# overrides here (for example image tag, hostnames, auth tokens).
