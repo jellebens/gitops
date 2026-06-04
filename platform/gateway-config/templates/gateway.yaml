@@ -35,3 +35,18 @@ spec:
         namespaces:
           from: All
     {{- end }}
+    {{- range .Values.gateway.additionalHttpsListeners }}
+    - name: {{ .name }}
+      protocol: HTTPS
+      port: {{ .port | default 443 }}
+      {{- with .hostname }}
+      hostname: {{ . | quote }}
+      {{- end }}
+      tls:
+        mode: {{ .tls.mode | default "Terminate" }}
+        certificateRefs:
+          {{- toYaml .tls.certificateRefs | nindent 10 }}
+      allowedRoutes:
+        namespaces:
+          from: All
+    {{- end }}

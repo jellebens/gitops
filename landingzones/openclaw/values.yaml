@@ -20,6 +20,18 @@ gateway:
   hostnames:
     - openclaw.lab.local
 
+tlsCertificate:
+  enabled: false
+  secretName: openclaw-server-tls
+  commonName: openclaw.lab.local
+  dnsNames:
+    - openclaw.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
+
 resources:
   requests:
     cpu: 100m
@@ -39,3 +51,4 @@ config:
     controlUi:
       allowedOrigins:
         - http://openclaw.lab.local
+        - https://openclaw.lab.local

@@ -1,6 +1,28 @@
+{{- /*
+  Emit a ReferenceGrant in each foreign namespace that hosts a TLS Secret
+  referenced by any HTTPS listener on the shared Gateway. Track namespaces
+  we have already covered to avoid duplicate ReferenceGrants when multiple
+  listeners reference secrets in the same namespace.
+*/ -}}
+{{- $gwNs := .Values.gateway.namespace -}}
+{{- $gwName := .Values.gateway.name -}}
+{{- $emitted := dict -}}
+{{- $refs := list -}}
 {{- if and .Values.gateway.https.enabled .Values.gateway.https.tls.certificateRefs }}
-{{- range .Values.gateway.https.tls.certificateRefs }}
-{{- if and .namespace (ne .namespace $.Values.gateway.namespace) }}
+  {{- range .Values.gateway.https.tls.certificateRefs }}
+    {{- $refs = append $refs . }}
+  {{- end }}
+{{- end }}
+{{- range .Values.gateway.additionalHttpsListeners }}
+  {{- range .tls.certificateRefs }}
+    {{- $refs = append $refs . }}
+  {{- end }}
+{{- end }}
+{{- range $refs }}
+{{- if and .namespace (ne .namespace $gwNs) }}
+{{- $key := printf "%s/%s" .namespace .name }}
+{{- if not (hasKey $emitted $key) }}
+{{- $_ := set $emitted $key true }}
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
@@ -11,7 +33,7 @@ spec:
   from:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      namespace: {{ $.Values.gateway.namespace }}
+      namespace: {{ $gwNs }}
   to:
     - group: ""
       kind: Secret

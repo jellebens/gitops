@@ -12,6 +12,9 @@ gateway:
     tls:
       mode: Terminate
       certificateRefs: []
+  # Additional HTTPS listeners on the same Gateway, differentiated by SNI.
+  # Each entry: name, [port], hostname, tls.{mode, certificateRefs[]}
+  additionalHttpsListeners: []
   annotations: {}
 
 # List of HTTPRoutes to provision against the shared Gateway.
