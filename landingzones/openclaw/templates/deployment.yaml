@@ -16,6 +16,11 @@ spec:
       labels:
         app.kubernetes.io/name: openclaw
         app.kubernetes.io/part-of: openclaw
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.gatewayToken.enabled }}
+        checksum/gateway-token: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
     spec:
       containers:
         - name: openclaw
