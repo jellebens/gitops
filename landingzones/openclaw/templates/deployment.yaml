@@ -22,6 +22,10 @@ spec:
         checksum/gateway-token: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
         {{- end }}
     spec:
+      {{- if .Values.persistence.enabled }}
+      securityContext:
+        fsGroup: 1000
+      {{- end }}
       containers:
         - name: openclaw
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -39,6 +43,10 @@ spec:
                   key: {{ .Values.gatewayToken.secretKey | quote }}
           {{- end }}
           volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: state
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
             - name: config
               mountPath: /home/node/.openclaw/openclaw.json
               subPath: openclaw.json
@@ -46,6 +54,11 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: state
+          persistentVolumeClaim:
+            claimName: openclaw-state
+        {{- end }}
         - name: config
           configMap:
             name: openclaw-config

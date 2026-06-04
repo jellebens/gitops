@@ -5,6 +5,16 @@ image:
 
 replicaCount: 1
 
+# Persist OpenClaw runtime state (identity keys, device pairings, agents,
+# tasks) across pod restarts. The openclaw.json config itself comes from the
+# ConfigMap; this PVC backs the rest of ~/.openclaw.
+persistence:
+  enabled: true
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  mountPath: /home/node/.openclaw
+
 service:
   type: ClusterIP
   port: 80
