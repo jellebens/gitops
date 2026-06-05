@@ -44,11 +44,11 @@ tlsCertificate:
 
 resources:
   requests:
-    cpu: "1"
-    memory: 1500Mi
+    cpu: "2"
+    memory: 3000Mi
   limits:
-    cpu: "1"
-    memory: 1500Mi
+    cpu: "2"
+    memory: 3000Mi
 
 # Gateway shared token sourced from a SealedSecret and injected as the
 # OPENCLAW_GATEWAY_TOKEN env var. When enabled, omit config.gateway.auth.token
