@@ -7,6 +7,9 @@ gateway:
     name: cilium-gateway
     namespace: gateway
     sectionName: openclaw-https
+  httpToHttpsRedirect:
+    enabled: true
+    sectionName: http
 
 tlsCertificate:
   enabled: true
