@@ -81,19 +81,19 @@ config:
         - http://openclaw.lab.local
         - https://openclaw.lab.local
   channels:
-  discord:
-    enabled: true
-    token:
-      source: env
-      provider: default
-      id: DISCORD_BOT_TOKEN
-    dmPolicy: allowlist
-    allowFrom:
-      - "105261851956224000"
-    groupPolicy: allowlist
-    guilds:
-      "248446882752364544":
-        channels:
-          "1511628794849660990":
-            allow: true
-            requireMention: true
+    discord:
+      enabled: true
+      token:
+        source: env
+        provider: default
+        id: DISCORD_BOT_TOKEN
+      dmPolicy: allowlist
+      allowFrom:
+        - "105261851956224000"
+      groupPolicy: allowlist
+      guilds:
+        "248446882752364544":
+          channels:
+            "1511628794849660990":
+              allow: true
+              requireMention: true
