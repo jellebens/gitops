@@ -74,3 +74,6 @@ config:
       allowedOrigins:
         - http://openclaw.lab.local
         - https://openclaw.lab.local
+  channels:
+    discord:
+      enabled: true

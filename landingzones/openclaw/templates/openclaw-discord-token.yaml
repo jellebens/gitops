@@ -1,0 +1,12 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: openclaw-discord-token
+  namespace: openclaw
+spec:
+  encryptedData:
+    discord-token: AgAQgGxRqjW8RVlnN9Jioc/7ZJ4ivm5d6OFgaS+AedDzrnTuXf5qNonfJjmh/umtOuUSCFexeGB2OwxgcslQrhmjw1gIj/WoS16jZjyxby1WHHhdjvr/Xnex6lY/zRGGkiFYq0/VSlWB4uh/LaMdu1D486jMqlroVkPsFrR6yCJ/rmKnLj+/kecwrXIpMeyb4mJgrQXKs/jIF1s1G1HpS+3NJBuJyFpeReadhPzqh6eWlmi4zBIBBgdx5Y63lJiTV7gHyqbBDBse3VkbY44WQKpb1d2It5/+cZ61eeA4zdT0CrsEw04TThPN+DZdz6TeaHe4DpoSH1a0IPCChXM7slBwi8WkWfVM+iORBIYheI1BOC6H3bLnakoMsGcexC1FLv/po+vyFdshXke+HrM5yfp7dxWlIZP7VlMmn+OspJPwbA2xIAPk2vYa8OfVIVECFXHwCdknp1FavQ8vlvBFHw5sFLgjD4j6Zgfz1zMWQsXMBDrFjdDeQ5ni3esxVWUU4aY9FZlUr+jdFDd8x81qRhjlH1HpV8uZinmD6gIPsYapdSY+82t8fgS6wRVb7xT74AcHYPcOKoSueGKZt4LnzX2u7+y/piRE2W5/b/42ZrrIqf/UBAS8Jd6NT49HT8YQ0ZxONS8uhFE79J1DIidSCPuUEjV2GmSE2TvajOXHDVzoMEDafNT3nBNAwDuLha+Fc8CnONO0kjGXPQCBw2YSz1oAYbbkBPA119hTvI3kKznUMZZvPyTgNnT1cFWgyspiUMs+wgULsFvmLJieRMF5KOVOSx0rUf/US2w=
+  template:
+    metadata:
+      name: openclaw-discord-token
+      namespace: openclaw
