@@ -27,10 +27,6 @@ gateway:
     name: cilium-gateway
     namespace: gateway
     sectionName: http
-  httpToHttpsRedirect:
-    enabled: false
-    sectionName: http
-    statusCode: 301
   hostnames:
     - openclaw.lab.local
 
@@ -48,11 +44,11 @@ tlsCertificate:
 
 resources:
   requests:
-    cpu: 100m
-    memory: 256Mi
+    cpu: "1"
+    memory: 1500Mi
   limits:
-    cpu: 500m
-    memory: 1Gi
+    cpu: "1"
+    memory: 1500Mi
 
 # Gateway shared token sourced from a SealedSecret and injected as the
 # OPENCLAW_GATEWAY_TOKEN env var. When enabled, omit config.gateway.auth.token

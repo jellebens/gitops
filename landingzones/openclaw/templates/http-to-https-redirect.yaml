@@ -1,4 +1,3 @@
-{{- if and .Values.gateway.enabled .Values.gateway.httpToHttpsRedirect.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -15,7 +14,7 @@ spec:
       {{- with .Values.gateway.parentRef.namespace }}
       namespace: {{ . }}
       {{- end }}
-      sectionName: {{ .Values.gateway.httpToHttpsRedirect.sectionName }}
+      sectionName: http
   hostnames:
     {{- toYaml .Values.gateway.hostnames | nindent 4 }}
   rules:
@@ -27,5 +26,4 @@ spec:
         - type: RequestRedirect
           requestRedirect:
             scheme: https
-            statusCode: {{ .Values.gateway.httpToHttpsRedirect.statusCode }}
-{{- end }}
+            statusCode: 302
