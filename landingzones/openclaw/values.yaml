@@ -58,6 +58,11 @@ gatewayToken:
   secretName: openclaw-gateway-token
   secretKey: gateway-token
 
+openai:
+  enabled: true
+  secretName: openclaw-openai-api-key
+  secretKey: api-key
+
 config:
   gateway:
     mode: local

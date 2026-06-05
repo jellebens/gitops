@@ -19,7 +19,10 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- if .Values.gatewayToken.enabled }}
-        checksum/gateway-token: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
+        checksum/gateway-token: {{ include (print $.Template.BasePath "/openclaw-gateway-token.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.openai.enabled }}
+        checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
         {{- end }}
     spec:
       {{- if .Values.persistence.enabled }}
@@ -34,13 +37,22 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
-          {{- if .Values.gatewayToken.enabled }}
+          {{- if or .Values.gatewayToken.enabled .Values.openai.enabled }}
           env:
+            {{- if .Values.gatewayToken.enabled }}
             - name: OPENCLAW_GATEWAY_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.gatewayToken.secretName | quote }}
                   key: {{ .Values.gatewayToken.secretKey | quote }}
+            {{- end }}
+            {{- if .Values.openai.enabled }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openai.secretName | quote }}
+                  key: {{ .Values.openai.secretKey | quote }}
+            {{- end }}
           {{- end }}
           volumeMounts:
             {{- if .Values.persistence.enabled }}

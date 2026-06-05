@@ -1,4 +1,14 @@
 {
+    "terminal.integrated.shellIntegration.enabled": true,
+    "chat.tools.autoApprove": {
+        "readFile": true,
+        "fileSearch": true,
+        "grepSearch": true,
+        "listDirectory": true,
+        "semanticSearch": true,
+        "getErrors": true,
+        "viewImage": true
+    },
     "chat.tools.terminal.autoApprove": {
         "argocd": true,
         "git add": true,
