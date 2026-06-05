@@ -95,5 +95,4 @@ config:
         "248446882752364544":
           channels:
             "1511628794849660990":
-              allow: true
               requireMention: true
