@@ -24,6 +24,9 @@ spec:
         {{- if .Values.openai.enabled }}
         checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
         {{- end }}
+        {{- if .Values.discord.enabled }}
+        checksum/discord-token: {{ include (print $.Template.BasePath "/openclaw-discord-token.yaml") . | sha256sum }}
+        {{- end }}
     spec:
       {{- if .Values.persistence.enabled }}
       securityContext:
@@ -37,7 +40,7 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
-          {{- if or .Values.gatewayToken.enabled .Values.openai.enabled }}
+          {{- if or .Values.gatewayToken.enabled .Values.openai.enabled .Values.discord.enabled }}
           env:
             {{- if .Values.gatewayToken.enabled }}
             - name: OPENCLAW_GATEWAY_TOKEN
@@ -52,6 +55,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.openai.secretName | quote }}
                   key: {{ .Values.openai.secretKey | quote }}
+            {{- end }}
+            {{- if .Values.discord.enabled }}
+            - name: {{ .Values.discord.envName | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.discord.secretName | quote }}
+                  key: {{ .Values.discord.secretKey | quote }}
             {{- end }}
           {{- end }}
           volumeMounts:

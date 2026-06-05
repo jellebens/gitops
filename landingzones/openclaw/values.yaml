@@ -63,6 +63,12 @@ openai:
   secretName: openclaw-openai-api-key
   secretKey: api-key
 
+discord:
+  enabled: true
+  secretName: openclaw-discord-token
+  secretKey: discord-token
+  envName: DISCORD_BOT_TOKEN
+
 config:
   gateway:
     mode: local
@@ -77,3 +83,11 @@ config:
   channels:
     discord:
       enabled: true
+      token:
+        source: env
+        provider: default
+        id: DISCORD_BOT_TOKEN
+      dmPolicy: allowlist
+      allowFrom: []
+      groupPolicy: allowlist
+      guilds: {}
