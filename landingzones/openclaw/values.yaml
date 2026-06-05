@@ -44,11 +44,11 @@ tlsCertificate:
 
 resources:
   requests:
-    cpu: "2"
-    memory: 3000Mi
+    cpu: "3.5"
+    memory: 3500Mi
   limits:
-    cpu: "2"
-    memory: 3000Mi
+    cpu: "3.5"
+    memory: 3500Mi
 
 # Gateway shared token sourced from a SealedSecret and injected as the
 # OPENCLAW_GATEWAY_TOKEN env var. When enabled, omit config.gateway.auth.token
@@ -81,13 +81,19 @@ config:
         - http://openclaw.lab.local
         - https://openclaw.lab.local
   channels:
-    discord:
-      enabled: true
-      token:
-        source: env
-        provider: default
-        id: DISCORD_BOT_TOKEN
-      dmPolicy: allowlist
-      allowFrom: []
-      groupPolicy: allowlist
-      guilds: {}
+  discord:
+    enabled: true
+    token:
+      source: env
+      provider: default
+      id: DISCORD_BOT_TOKEN
+    dmPolicy: allowlist
+    allowFrom:
+      - "105261851956224000"
+    groupPolicy: allowlist
+    guilds:
+      "248446882752364544":
+        channels:
+          "1511628794849660990":
+            allow: true
+            requireMention: true

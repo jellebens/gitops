@@ -7,12 +7,14 @@
         "listDirectory": true,
         "semanticSearch": true,
         "getErrors": true,
-        "viewImage": true
+        "viewImage": true,
+        "filePath": true,
+        "filePaths": true,
+        "toolSearch": true
     },
     "chat.tools.terminal.autoApprove": {
         "argocd": true,
-        "git add": true,
-        "git commit": true,
+        "git": true,
         "command": true,
         "kubectl version": true,
         "kubectl -n cert-manager": true,
