@@ -100,7 +100,7 @@ config:
         - "105261851956224000"
       groupPolicy: allowlist
       guilds:
-        "248446882752364544":
+        "1277644140909170688":
           requireMention: true
           users: ["105261851956224000"]
           channels:
