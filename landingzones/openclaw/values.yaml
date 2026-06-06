@@ -90,9 +90,16 @@ config:
       dmPolicy: allowlist
       allowFrom:
         - "105261851956224000"
-      groupPolicy: []
+      groupPolicy: allowlist
       guilds:
         "248446882752364544":
+          requireMention: true
+          users: ["105261851956224000"]
           channels:
-            "1511628794849660990":
-              requireMention: true
+            # "1511628794849660990":
+            #   allow: true
+            openclaw: 
+              allow: true
+              requiremention: true
+            
+          

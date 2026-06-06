@@ -32,6 +32,8 @@ spec:
       securityContext:
         fsGroup: 1000
       {{- end }}
+      strategy:
+        type: "Recreate"
       containers:
         - name: openclaw
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
