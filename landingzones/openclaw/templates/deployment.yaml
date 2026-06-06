@@ -11,6 +11,8 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: openclaw
+  strategy:
+    type: "Recreate"
   template:
     metadata:
       labels:
@@ -32,8 +34,6 @@ spec:
       securityContext:
         fsGroup: 1000
       {{- end }}
-      strategy:
-        type: "Recreate"
       containers:
         - name: openclaw
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
