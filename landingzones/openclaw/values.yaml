@@ -70,6 +70,10 @@ discord:
   envName: DISCORD_BOT_TOKEN
 
 config:
+  plugins:
+    allow:
+      - discord
+    bundledDiscovery: compat
   gateway:
     mode: local
     bind: lan
