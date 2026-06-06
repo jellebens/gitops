@@ -45,10 +45,10 @@ tlsCertificate:
 resources:
   requests:
     cpu: "3.5"
-    memory: 3500Mi
+    memory: 6Gi
   limits:
     cpu: "3.5"
-    memory: 3500Mi
+    memory: 6Gi
 
 # Gateway shared token sourced from a SealedSecret and injected as the
 # OPENCLAW_GATEWAY_TOKEN env var. When enabled, omit config.gateway.auth.token
@@ -90,7 +90,7 @@ config:
       dmPolicy: allowlist
       allowFrom:
         - "105261851956224000"
-      groupPolicy: allowlist
+      groupPolicy: []
       guilds:
         "248446882752364544":
           channels:
