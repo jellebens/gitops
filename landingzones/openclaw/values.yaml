@@ -70,6 +70,10 @@ discord:
   envName: DISCORD_BOT_TOKEN
 
 config:
+  agents:
+    defaults:
+      model:
+        primary: openai/gpt-5.5
   plugins:
     allow:
       - discord
@@ -100,9 +104,7 @@ config:
           requireMention: true
           users: ["105261851956224000"]
           channels:
-            # "1511628794849660990":
-            #   requireMention: true
-            openclaw:
+            "1511628794849660990":
               requireMention: true
             
           

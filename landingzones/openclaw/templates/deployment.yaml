@@ -32,6 +32,13 @@ spec:
       securityContext:
         fsGroup: 1000
       {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: openclaw
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: openclaw
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

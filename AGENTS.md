@@ -26,6 +26,11 @@ This repository manages Argo CD app-of-apps and platform service configuration v
   - `argocd app sync <app> --core`
   - `argocd app wait <app> --core --sync --health --timeout 300`
 
+## Deployment Requests
+- When the user says "deploy the changes", treat that as: check the worktree, run the relevant Helm render/checks, commit the scoped changes, push the current branch, sync the appropriate Argo CD app with `argocd app sync <app> --core`, then monitor it with `argocd app wait <app> --core --sync --health --timeout 300`.
+- Choose the Argo CD app from the changed chart or template path. For example, changes under `landingzones/openclaw/` sync the `openclaw` app, and changes under `applications/` sync the app-of-apps layer.
+- If the change affects a workload, also check the rollout, pods, and recent logs after Argo reports healthy.
+
 ## Conventions To Preserve
 - Argo `Application` resources use `sources` with a chart source plus a values ref source when env values are needed.
 - Keep sync policy consistent:
