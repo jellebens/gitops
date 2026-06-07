@@ -11,6 +11,11 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: openclaw
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   template:
     metadata:
       labels:
