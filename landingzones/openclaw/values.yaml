@@ -78,6 +78,43 @@ config:
     allow:
       - discord
     bundledDiscovery: compat
+  mcp:
+    servers:
+      ms365:
+        command: npx
+        args:
+          - -y
+          - "@softeria/ms-365-mcp-server"
+          - --preset
+          - mail
+          - --allowed-scopes
+          - User.Read Mail.ReadWrite Mail.Send
+        env:
+          XDG_CACHE_HOME: /home/node/.openclaw/cache
+          XDG_CONFIG_HOME: /home/node/.openclaw/config
+          MS365_MCP_EXPECTED_USERNAME: jellebens@outlook.com
+        toolFilter:
+          include:
+            - list-mail-*
+            - get-mail-*
+            - create-mail-*
+            - create-draft-email
+            - send-mail
+            - send-draft-message
+            - update-mail-*
+            - delete-mail-*
+            - move-mail-*
+            - copy-mail-*
+            - reply-mail-*
+            - reply-all-mail-*
+            - forward-mail-*
+            - create-reply-*
+            - create-reply-all-*
+            - create-forward-*
+            - add-mail-*
+        requestTimeoutMs: 30000
+        connectionTimeoutMs: 30000
+        supportsParallelToolCalls: false
   gateway:
     mode: local
     bind: lan
