@@ -150,6 +150,6 @@ config:
           users: ["105261851956224000"]
           channels:
             "1511628794849660990":
-              requireMention: true
+              requireMention: false
             
           
