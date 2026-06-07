@@ -86,9 +86,9 @@ config:
           - -y
           - "@softeria/ms-365-mcp-server"
           - --preset
-          - mail
+          - mail,calendar
           - --allowed-scopes
-          - User.Read Mail.ReadWrite Mail.Send
+          - User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite
         env:
           XDG_CACHE_HOME: /home/node/.openclaw/cache
           XDG_CONFIG_HOME: /home/node/.openclaw/config
@@ -112,6 +112,14 @@ config:
             - create-reply-all-*
             - create-forward-*
             - add-mail-*
+            - list-calendar-*
+            - get-calendar-*
+            - create-calendar-event
+            - update-calendar-event
+            - delete-calendar-event
+            - cancel-calendar-event
+            - get-schedule
+            - find-meeting-times
         requestTimeoutMs: 30000
         connectionTimeoutMs: 30000
         supportsParallelToolCalls: false
