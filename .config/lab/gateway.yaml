@@ -27,6 +27,16 @@ gateway:
             kind: Secret
             name: openclaw-server-tls
             namespace: openclaw
+    - name: hermes-https
+      port: 443
+      hostname: hermes.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: hermes-server-tls
+            namespace: hermes
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 

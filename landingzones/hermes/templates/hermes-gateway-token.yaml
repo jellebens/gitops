@@ -1,0 +1,12 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: hermes-gateway-token
+  namespace: hermes
+spec:
+  encryptedData:
+    gateway-token: AgAYLbsj1wEeLuDXBuses0DRnh5uTgZAlqT/byRK9kQJFJ0hhla7QoZYZ3Jb7s0utAO5B9EgFKV6Sdu1/1QR78d7JLJLs3+AYThKwg79kYXXFLvES8epFl+iPVEjuQN5eraykeKqsuAejCuDLwYBBpYIIknKXih7Te50uy8Hfns/1P97zRh00j02L9y4AnhtpBOviJ4b3aeJavm9W/z1Ual5yHh9F6KH0f8fqrvnGr+RiIMejSCe6nwfJN0zhIH8N1hMWWuXvYB1k8vwZji6BEHSrz18/q4u8sQOZkZM+JjXU8cMg5drMui7KsUUZsMZfjzIQ1YAJhD5c2bTbxaGm0f9ODekcmA1qOFEylPWI+xlV4O8Re+P1bYOiRmDKP/mtOjA/5EZbo0XJFC3YpagduxGZ7s6FrLxvZD2+wAcw6gIxdhLiCKp6yfwhSJHWDV2pxUzNoCKxEMGEdfOSMWTq6dHdNbjG0PhhUfDo3fIsNPPGEBOXG48piXU6rDsDM1NiPkmf94mzRBUwpyawFzAdrRTDdtziMmuBwNCiXZewBz4eppU5NhdgXlNZErQtTerKpyyM5VNOCqsTxFk9uYAHrFiYS2Ilxea2b4cNKC4a/jPCONm5fiyHrnpkII7C471tYPXJLFRQigNS5hFLuV8lGmlB+YEgEXL8hgUxbXyrsez24eW8AwiLSTPg8KL8VqSmxxuxbCRKL5soNR2L6uGUfaTP8jbAzGJq+Lh+OdQUGfzn7Znh1oARdErFvT2sv8HGhStKqM4K6ARasFnGDRX88Q95Q==
+  template:
+    metadata:
+      name: hermes-gateway-token
+      namespace: hermes

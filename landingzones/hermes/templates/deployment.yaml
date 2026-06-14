@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: hermes
+    app.kubernetes.io/part-of: hermes
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hermes
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hermes
+        app.kubernetes.io/part-of: hermes
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.gatewayToken.enabled }}
+        checksum/gateway-token: {{ include (print $.Template.BasePath "/hermes-gateway-token.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.openai.enabled }}
+        checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      {{- if .Values.persistence.enabled }}
+      securityContext:
+        fsGroup: 1000
+      {{- end }}
+      containers:
+        - name: hermes
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          {{- if or .Values.gatewayToken.enabled .Values.openai.enabled }}
+          env:
+            {{- if .Values.gatewayToken.enabled }}
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.gatewayToken.secretName | quote }}
+                  key: {{ .Values.gatewayToken.secretKey | quote }}
+            {{- end }}
+            {{- if .Values.openai.enabled }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openai.secretName | quote }}
+                  key: {{ .Values.openai.secretKey | quote }}
+            {{- end }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: state
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            - name: config
+              mountPath: /home/node/.openclaw/openclaw.json
+              subPath: openclaw.json
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: state
+          persistentVolumeClaim:
+            claimName: hermes-state
+        {{- end }}
+        - name: config
+          configMap:
+            name: hermes-config

@@ -1,0 +1,16 @@
+# Hermes lab overrides.
+
+gateway:
+  parentRef:
+    name: cilium-gateway
+    namespace: gateway
+    sectionName: hermes-https
+  httpToHttpsRedirect:
+    enabled: true
+    sectionName: http
+
+tlsCertificate:
+  enabled: true
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
