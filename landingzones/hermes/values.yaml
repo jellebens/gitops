@@ -1,6 +1,6 @@
 image:
   repository: nousresearch/hermes-agent
-  tag: "v0.16.0"
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
