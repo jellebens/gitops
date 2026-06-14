@@ -1,6 +1,6 @@
 image:
-  repository: ghcr.io/openclaw/openclaw
-  tag: "2026.6.1"
+  repository: nousresearch/hermes-agent
+  tag: "v0.16.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -10,12 +10,12 @@ persistence:
   storageClassName: ""
   accessMode: ReadWriteOnce
   size: 5Gi
-  mountPath: /home/node/.openclaw
+  mountPath: /opt/data
 
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8080
+  targetPort: 9119
 
 gateway:
   enabled: true
@@ -49,39 +49,40 @@ resources:
     cpu: "2"
     memory: 2Gi
 
-gatewayToken:
-  enabled: true
-  secretName: hermes-gateway-token
-  secretKey: gateway-token
-
 openai:
   enabled: true
   secretName: hermes-openai-api-key
   secretKey: api-key
 
+runtime:
+  uid: "10000"
+  gid: "10000"
+
+gatewayProcess:
+  enabled: true
+  args:
+    - gateway
+    - run
+
+dashboard:
+  enabled: true
+  port: 9119
+  args:
+    - dashboard
+    - --host
+    - 0.0.0.0
+    - --no-open
+
 config:
-  agents:
-    defaults:
-      model:
-        primary: openai/gpt-5.5
-    list:
-      - id: hermes
-        default: true
-        name: Hermes
-        workspace: /home/node/.openclaw/workspace
-        agentDir: /home/node/.openclaw/agents/hermes/agent
-        model:
-          primary: openai/gpt-5.5
-        identity:
-          name: Hermes
-          theme: concise AI assistant for everyday planning, writing, and operations support
-  gateway:
-    mode: local
-    bind: lan
-    port: 8080
-    auth:
-      mode: token
-    controlUi:
-      allowedOrigins:
-        - http://hermes.lab.local
-        - https://hermes.lab.local
+  model:
+    default: gpt-5.5
+    provider: custom
+    base_url: https://api.openai.com/v1
+  terminal:
+    backend: local
+    cwd: /opt/data/workspace
+    timeout: 180
+    home_mode: profile
+  memory:
+    memory_enabled: true
+    user_profile_enabled: true

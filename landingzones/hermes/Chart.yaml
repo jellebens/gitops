@@ -2,5 +2,5 @@ apiVersion: v2
 name: hermes
 version: 0.1.0
 type: application
-appVersion: "0.1.0"
-description: Hermes AI assistant landing zone
+appVersion: "v0.16.0"
+description: Hermes Agent landing zone

@@ -7,5 +7,5 @@ metadata:
     app.kubernetes.io/name: hermes
     app.kubernetes.io/part-of: hermes
 data:
-  openclaw.json: |-
-    {{- toJson .Values.config | nindent 4 }}
+  config.yaml: |-
+    {{- toYaml .Values.config | nindent 4 }}

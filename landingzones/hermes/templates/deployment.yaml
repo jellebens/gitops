@@ -23,9 +23,6 @@ spec:
         app.kubernetes.io/part-of: hermes
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if .Values.gatewayToken.enabled }}
-        checksum/gateway-token: {{ include (print $.Template.BasePath "/hermes-gateway-token.yaml") . | sha256sum }}
-        {{- end }}
         {{- if .Values.openai.enabled }}
         checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
         {{- end }}
@@ -34,23 +31,42 @@ spec:
       securityContext:
         fsGroup: 1000
       {{- end }}
-      containers:
-        - name: hermes
+      initContainers:
+        - name: seed-config
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: {{ .Values.service.targetPort }}
-              protocol: TCP
-          {{- if or .Values.gatewayToken.enabled .Values.openai.enabled }}
-          env:
-            {{- if .Values.gatewayToken.enabled }}
-            - name: OPENCLAW_GATEWAY_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gatewayToken.secretName | quote }}
-                  key: {{ .Values.gatewayToken.secretKey | quote }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              mkdir -p /opt/data/workspace
+              if [ ! -f /opt/data/config.yaml ]; then
+                cp /config/config.yaml /opt/data/config.yaml
+              fi
+              chown -R {{ .Values.runtime.uid }}:{{ .Values.runtime.gid }} /opt/data
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: state
+              mountPath: {{ .Values.persistence.mountPath }}
             {{- end }}
+            - name: config
+              mountPath: /config/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      containers:
+        {{- if .Values.gatewayProcess.enabled }}
+        - name: gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- toYaml .Values.gatewayProcess.args | nindent 12 }}
+          env:
+            - name: HERMES_UID
+              value: {{ .Values.runtime.uid | quote }}
+            - name: HERMES_GID
+              value: {{ .Values.runtime.gid | quote }}
             {{- if .Values.openai.enabled }}
             - name: OPENAI_API_KEY
               valueFrom:
@@ -58,18 +74,44 @@ spec:
                   name: {{ .Values.openai.secretName | quote }}
                   key: {{ .Values.openai.secretKey | quote }}
             {{- end }}
-          {{- end }}
           volumeMounts:
             {{- if .Values.persistence.enabled }}
             - name: state
               mountPath: {{ .Values.persistence.mountPath }}
             {{- end }}
-            - name: config
-              mountPath: /home/node/.openclaw/openclaw.json
-              subPath: openclaw.json
-              readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+        {{- if .Values.dashboard.enabled }}
+        - name: dashboard
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- toYaml .Values.dashboard.args | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.dashboard.port }}
+              protocol: TCP
+          env:
+            - name: HERMES_UID
+              value: {{ .Values.runtime.uid | quote }}
+            - name: HERMES_GID
+              value: {{ .Values.runtime.gid | quote }}
+            {{- if .Values.openai.enabled }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openai.secretName | quote }}
+                  key: {{ .Values.openai.secretKey | quote }}
+            {{- end }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: state
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
       volumes:
         {{- if .Values.persistence.enabled }}
         - name: state
