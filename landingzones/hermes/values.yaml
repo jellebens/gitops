@@ -127,6 +127,9 @@ config:
     cwd: /opt/data/workspace
     timeout: 180
     home_mode: profile
+  toolsets:
+    - hermes-cli
+    - mcp
   memory:
     memory_enabled: true
     user_profile_enabled: true
