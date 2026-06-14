@@ -61,8 +61,8 @@ runtime:
 gatewayProcess:
   enabled: true
   args:
-    - gateway
-    - run
+    - sleep
+    - infinity
 
 dashboard:
   enabled: true
