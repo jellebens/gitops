@@ -42,9 +42,7 @@ spec:
             - |
               set -eu
               mkdir -p /opt/data/workspace
-              if [ ! -f /opt/data/config.yaml ]; then
-                cp /config/config.yaml /opt/data/config.yaml
-              fi
+              cp /config/config.yaml /opt/data/config.yaml
               {{- with .Values.config.display.skin }}
               hermes config set display.skin {{ . | quote }}
               {{- end }}
