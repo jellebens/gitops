@@ -67,11 +67,8 @@ gatewayProcess:
 dashboard:
   enabled: true
   port: 9119
-  args:
-    - dashboard
-    - --host
-    - 0.0.0.0
-    - --no-open
+  host: 0.0.0.0
+  insecure: true
 
 config:
   model:

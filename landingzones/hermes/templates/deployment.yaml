@@ -67,6 +67,16 @@ spec:
               value: {{ .Values.runtime.uid | quote }}
             - name: HERMES_GID
               value: {{ .Values.runtime.gid | quote }}
+            {{- if .Values.dashboard.enabled }}
+            - name: HERMES_DASHBOARD
+              value: "true"
+            - name: HERMES_DASHBOARD_HOST
+              value: {{ .Values.dashboard.host | quote }}
+            - name: HERMES_DASHBOARD_PORT
+              value: {{ .Values.dashboard.port | quote }}
+            - name: HERMES_DASHBOARD_INSECURE
+              value: {{ .Values.dashboard.insecure | quote }}
+            {{- end }}
             {{- if .Values.openai.enabled }}
             - name: OPENAI_API_KEY
               valueFrom:
@@ -74,35 +84,11 @@ spec:
                   name: {{ .Values.openai.secretName | quote }}
                   key: {{ .Values.openai.secretKey | quote }}
             {{- end }}
-          volumeMounts:
-            {{- if .Values.persistence.enabled }}
-            - name: state
-              mountPath: {{ .Values.persistence.mountPath }}
-            {{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-        {{- end }}
-        {{- if .Values.dashboard.enabled }}
-        - name: dashboard
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args:
-            {{- toYaml .Values.dashboard.args | nindent 12 }}
           ports:
+            {{- if .Values.dashboard.enabled }}
             - name: http
               containerPort: {{ .Values.dashboard.port }}
               protocol: TCP
-          env:
-            - name: HERMES_UID
-              value: {{ .Values.runtime.uid | quote }}
-            - name: HERMES_GID
-              value: {{ .Values.runtime.gid | quote }}
-            {{- if .Values.openai.enabled }}
-            - name: OPENAI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.openai.secretName | quote }}
-                  key: {{ .Values.openai.secretKey | quote }}
             {{- end }}
           volumeMounts:
             {{- if .Values.persistence.enabled }}
