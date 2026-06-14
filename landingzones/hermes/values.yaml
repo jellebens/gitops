@@ -71,6 +71,8 @@ dashboard:
   insecure: true
 
 config:
+  display:
+    skin: ares
   model:
     default: gpt-5.5
     provider: custom

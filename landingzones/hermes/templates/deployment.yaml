@@ -45,6 +45,9 @@ spec:
               if [ ! -f /opt/data/config.yaml ]; then
                 cp /config/config.yaml /opt/data/config.yaml
               fi
+              {{- with .Values.config.display.skin }}
+              hermes config set display.skin {{ . | quote }}
+              {{- end }}
               chown -R {{ .Values.runtime.uid }}:{{ .Values.runtime.gid }} /opt/data
           volumeMounts:
             {{- if .Values.persistence.enabled }}
