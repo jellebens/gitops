@@ -73,6 +73,51 @@ dashboard:
 config:
   display:
     skin: ares
+  mcp:
+    servers:
+      ms365:
+        command: npx
+        args:
+          - -y
+          - "@softeria/ms-365-mcp-server"
+          - --preset
+          - mail,calendar
+          - --allowed-scopes
+          - User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite
+        env:
+          XDG_CACHE_HOME: /opt/data/.cache
+          XDG_CONFIG_HOME: /opt/data/.config
+          MS365_MCP_EXPECTED_USERNAME: jellebens@outlook.com
+        toolFilter:
+          include:
+            - list-mail-*
+            - get-mail-*
+            - create-mail-*
+            - create-draft-email
+            - send-mail
+            - send-draft-message
+            - update-mail-*
+            - delete-mail-*
+            - move-mail-*
+            - copy-mail-*
+            - reply-mail-*
+            - reply-all-mail-*
+            - forward-mail-*
+            - create-reply-*
+            - create-reply-all-*
+            - create-forward-*
+            - add-mail-*
+            - list-calendar-*
+            - get-calendar-*
+            - create-calendar-event
+            - update-calendar-event
+            - delete-calendar-event
+            - cancel-calendar-event
+            - get-schedule
+            - find-meeting-times
+        requestTimeoutMs: 30000
+        connectionTimeoutMs: 30000
+        supportsParallelToolCalls: false
   model:
     default: gpt-5.5
     provider: custom
