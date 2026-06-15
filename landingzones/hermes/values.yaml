@@ -95,9 +95,11 @@ config:
           - --allowed-scopes
           - User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite
         env:
+          HOME: /opt/data
           XDG_CACHE_HOME: /opt/data/.cache
           XDG_CONFIG_HOME: /opt/data/.config
           MS365_MCP_EXPECTED_USERNAME: jellebens@outlook.com
+          MS365_MCP_TENANT_ID: consumers
         toolFilter:
           include:
             - list-mail-*
