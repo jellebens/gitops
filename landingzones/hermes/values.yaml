@@ -59,6 +59,8 @@ discord:
   secretName: hermes-discord-token
   secretKey: discord-token
   envName: DISCORD_BOT_TOKEN
+  homeChannel: "1511628794849660990"
+  homeChannelName: bots
   sealedSecret:
     encryptedToken: ""
 

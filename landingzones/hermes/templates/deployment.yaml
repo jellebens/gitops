@@ -94,6 +94,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.discord.secretName | quote }}
                   key: {{ .Values.discord.secretKey | quote }}
+            - name: DISCORD_HOME_CHANNEL
+              value: {{ .Values.discord.homeChannel | quote }}
+            - name: DISCORD_HOME_CHANNEL_NAME
+              value: {{ .Values.discord.homeChannelName | quote }}
             {{- end }}
           ports:
             {{- if .Values.dashboard.enabled }}
