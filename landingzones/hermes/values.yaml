@@ -54,6 +54,14 @@ openai:
   secretName: hermes-openai-api-key
   secretKey: api-key
 
+discord:
+  enabled: false
+  secretName: hermes-discord-token
+  secretKey: discord-token
+  envName: DISCORD_BOT_TOKEN
+  sealedSecret:
+    encryptedToken: ""
+
 runtime:
   uid: "10000"
   gid: "10000"
@@ -127,6 +135,22 @@ config:
     cwd: /opt/data/workspace
     timeout: 180
     home_mode: profile
+  platform_toolsets:
+    discord:
+      - hermes-discord
+  platforms:
+    discord:
+      home_channel:
+        platform: discord
+        chat_id: "1511628794849660990"
+        name: bots
+  discord:
+    require_mention: true
+    auto_thread: true
+    dm_policy: allowlist
+    allow_from:
+      - "105261851956224000"
+    gateway_restart_notification: false
   toolsets:
     - hermes-cli
     - mcp

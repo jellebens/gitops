@@ -14,3 +14,8 @@ tlsCertificate:
   issuerRef:
     name: lab-ca-issuer
     kind: ClusterIssuer
+
+discord:
+  enabled: true
+  sealedSecret:
+    encryptedToken: AgAm6nEZ8jT8qRP4RuHiKPlOwr70tJWMnY5BeJltirNM6p/SNeMjuk7DomWnCkUvNeumeMTnQpVRtvkU3ZqpzFy0upJASQxHxlk0+NQ1pgAMIpxKeV4aTBTbJSItebNWKY5lp41nEhMbtWYwPbLG8dq7ywAT0d55PGpno3yaN5eT8GBYoAD5FC1lCRos/5mTT3z+l9s6g1OfTwtLP9TDaX8lc+oVSVfcO7RZgxSemJL3NfVB2XgM18Vsek+dd6NNwDabtZsQygKSIeUJvM8IdzfkmyGY0wQOM/iP2uV6i/q3Gc9iTJIpQ+8kntDguGkTvLXZpu5dcWE5kN4CyK6J+8BcZuLA/jD+LlrvEJv+rgca/cPsXs6VG+tjuIJL1yWY5mZUE5bzUSuMeixkVdKrgKFmyfNYcESVOy4/X5+uQ3xAP0XwigL520Axph0sd4/zWFACht/C9cSEWVSI80v/jnIVYu9gLbBS9tjVb2t4xg2n/WYVXLcTc4yhXd7NtlO5uCds4N6TT2iYCE6mvaI8fW0YrhBqFoCnhNDYpkAoGiH428/atqCWxJqU7v+Q2xtWMo8/rfJQz4Wlx02gUL/h7BL1wMTnTFLKKa/BmakNGYP4Erf1KukraU6EuNOCsY4eem/YZpC6xmfIeQk5uI2LBtvHKtcN37MoInpeGJzmR2hfU72YP5azhWWKRGCcDbV7hyY=

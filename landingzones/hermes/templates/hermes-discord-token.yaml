@@ -1,0 +1,15 @@
+{{- if and .Values.discord.enabled .Values.discord.sealedSecret.encryptedToken }}
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ .Values.discord.secretName | quote }}
+  namespace: hermes
+spec:
+  encryptedData:
+    {{ .Values.discord.secretKey }}: {{ .Values.discord.sealedSecret.encryptedToken }}
+  template:
+    metadata:
+      name: {{ .Values.discord.secretName | quote }}
+      namespace: hermes
+    type: Opaque
+{{- end }}
