@@ -131,8 +131,8 @@ config:
         connectionTimeoutMs: 30000
         supportsParallelToolCalls: false
   model:
-    default: gpt-5.5
-    provider: custom
+    default: gpt-5.4-mini
+    provider: openai-api
     base_url: https://api.openai.com/v1
   terminal:
     backend: local
