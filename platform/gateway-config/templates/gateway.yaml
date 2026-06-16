@@ -36,6 +36,9 @@ spec:
           from: All
     {{- end }}
     {{- range .Values.gateway.additionalHttpsListeners }}
+    {{- $tls := .tls | default dict }}
+    {{- $certificateRefs := $tls.certificateRefs | default list }}
+    {{- if $certificateRefs }}
     - name: {{ .name }}
       protocol: HTTPS
       port: {{ .port | default 443 }}
@@ -43,10 +46,11 @@ spec:
       hostname: {{ . | quote }}
       {{- end }}
       tls:
-        mode: {{ .tls.mode | default "Terminate" }}
+        mode: {{ $tls.mode | default "Terminate" }}
         certificateRefs:
-          {{- toYaml .tls.certificateRefs | nindent 10 }}
+          {{- toYaml $certificateRefs | nindent 10 }}
       allowedRoutes:
         namespaces:
           from: All
+    {{- end }}
     {{- end }}

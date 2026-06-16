@@ -17,7 +17,6 @@ gateway:
           name: argocd-server-tls
           namespace: argocd
   additionalHttpsListeners:
-    - name: openclaw-https
     - name: hermes-https
       port: 443
       hostname: hermes.lab.local
