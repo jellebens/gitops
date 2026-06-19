@@ -22,7 +22,7 @@ discord:
 
 extraAgents:
   cortana:
-    enabled: false
+    enabled: true
     discord:
       enabled: true
       secretName: hermes-cortana-discord-token
@@ -31,7 +31,7 @@ extraAgents:
       homeChannel: "1517403545115295764"
       homeChannelName: cortana
       sealedSecret:
-        encryptedToken: ""
+        encryptedToken: AgAgdIR6OMss1GnGpq3+xvDLq5jvIPNNZsgSwRtorRpmtNVVMNOcrEMt3+ZlNGI8f51TYnNVgc+z4JGxrTQaJIynXJyt2MCuk1fjitioXEpF1gOiaEkk/8dCRzERsJafZd55TxxYuEqLLKebuAY1FL3bj0O0ubsZ8RfNstIofXtwNT+GTLEFXzxwS2TuEovT+9pCgd7TTnhd6OexJfwsQzGB+LVUU8L0UnLpb+9lnHcS1lrmdRpIg8CPiOaaxo2THHTAyZyzuGyNMG7Etx4WnQaGE4kluQ1AZsJe5QWQmvxCLHc1A0kAVBp/S3jkJBpdACRjeOSeAW8tSXdkVqBLiArkdE2lkT+qFsso/ZTwel/TTnCdtzCUPZW3A92OA7EHewHihb5VBp0Z34reystNPUsfL042z7Y8C0TeEmTG6TBT0inQc6x0ziWdIVsNinxH/aD8nRBc+7CTitKFw7AH4TgflVlRGtZ/ipuSCmd61445F20xbXvXipYlZHBADykKCEq1rrlUksXb0IuKuaq31/nvMTUJhR1zebXUjAiLuPCyFgXQYVhXTskpafVexwaijjgcX8JQPX+GodhgdoiYT9JnMWL/ooa6EH97BYyul0CkfIr5oUH54nSKl/4T4SkTLS3iBcpXG+xMJaFBHobYtttB0515VgIPLBJVv9mKGgIvkt23GNwNU8AivJnctD9nnAg=
     persistence:
       size: 5Gi
     config:
