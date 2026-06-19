@@ -1,0 +1,162 @@
+{{- range $name, $agent := .Values.extraAgents }}
+{{- if $agent.enabled }}
+{{- $agentName := printf "hermes-%s" $name }}
+{{- $configName := printf "%s-config" $agentName }}
+{{- $stateName := printf "%s-state" $agentName }}
+{{- $persistence := default dict $agent.persistence }}
+{{- $discord := default dict $agent.discord }}
+{{- $discordSealedSecret := default dict $discord.sealedSecret }}
+{{- $gatewayProcess := default dict $agent.gatewayProcess }}
+{{- $discordSecretName := default (printf "%s-discord-token" $agentName) $discord.secretName }}
+{{- $discordSecretKey := default "discord-token" $discord.secretKey }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $configName | quote }}
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: {{ $agentName | quote }}
+    app.kubernetes.io/part-of: hermes
+    hermes.nousresearch.com/agent: {{ $name | quote }}
+data:
+  config.yaml: |-
+    {{- toYaml $agent.config | nindent 4 }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $stateName | quote }}
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: {{ $agentName | quote }}
+    app.kubernetes.io/part-of: hermes
+    hermes.nousresearch.com/agent: {{ $name | quote }}
+spec:
+  accessModes:
+    - {{ default $.Values.persistence.accessMode $persistence.accessMode }}
+  {{- with (default $.Values.persistence.storageClassName $persistence.storageClassName) }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ default $.Values.persistence.size $persistence.size }}
+{{- if and $discord.enabled $discordSealedSecret.encryptedToken }}
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ $discordSecretName | quote }}
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: {{ $agentName | quote }}
+    app.kubernetes.io/part-of: hermes
+    hermes.nousresearch.com/agent: {{ $name | quote }}
+spec:
+  encryptedData:
+    {{ $discordSecretKey }}: {{ $discordSealedSecret.encryptedToken }}
+  template:
+    metadata:
+      name: {{ $discordSecretName | quote }}
+      namespace: hermes
+    type: Opaque
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $agentName | quote }}
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: {{ $agentName | quote }}
+    app.kubernetes.io/part-of: hermes
+    hermes.nousresearch.com/agent: {{ $name | quote }}
+spec:
+  replicas: {{ default 1 $agent.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $agentName | quote }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $agentName | quote }}
+        app.kubernetes.io/part-of: hermes
+        hermes.nousresearch.com/agent: {{ $name | quote }}
+      annotations:
+        checksum/config: {{ toYaml $agent.config | sha256sum }}
+        {{- if and $discord.enabled $discordSealedSecret.encryptedToken }}
+        checksum/discord-token: {{ $discordSealedSecret.encryptedToken | sha256sum }}
+        {{- end }}
+    spec:
+      securityContext:
+        fsGroup: {{ $.Values.runtime.gid }}
+      initContainers:
+        - name: seed-config
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              mkdir -p /opt/data/workspace
+              [ -f /opt/data/config.yaml ] || cp /config/config.yaml /opt/data/config.yaml
+              chown -R {{ $.Values.runtime.uid }}:{{ $.Values.runtime.gid }} /opt/data
+          volumeMounts:
+            - name: state
+              mountPath: {{ $.Values.persistence.mountPath }}
+            - name: config
+              mountPath: /config/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      containers:
+        - name: gateway
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          args:
+            {{- toYaml (default $.Values.gatewayProcess.args $gatewayProcess.args) | nindent 12 }}
+          env:
+            - name: HERMES_UID
+              value: {{ $.Values.runtime.uid | quote }}
+            - name: HERMES_GID
+              value: {{ $.Values.runtime.gid | quote }}
+            - name: HERMES_GATEWAY_BOOTSTRAP_STATE
+              value: "running"
+            {{- if $.Values.openai.enabled }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.openai.secretName | quote }}
+                  key: {{ $.Values.openai.secretKey | quote }}
+            {{- end }}
+            {{- if $discord.enabled }}
+            - name: {{ default "DISCORD_BOT_TOKEN" $discord.envName | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $discordSecretName | quote }}
+                  key: {{ $discordSecretKey | quote }}
+            - name: DISCORD_HOME_CHANNEL
+              value: {{ $discord.homeChannel | quote }}
+            - name: DISCORD_HOME_CHANNEL_NAME
+              value: {{ $discord.homeChannelName | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: state
+              mountPath: {{ $.Values.persistence.mountPath }}
+          resources:
+            {{- toYaml (default $.Values.resources $agent.resources) | nindent 12 }}
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: {{ $stateName | quote }}
+        - name: config
+          configMap:
+            name: {{ $configName | quote }}
+{{- end }}
+{{- end }}

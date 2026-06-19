@@ -17,29 +17,75 @@ tlsCertificate:
 
 discord:
   enabled: true
-  homeChannel: "1517403545115295764"
-  homeChannelName: cortana
   sealedSecret:
     encryptedToken: AgAVmgX1yK223dcgIa1IPJAe+apVL5wfHUn+kUrphzY5snxFzrhf35dNLNBHBrEIx0WkeWrQr/A5gMChbfEHMysy3BM2ZRKIt46ly7On8cEsRx/zeHOeOQZfDyWQwOhuPV+/imgOigbsdkYAP9B2dGa/jvCAM7B9GdNbEcCm2TWhFLLt3uwlzGTS/ZU7Y0UEKMhu4Cd5Pd6qD86vjJjm2IC0LqMkHQW9ou7ngPNh08PwwlwNBSejBKpDGhaV2wpeN6qpygoLC2vG4Gt7CXfrKThT3s5HhLvqeAsMjXzVy0UADggBWZfLVU5mp/mziAATkXVf382SIhYMueqtvYZvW2L7z+d5FuCfQg7yMsJC02ZHP4CUcE4KJ6jUZVJa3C8lVTwvnhFlpz0uXNf1Ar2UR2pTljHinIKy0n04/U8EWYmudTI5rCvZe5D8VxrVrtublc0oUOOfl/Z0tGbHHVg0qZESnDRjAX+3PHZOFunA6kr3nBFTIR908V2xjPaU8BgbIbwsBeBR4zaE6h/NBFTHQbq4DUp4PBNkpM9J1pi8p9B2XQEzBuRprS4UKJh8vJ2Bp70tPxg0nAx7m89iKAHQMAHFfm2TdcwCSyiKUp536Jq8oX6slNp5hpwC2vjf3o5NlEDgPsWt2RC046FF2UTJLZnqh1h45eqfV0ECcLDjkO1Ez2MvLWD39IMKFTNi2cqdIge0/FUlNbVFS7l/JAljHWd+BHlcjbrhyO/F8jOQZp67HE8HOzbJlVlsbGcF9T7AuNxFAEuKuVarQz6B0RD4o5SMPzQ+/+XI1dE=
 
-config:
-  platforms:
+extraAgents:
+  cortana:
+    enabled: false
     discord:
-      home_channel:
-        platform: discord
-        chat_id: "1517403545115295764"
-        name: cortana
-  discord:
-    allowed_channels:
-      - "1511628794849660990"
-      - "1517403545115295764"
-    free_response_channels:
-      - "1517403545115295764"
-    no_thread_channels:
-      - "1517403545115295764"
-    channel_prompts:
-      "1517403545115295764": |-
-        You are Cortana, a voice-first Hermes agent in this Discord channel.
-        Keep spoken replies concise, direct, and conversational. When the user
-        is connected through Discord voice, assume they prefer a natural spoken
-        answer unless they explicitly ask for detail, code, or a written artifact.
+      enabled: true
+      secretName: hermes-cortana-discord-token
+      secretKey: discord-token
+      envName: DISCORD_BOT_TOKEN
+      homeChannel: "1517403545115295764"
+      homeChannelName: cortana
+      sealedSecret:
+        encryptedToken: ""
+    persistence:
+      size: 5Gi
+    config:
+      display:
+        skin: ares
+      model:
+        default: gpt-5.4-mini
+        provider: openai-api
+        base_url: https://api.openai.com/v1
+      terminal:
+        backend: local
+        cwd: /opt/data/workspace
+        timeout: 180
+        home_mode: profile
+      platform_toolsets:
+        discord:
+          - hermes-discord
+      platforms:
+        discord:
+          home_channel:
+            platform: discord
+            chat_id: "1517403545115295764"
+            name: cortana
+      discord:
+        require_mention: false
+        auto_thread: false
+        dm_policy: allowlist
+        allow_from:
+          - "105261851956224000"
+        allowed_channels:
+          - "1517403545115295764"
+        free_response_channels:
+          - "1517403545115295764"
+        no_thread_channels:
+          - "1517403545115295764"
+        gateway_restart_notification: false
+      tts:
+        provider: edge
+      stt:
+        enabled: true
+        provider: local
+      voice:
+        auto_tts: true
+      agent:
+        system_prompt: |-
+          You are Cortana, a voice-first Hermes agent in Discord.
+          Keep spoken replies concise, direct, and conversational. You are
+          separate from the main Hermes bot and should act as the dedicated
+          assistant for the Cortana channel. When connected through Discord
+          voice, prefer natural spoken responses unless the user explicitly
+          asks for detail, code, or a written artifact.
+      toolsets:
+        - hermes-cli
+        - mcp
+      memory:
+        memory_enabled: true
+        user_profile_enabled: true
