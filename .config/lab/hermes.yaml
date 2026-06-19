@@ -51,10 +51,15 @@ extraAgents:
           - hermes-discord
       platforms:
         discord:
+          enabled: true
           home_channel:
             platform: discord
             chat_id: "1517403545115295764"
             name: cortana
+      plugins:
+        enabled:
+          - platforms/discord
+        disabled: []
       discord:
         require_mention: false
         auto_thread: false
