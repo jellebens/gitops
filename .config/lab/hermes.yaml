@@ -80,7 +80,7 @@ extraAgents:
         provider: openai
         openai:
           model: gpt-4o-mini-tts
-          voice: coral
+          voice: nova
 
       stt:
         enabled: true
