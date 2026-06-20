@@ -79,9 +79,7 @@ extraAgents:
         enabled: true
         provider: local
       voice:
-        enabled: true
         auto_tts: true
-        listen: true
       agent:
         system_prompt: |-
           You are Cortana, a voice-first Hermes agent in Discord.
