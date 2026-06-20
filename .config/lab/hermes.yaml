@@ -77,10 +77,15 @@ extraAgents:
           - "1511628794849660990"
         gateway_restart_notification: false
       tts:
-        provider: edge
+        provider: openai
+        openai:
+          model: gpt-4o-mini-tts
+          voice: alloy
       stt:
         enabled: true
-        provider: local
+        provider: openai
+        openai:
+          model: gpt-4o-mini-transcribe
       voice:
         enabled: true
         auto_tts: true
