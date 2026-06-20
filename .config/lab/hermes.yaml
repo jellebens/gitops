@@ -80,7 +80,8 @@ extraAgents:
         provider: openai
         openai:
           model: gpt-4o-mini-tts
-          voice: alloy
+          voice: shimmer
+
       stt:
         enabled: true
         provider: openai
