@@ -107,6 +107,24 @@ spec:
               set -eu
               mkdir -p /opt/data/workspace
               cp /config/config.yaml /opt/data/config.yaml
+              /opt/hermes/.venv/bin/python - <<'PY'
+              import json
+              from pathlib import Path
+
+              state_file = Path("/opt/data/gateway_state.json")
+              if state_file.exists():
+                  try:
+                      state = json.loads(state_file.read_text())
+                  except json.JSONDecodeError:
+                      state = {}
+                  desired_state = state.get("desired_state")
+                  runtime_state = state.get("gateway_state")
+                  if desired_state is None and runtime_state in {"draining", "starting"}:
+                      state["gateway_state"] = "running"
+                      state["desired_state"] = "running"
+                      state["recovered_from_state"] = runtime_state
+                      state_file.write_text(json.dumps(state, separators=(",", ":")) + "\n")
+              PY
               chown -R {{ $.Values.runtime.uid }}:{{ $.Values.runtime.gid }} /opt/data
           volumeMounts:
             - name: state
