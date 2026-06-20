@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cortana
+version: 0.1.0
+type: application
+appVersion: "v0.16.0"
+description: Cortana personal assistant landing zone based on Hermes Agent
