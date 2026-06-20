@@ -68,10 +68,13 @@ extraAgents:
           - "105261851956224000"
         allowed_channels:
           - "1517403545115295764"
+          - "1511628794849660990"
         free_response_channels:
           - "1517403545115295764"
+          - "1511628794849660990"
         no_thread_channels:
           - "1517403545115295764"
+          - "1511628794849660990"
         gateway_restart_notification: false
       tts:
         provider: edge
