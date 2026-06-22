@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\ubuntu\\\\home\\\\jelle\\\\repos\\\\gitops\\\\bootstrap\" -maxdepth 2 -type f)",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\ubuntu\\\\home\\\\jelle\\\\repos\\\\gitops\\\\applications\" -maxdepth 2 -type f)",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\ubuntu\\\\home\\\\jelle\\\\repos\\\\gitops\\\\platform\" -maxdepth 2 -type d)",
+      "Bash(ls -la \"\\\\\\\\wsl.localhost\\\\ubuntu\\\\home\\\\jelle\\\\repos\\\\gitops\\\\.config\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\ubuntu\\\\home\\\\jelle\\\\repos\\\\gitops\\\\.docs\" -type f)",
+      "Bash(find //wsl.localhost/ubuntu/home/jelle/repos/gitops/landingzones/hermes -type f | head -50)",
+      "Bash(find //wsl.localhost/ubuntu/home/jelle/repos/gitops/.config -type f | head -30)",
+      "Bash(find //wsl.localhost/ubuntu/home/jelle/repos/gitops/.docs -type f | head -30)",
+      "Bash(ls -la //wsl.localhost/ubuntu/home/jelle/repos/gitops/.docs/)",
+      "Bash(grep -r \"integrations\\\\|extensions\\\\|mcp\\\\|tools\\\\|oauth\\\\|email\\\\|calendar\" //wsl.localhost/ubuntu/home/jelle/repos/gitops/landingzones/hermes --include=\"*.yaml\" --include=\"*.yml\" 2>/dev/null | head -20)",
+      "Bash(xargs grep -l \"mcp\\\\|tools\\\\|integrations\\\\|extensions\")",
+      "Bash(xargs ls -la)",
+      "Bash(find //wsl.localhost/ubuntu/home/jelle/repos/gitops -type f -name \"*sealed*\" | head -20)",
+      "Bash(find //wsl.localhost/ubuntu/home/jelle/repos/gitops/landingzones/openclaw/templates -type f -name \"*.yaml\" | xargs ls -la)",
+      "Bash(find //wsl.localhost/ubuntu/home/jelle/repos/gitops/.config -type f | xargs ls -la)",
+      "Bash(tree //wsl.localhost/ubuntu/home/jelle/repos/gitops/landingzones/hermes/)",
+      "Read(///wsl.localhost/ubuntu/home/jelle/repos/gitops/landingzones/**)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix\\(hermes\\): preserve ms365 OAuth token across pod restarts *)",
+      "Bash(git -C \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" push)",
+      "Read(///wsl.localhost/ubuntu/home/jelle/repos/**)",
+      "Bash(dir \"\\\\\\\\\\\\\\\\wsl.localhost\\\\ubuntu\\\\home\\\\jelle\\\\repos\\\\gitops\")",
+      "Bash(find \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -iname '*cortana*' 2>/dev/null | head -40)",
+      "Bash(grep -r \"cortana\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" --include=\"*.yaml\" --include=\"*.yml\" --include=\"*.json\" -l -i 2>/dev/null | head -20)",
+      "Bash(grep -r \"cortana\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -l -i 2>/dev/null | grep -v \".docs\\\\|.claude\\\\|.config\" | head -20)",
+      "Bash(grep -r \"outlook\\\\|oauth\\\\|microsoft\\\\|msgraph\\\\|refresh_token\\\\|token_store\\\\|token_path\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -i -l 2>/dev/null | grep -v \".git\")",
+      "Bash(xargs grep -l \"hermes\\\\|extraAgent\" -i)",
+      "Bash(find \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -name \"*.yaml\" 2>/dev/null | grep -v \".git\" | head -40)",
+      "Read(///wsl.localhost/ubuntu/home/jelle/repos/gitops/**)",
+      "Bash(ls \"//wsl.localhost/ubuntu/home/jelle/repos/gitops/applications/charts/\" 2>/dev/null)",
+      "Bash(find \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -name \"hermes*\" 2>/dev/null | grep -v \".git\\\\|.docs\")",
+      "Read(///wsl.localhost/ubuntu/home/jelle/repos/gitops/.config/**)",
+      "Bash(grep -r \"m365\\\\|m365-mcp\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -r -l -i 2>/dev/null | grep -v \".git\")",
+      "Bash(grep -r \"mcp\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops/.config\" -i -A10 -B2 2>/dev/null | grep -v \"Binary\\\\|#\")",
+      "WebSearch"
+    ]
+  }
+}
