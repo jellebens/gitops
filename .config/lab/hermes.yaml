@@ -119,6 +119,15 @@ extraAgents:
       toolsets:
         - hermes-cli
         - mcp
+      mcp:
+        servers:
+          m365-mcp:
+            command: npx
+            args:
+              - -y
+              - ms365-mcp
+            env:
+              HOME: /opt/data/home
       memory:
         memory_enabled: true
         user_profile_enabled: true
