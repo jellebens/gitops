@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zeus
+version: 0.1.0
+type: application
+appVersion: "0.1.0"
+description: Bluetti Apex 300 battery charge/discharge optimizer landing zone

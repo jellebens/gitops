@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zeus
+  namespace: zeus
+  labels:
+    app.kubernetes.io/name: zeus
+    app.kubernetes.io/part-of: zeus
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zeus
+  # Single long-running loop; never run two side by side or they would issue
+  # conflicting commands to the battery.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zeus
+        app.kubernetes.io/part-of: zeus
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.secret.sealedSecret.enabled .Values.secret.sealedSecret.encryptedData }}
+        checksum/secret: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: optimizer
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secret.name }}
+                optional: true
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            {{- if .Values.persistence.enabled }}
+            - name: reports
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: zeus-config
+        {{- if .Values.persistence.enabled }}
+        - name: reports
+          persistentVolumeClaim:
+            claimName: zeus-reports
+        {{- end }}

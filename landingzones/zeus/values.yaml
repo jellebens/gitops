@@ -1,0 +1,99 @@
+image:
+  repository: ghcr.io/jellebens/zeus
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# Persist generated savings reports across restarts.
+persistence:
+  enabled: true
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /app/reports
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+runtime:
+  uid: 1000
+  gid: 1000
+
+# Secret injected as env (HA_TOKEN / MQTT_USER / MQTT_PASS / ENTSOE_TOKEN); the
+# config.yaml below references them as ${VAR}. Provide the sealed values in
+# .config/<env>/zeus.yaml (kubeseal). The Deployment mounts the
+# resulting Secret with envFrom (optional, so first sync does not block).
+secret:
+  name: zeus-secrets
+  sealedSecret:
+    enabled: true
+    encryptedData: {} # { HA_TOKEN: "Ag...", MQTT_USER: "Ag...", ... }
+
+# Rendered verbatim into /config/config.yaml. Mirrors the project's
+# config.example.yaml. Override per environment in .config/<env>/.
+config:
+  home_assistant:
+    base_url: "http://vesta.local:8123"
+    token: "${HA_TOKEN}"
+    verify_ssl: true
+  mqtt:
+    host: vesta.local
+    port: 1883
+    username: "${MQTT_USER}"
+    password: "${MQTT_PASS}"
+    discovery_prefix: homeassistant
+    base_topic: zeus
+  battery:
+    usable_capacity_kwh: 13.0 # Apex 300 + 2x B500K
+    max_charge_kw: 3.84
+    max_discharge_kw: 3.84
+    soc_min_pct: 10
+    soc_max_pct: 100
+    charge_efficiency: 0.95
+    discharge_efficiency: 0.95
+  entities:
+    soc: sensor.buzzbrick_ap3002532000565690_total_battery_percent
+    grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
+    ac_output_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
+    house_load_power: sensor.house_load_power
+    solar_power: null
+    current_price: sensor.current_electricity_market_price
+  control:
+    enabled: false
+    mode: working_mode
+    working_mode:
+      entity: select.apex_300_working_mode
+      charge_option: ""
+      discharge_option: ""
+      idle_option: ""
+      intent_threshold_kw: 0.1
+  prices:
+    source: ha_forecast
+    ha_forecast:
+      entity: sensor.current_electricity_market_price
+      forecast_attribute: forecast
+    entsoe:
+      api_token: "${ENTSOE_TOKEN}"
+      area_code: "10YBE----------2"
+    import_markup: 0.10
+    export_price: 0.0
+  optimizer:
+    horizon_hours: 36
+    slot_minutes: 60
+    cycle_penalty: 0.002
+    terminal_value_price: null
+  forecast:
+    model: baseline
+    history_days: 30
+  reporting:
+    timezone: Europe/Brussels
+    output_dir: /app/reports
+  run:
+    interval_minutes: 60
+    dry_run: true

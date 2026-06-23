@@ -1,0 +1,28 @@
+# Bluetti optimizer lab overrides.
+
+# Secrets, sealed for this cluster. Generate each value with kubeseal, e.g.:
+#   echo -n "$HA_TOKEN" | kubeseal --raw \
+#     --namespace zeus --name zeus-secrets \
+#     --controller-namespace sealed-secrets
+# Then paste the output under the matching key. MQTT_* / ENTSOE_TOKEN are
+# optional; leave a key out if unused.
+secret:
+  sealedSecret:
+    enabled: true
+    encryptedData: {}
+      # HA_TOKEN: "Ag..."
+      # MQTT_USER: "Ag..."
+      # MQTT_PASS: "Ag..."
+      # ENTSOE_TOKEN: "Ag..."
+
+# config overrides for this environment go here, e.g. once Phase 0 discovery
+# confirms the working-mode labels and you are ready to actuate:
+# config:
+#   control:
+#     enabled: true
+#     working_mode:
+#       charge_option: "Off-Peak"
+#       discharge_option: "Peak"
+#       idle_option: "Backup"
+#   run:
+#     dry_run: false

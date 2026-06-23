@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zeus-config
+  namespace: zeus
+  labels:
+    app.kubernetes.io/name: zeus
+    app.kubernetes.io/part-of: zeus
+data:
+  config.yaml: |-
+    {{- toYaml .Values.config | nindent 4 }}
