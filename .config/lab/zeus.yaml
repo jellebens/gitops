@@ -3,14 +3,14 @@
 # Secrets, sealed for this cluster. Generate each value with kubeseal, e.g.:
 #   echo -n "$HA_TOKEN" | kubeseal --raw \
 #     --namespace zeus --name zeus-secrets \
-#     --controller-namespace sealed-secrets
+#     --controller-name sealed-secrets --controller-namespace argocd
 # Then paste the output under the matching key. MQTT_* / ENTSOE_TOKEN are
 # optional; leave a key out if unused.
 secret:
   sealedSecret:
     enabled: true
-    encryptedData: {}
-      # HA_TOKEN: "Ag..."
+    encryptedData:
+      HA_TOKEN: "AgAAeYU3ZIKKJBvXqZ/A69ZpTy9T9tsCSetyAIFU+48b4BjuYvllUMK5Ae3JNAGQsdWCj8Dq0wCp+XDsXDdt6ecfsb1CtFxnVHZgXl/8wAkKTn+LPupcGPdgG+7NttQ7JBqda9utOrzj4teJ4PTScU7ih0UzV/Bg8JtqdVhRumkuI1Y5F0wbhhHHEGU/JlScBDBAcszPN6kuaiikNPOKJ0yIOgWzaccesfrnq1G6kwLpbh5YBgaQEfc0D4zk4gRvS8j4X6ms8rQfbfwAZhbJTagx2hF0+Tehwqjg8joqOyqfQapvFjYNfTv+SeJk5UlK2EBGgPh0RaL4jckqW72cH2lP94IoWgCcIS98KNPIzhu/tAp1lBXiW7U6I1djbmPZ8jd55VJhbmKuk7nk67vcY31hfOlHzsWSv2+XXzE0Y2nUwbnOkm8U+h+2iyw4/pCBthdQ8Tu7PjCZkvDb3NfvvdrHno5bHI13L5KIoFU580heKFOzbeFQOubkdLWAmlcqovEmb8YAJvr+Qu6xZMwqHSyHh17rsja/f8HA6gyPSkeT9T8cqBp2auDa/eyzsEJiTH1pBBMAjQP40XSRxXLk3wnSLZNyiBiiatnaJKoHGgl8g7YbHiggxs0vr1zqKXsVum+2KYSRaQhxlfZ3eBIl5cvnHfQ9KgzZIBqr/Pg3Sq1KinEuutfkC+urlng4fTxukO7D2QUlg/lwEmk4NOpTeZDqlT21HIDe21/U0Ak7xdXkwec4W3E/cMjT/gltQPrLPKoy7bdehdlT4yEFs5/cBq7/yrDJKBq36jiTJP5gBaCXeZYOmdV/4MR78MydjJGs9Ws8SmHb6ilkauUD7ND/s6RgXOLNyOKucDHbmABZa4n3Ep2l7z+ctuiKgHNJi284mnHhtOoStxPrtrRyRS8GJ28C3SkqFdGYzQiUuBRxDjMRuFfClArpbRM="
       # MQTT_USER: "Ag..."
       # MQTT_PASS: "Ag..."
       # ENTSOE_TOKEN: "Ag..."
