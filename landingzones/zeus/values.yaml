@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.17"
+  tag: "0.1.18"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -94,6 +94,8 @@ config:
     # whole home) and produced a ~0 forecast, so the optimizer never discharged.
     house_load_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
     house_load_is_counter: false
+    # Dedicated A/C power plug (W) for the two_component forecast (base + A/C).
+    ac_power: sensor.bluetti_power
     solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
     current_price: sensor.current_electricity_market_price
   # LIVE: zeus drives this select. The previous price automations must stay
@@ -129,12 +131,16 @@ config:
     cycle_penalty: 0.03
     terminal_value_price: null
   forecast:
-    # Weather-aware: the critical load is A/C, so scale it with outdoor temp.
-    model: temp
+    # Two-component: flat base load + temperature-driven A/C (from the A/C plug).
+    # Falls back to the single temp model until the (forward-only) A/C history
+    # has enough slots (~a day).
+    model: two_component
     history_days: 30
     # Accumulate realized load on the PVC so the forecaster keeps more than HA's
     # short recorder retention.
     persist_path: /app/reports/load_history.csv
+    # A/C plug history (forward-only; the plug's pre-existing history is ignored).
+    ac_persist_path: /app/reports/ac_history.csv
     store_days: 120
     weather:
       # Home coordinates (from HA config). Temperature via Open-Meteo (no key).
