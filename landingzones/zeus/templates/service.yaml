@@ -1,0 +1,19 @@
+{{- if .Values.config.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: zeus-metrics
+  namespace: zeus
+  labels:
+    app.kubernetes.io/name: zeus
+    app.kubernetes.io/part-of: zeus
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zeus
+  ports:
+    - name: metrics
+      port: {{ .Values.config.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}

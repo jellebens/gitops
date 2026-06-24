@@ -44,6 +44,12 @@ spec:
             - secretRef:
                 name: {{ .Values.secret.name }}
                 optional: true
+          {{- if .Values.config.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.config.metrics.port }}
+              protocol: TCP
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /config

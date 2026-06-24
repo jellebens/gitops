@@ -1,9 +1,16 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.5"
+  tag: "0.1.6"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
+
+# Prometheus scraping via the Prometheus Operator (kube-prometheus-stack).
+serviceMonitor:
+  enabled: true
+  interval: 60s
+  # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
+  releaseLabel: kube-prometheus-stack
 
 # Persist generated savings reports across restarts.
 persistence:
@@ -106,3 +113,6 @@ config:
   run:
     interval_minutes: 60
     dry_run: false # LIVE actuation
+  metrics:
+    enabled: true
+    port: 9000
