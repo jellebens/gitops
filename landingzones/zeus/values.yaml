@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.18"
+  tag: "0.1.19"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
