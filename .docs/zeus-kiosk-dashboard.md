@@ -20,14 +20,15 @@ a single value instead of doubling.
 ## Layout
 
 ```
-┌────────┬────────┬────────┬──────────────┬───────────┐  row 1 — live state
-│  SoC   │  Mode  │ Stored │ Cheap→Expens │   Next    │
-├────────┼────────┼────────┼──────────────┼───────────┤  row 2 — today + health
-│ Savings│Charged │Dischrg │ Target ±kW   │ Last cycle│ Fails │
-├────────┴────────┴────────┴──────────────┴───────────┴───────┤
-│   Today €/kWh by hour  (00:00 … 23:00, colored bands)        │  price chart
-└─────────────────────────────────────────────────────────────┘
+┌────────┬───────┬───────┬───────┬──────────────┬───────┐  row 1
+│        │  SoC  │ Mode  │Stored │ Cheap→Expens │ Next  │  badge + live state
+│  ⚡Zeus ├───────┼───────┼───────┼──────────────┼───────┤  row 2
+│  badge │Savings│Charged│Dischrg│  Target ±kW  │ ...   │  today + health
+└────────┴───────┴───────┴───────┴──────────────┴───────┘
 ```
+
+The top-left tile is the Zeus avatar badge (a transparent text panel; the
+image is embedded as a base64 PNG so no external hosting is needed).
 
 ## Row 1 — live state (what it's doing now)
 
@@ -50,34 +51,14 @@ a single value instead of doubling.
 | **Last cycle** | Time since the last completed optimizer cycle — a **freshness/health** signal. Cycles run hourly, so a healthy value is well under 1 h. | `time() − zeus_last_cycle_timestamp_seconds` | green, orange > 75 min, red > 2 h |
 | **Fails** | Count of optimizer cycles that raised an error since the pod started. Should be 0. | `zeus_cycle_failures_total` | green at 0, red ≥ 1 |
 
-## Price chart — "Today €/kWh by hour"
+## Prices
 
-The full day-ahead import price curve, one bar per hour.
-
-- **X-axis:** hour of the day, formatted `00:00 … 23:00` (Europe/Brussels local
-  time). Built from `zeus_price_today_eur_per_kwh{hour}`; the `:00` suffix is
-  added in the query with `label_replace`.
-- **Y-axis / value:** all-in import price in €/kWh.
-- **Bar colors (relative to today's own min/max range):**
-  - 🟢 **green** — bottom 20 % of the range (the cheapest hours)
-  - 🟠 **orange** — the middle 60 %
-  - 🔴 **red** — top 20 % of the range (the most expensive hours)
-  - 🔵 **blue** — the **current hour** ("you are here")
-
-  Bands use Grafana *percentage-mode thresholds*, so they recompute every day
-  from that day's cheapest/most-expensive prices — no fixed €/kWh cutoffs.
-
-> Note: bands are by **price range**, not by count. If one hour is far cheaper
-> than the rest, only that hour may be green. To band by *rank* instead
-> (e.g. always the cheapest ~5 hours), Zeus would need to export quantile
-> thresholds as metrics.
-
-### How "now" is highlighted without a gap or extra bar
-The chart stacks two mutually-exclusive series so every hour is a single
-full-width bar:
-- curve: `... zeus_price_today_eur_per_kwh unless on(hour) zeus_price_now_marker_eur_per_kwh`
-  (all hours **except** the current one), colored by the green/orange/red bands;
-- marker: `zeus_price_now_marker_eur_per_kwh` (the current hour only), forced blue.
+The kiosk keeps the **Cheap→Expensive** tile for an at-a-glance "is now a cheap
+hour?" read. The full hourly day-ahead price bar chart was removed from the
+kiosk to save space. (The `zeus-battery-optimizer` dashboard still shows an
+import-price time series.) The underlying metrics
+(`zeus_price_today_eur_per_kwh{hour}`, `zeus_price_now_marker_eur_per_kwh`,
+`zeus_price_today_min/max`) are still exported.
 
 ## Related
 
