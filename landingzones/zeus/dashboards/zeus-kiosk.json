@@ -288,10 +288,10 @@
   "tags": ["zeus", "battery", "kiosk"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
-  "timepicker": {},
+  "timepicker": { "hidden": true },
   "timezone": "browser",
   "title": "Zeus — Live (kiosk)",
   "uid": "zeus-kiosk",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
