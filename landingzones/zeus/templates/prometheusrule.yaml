@@ -1,0 +1,48 @@
+{{- if and .Values.config.metrics.enabled .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zeus
+  namespace: zeus
+  labels:
+    app.kubernetes.io/name: zeus
+    app.kubernetes.io/part-of: zeus
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: zeus
+      rules:
+        - alert: ZeusDown
+          expr: up{job="zeus-metrics"} == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Zeus metrics target is down
+            description: Prometheus has not been able to scrape zeus /metrics for 10m.
+        - alert: ZeusCycleStalled
+          expr: time() - zeus_last_cycle_timestamp_seconds > 7200
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus optimizer cycle stalled
+            description: No completed optimization cycle for over 2h (cycles run hourly).
+        - alert: ZeusCycleFailing
+          expr: increase(zeus_cycle_failures_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus optimization cycles are failing
+            description: '{{ "{{ $value }}" }} cycle failure(s) in the last hour.'
+        - alert: ZeusSocCriticallyLow
+          expr: zeus_soc_percent < 12
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus battery SoC critically low
+            description: 'SoC has been {{ "{{ $value }}" }}% for over 1h (near the floor).'
+{{- end }}

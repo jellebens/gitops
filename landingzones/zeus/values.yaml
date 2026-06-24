@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.10"
+  tag: "0.1.11"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -10,6 +10,11 @@ serviceMonitor:
   enabled: true
   interval: 60s
   # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
+  releaseLabel: kube-prometheus-stack
+
+# Prometheus alerting rules (kube-prometheus-stack picks these up by label).
+prometheusRule:
+  enabled: true
   releaseLabel: kube-prometheus-stack
 
 # Grafana dashboard provisioned as a ConfigMap, discovered by the
@@ -71,6 +76,10 @@ config:
     soc_max_pct: 100
     charge_efficiency: 0.95
     discharge_efficiency: 0.95
+    # Outage backup reserve: the optimizer will not discharge below this SoC, so
+    # arbitrage never drains the critical-load battery's backup. Tune to taste
+    # (higher = more backup, less arbitrage headroom).
+    backup_reserve_pct: 30
   entities:
     soc: sensor.ap3002532000565690_battery_level
     grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
