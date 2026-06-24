@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Zeus battery optimizer">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#2b4a86"/>
+      <stop offset="55%" stop-color="#16264a"/>
+      <stop offset="100%" stop-color="#080d1a"/>
+    </radialGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE27A"/>
+      <stop offset="55%" stop-color="#FFC42E"/>
+      <stop offset="100%" stop-color="#FB9E0B"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="55%" stop-color="#a3e635"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- badge -->
+  <circle cx="128" cy="128" r="124" fill="url(#bg)"/>
+  <circle cx="128" cy="128" r="123" fill="none" stroke="#000000" stroke-opacity="0.35" stroke-width="2"/>
+  <circle cx="128" cy="128" r="116" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"/>
+
+  <!-- charge / SoC gauge arc (270°, open at the bottom) -->
+  <path d="M52 204 A108 108 0 1 1 204 204" fill="none" stroke="url(#ring)" stroke-width="11"
+        stroke-linecap="round" opacity="0.9"/>
+  <!-- gauge end caps -->
+  <circle cx="52" cy="204" r="6.5" fill="#22c55e"/>
+  <circle cx="204" cy="204" r="6.5" fill="#fbbf24"/>
+
+  <!-- lightning bolt -->
+  <path d="M150 56 L92 144 L124 144 L110 202 L170 110 L136 110 Z"
+        fill="url(#bolt)" stroke="#7a4a00" stroke-width="2" stroke-linejoin="round" filter="url(#glow)"/>
+</svg>
