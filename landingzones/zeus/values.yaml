@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.0"
+  tag: "0.1.1"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -58,30 +58,34 @@ config:
     charge_efficiency: 0.95
     discharge_efficiency: 0.95
   entities:
-    soc: sensor.buzzbrick_ap3002532000565690_total_battery_percent
+    soc: sensor.ap3002532000565690_battery_level
     grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
     ac_output_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
+    # TODO: no single whole-home power sensor found yet; baseline load forecast
+    # will be ~0 until this points at a real consumption sensor.
     house_load_power: sensor.house_load_power
-    solar_power: null
+    solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
     current_price: sensor.current_electricity_market_price
+  # Keep disabled: existing HA automations + EMHASS already drive this select.
   control:
     enabled: false
     mode: working_mode
     working_mode:
-      entity: select.apex_300_working_mode
-      charge_option: ""
-      discharge_option: ""
-      idle_option: ""
+      entity: select.apex300_working_mode
+      charge_option: "CHARGING"
+      discharge_option: "DISCHARGING"
+      idle_option: "PASSTHROUGH"
       intent_threshold_kw: 0.1
   prices:
     source: ha_forecast
     ha_forecast:
-      entity: sensor.current_electricity_market_price
-      forecast_attribute: forecast
+      # ENTSO-e integration sensor; `prices` attr = [{time, price}] in EUR/kWh.
+      entity: sensor.average_electricity_price
+      forecast_attribute: prices
     entsoe:
       api_token: "${ENTSOE_TOKEN}"
       area_code: "10YBE----------2"
-    import_markup: 0.10
+    import_markup: 0.0 # average_electricity_price is already all-in EUR/kWh
     export_price: 0.0
   optimizer:
     horizon_hours: 36
