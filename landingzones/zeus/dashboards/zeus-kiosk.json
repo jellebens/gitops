@@ -273,8 +273,8 @@
       "title": "Today €/kWh by hour — green = cheapest 20%, orange = mid, red = priciest 20%, blue = now",
       "type": "barchart",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (hour) (zeus_price_today_eur_per_kwh unless on (hour) zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true, "refId": "A" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (hour) (zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true, "refId": "B" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(max by (hour) (zeus_price_today_eur_per_kwh unless on (hour) zeus_price_now_marker_eur_per_kwh), \"hour\", \"$1:00\", \"hour\", \"(.*)\")", "format": "table", "instant": true, "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "label_replace(max by (hour) (zeus_price_now_marker_eur_per_kwh), \"hour\", \"$1:00\", \"hour\", \"(.*)\")", "format": "table", "instant": true, "refId": "B" }
       ],
       "transformations": [
         { "id": "joinByField", "options": { "byField": "hour", "mode": "outer" } },
@@ -292,6 +292,6 @@
   "timezone": "browser",
   "title": "Zeus — Live (kiosk)",
   "uid": "zeus-kiosk",
-  "version": 5,
+  "version": 6,
   "weekStart": ""
 }
