@@ -5,7 +5,7 @@
   "graphTooltip": 0,
   "links": [],
   "liveNow": true,
-  "description": "Compact view sized for the Rackmate T1 GeeekPi 1280x400 TFT. Open with ?kiosk for full-screen, no-scroll.",
+  "description": "Compact view sized for the Rackmate T1 GeeekPi 1280x400 TFT. Queries are aggregated (max) so a rolling pod restart never doubles a series. Open with ?kiosk for full-screen.",
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -20,7 +20,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 2, "y": 0 },
       "id": 1,
       "options": {
         "orientation": "horizontal",
@@ -30,7 +30,7 @@
       "pluginVersion": "10.0.0",
       "title": "SoC",
       "type": "gauge",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_soc_percent", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_soc_percent)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -46,7 +46,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 6, "y": 0 },
       "id": 2,
       "options": {
         "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto",
@@ -55,12 +55,12 @@
       "pluginVersion": "10.0.0",
       "title": "Mode",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_mode_code", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_mode_code)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "kwatth", "decimals": 1, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 10, "y": 0 },
       "id": 3,
       "options": {
         "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto",
@@ -69,21 +69,7 @@
       "pluginVersion": "10.0.0",
       "title": "Stored",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_energy_stored_kwh", "refId": "A" } ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 3, "color": { "mode": "fixed", "fixedColor": "text" } }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
-      "id": 4,
-      "options": {
-        "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto"
-      },
-      "pluginVersion": "10.0.0",
-      "title": "Price now",
-      "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_import_price_eur_per_kwh", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_energy_stored_kwh)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -98,7 +84,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 14, "y": 0 },
       "id": 5,
       "options": {
         "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto",
@@ -107,7 +93,7 @@
       "pluginVersion": "10.0.0",
       "title": "Cheap→Dear",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_price_position_pct", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_position_pct)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -118,7 +104,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 18, "y": 0 },
       "id": 6,
       "options": {
         "colorMode": "none", "graphMode": "none", "justifyMode": "center", "orientation": "vertical",
@@ -128,8 +114,8 @@
       "title": "Next",
       "type": "stat",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_next_charge_in_seconds", "legendFormat": "chg", "refId": "A" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_next_discharge_in_seconds", "legendFormat": "dis", "refId": "B" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_next_charge_in_seconds)", "legendFormat": "chg", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_next_discharge_in_seconds)", "legendFormat": "dis", "refId": "B" }
       ]
     },
 
@@ -151,7 +137,7 @@
       "pluginVersion": "10.0.0",
       "title": "Savings today",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_savings_today_eur", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_savings_today_eur)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -165,7 +151,7 @@
       "pluginVersion": "10.0.0",
       "title": "Charged",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_energy_charged_today_kwh", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_energy_charged_today_kwh)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -179,7 +165,7 @@
       "pluginVersion": "10.0.0",
       "title": "Discharged",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_energy_discharged_today_kwh", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_energy_discharged_today_kwh)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -203,7 +189,7 @@
       "pluginVersion": "10.0.0",
       "title": "Target (+chg/−dis)",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_target_charge_kw - zeus_target_discharge_kw", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_target_charge_kw) - max(zeus_target_discharge_kw)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -227,7 +213,7 @@
       "pluginVersion": "10.0.0",
       "title": "Last cycle",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - zeus_last_cycle_timestamp_seconds", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - max(zeus_last_cycle_timestamp_seconds)", "refId": "A" } ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -247,7 +233,7 @@
       "pluginVersion": "10.0.0",
       "title": "Fails",
       "type": "stat",
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_cycle_failures_total", "refId": "A" } ]
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_cycle_failures_total)", "refId": "A" } ]
     },
 
     {
@@ -256,9 +242,14 @@
         "defaults": {
           "unit": "currencyEUR", "decimals": 3,
           "color": { "mode": "continuous-GrYlRd" },
-          "custom": { "lineWidth": 1, "fillOpacity": 90, "gradientMode": "none", "axisPlacement": "auto", "axisLabel": "" }
+          "custom": { "lineWidth": 1, "fillOpacity": 85, "gradientMode": "none", "axisPlacement": "auto", "axisLabel": "" }
         },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "now" }, "properties": [
+            { "id": "color", "value": { "mode": "fixed", "fixedColor": "super-light-blue" } },
+            { "id": "custom.fillOpacity", "value": 100 }
+          ] }
+        ]
       },
       "gridPos": { "h": 5, "w": 24, "x": 0, "y": 8 },
       "id": 13,
@@ -271,13 +262,15 @@
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "pluginVersion": "10.0.0",
-      "title": "Today €/kWh by hour — green = cheap, red = dear",
+      "title": "Today €/kWh by hour — green = cheap, red = dear, light blue = now",
       "type": "barchart",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "zeus_price_today_eur_per_kwh", "format": "table", "instant": true, "legendFormat": "{{hour}}", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (hour) (zeus_price_today_eur_per_kwh)", "format": "table", "instant": true, "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (hour) (zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true, "refId": "B" }
       ],
       "transformations": [
-        { "id": "organize", "options": { "excludeByName": { "Time": true }, "indexByName": {}, "renameByName": { "Value": "€/kWh" } } },
+        { "id": "joinByField", "options": { "byField": "hour", "mode": "outer" } },
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "Time 1": true, "Time 2": true }, "indexByName": {}, "renameByName": { "Value #A": "€/kWh", "Value #B": "now" } } },
         { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "hour" } ] } }
       ]
     }
@@ -291,6 +284,6 @@
   "timezone": "browser",
   "title": "Zeus — Live (kiosk)",
   "uid": "zeus-kiosk",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
