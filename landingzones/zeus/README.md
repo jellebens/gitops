@@ -86,10 +86,10 @@ Metrics: `zeus_soc_percent`, `zeus_energy_stored_kwh`, `zeus_target_charge_kw`,
 template globs `dashboards/*.json`), labeled `grafana_dashboard=1`:
 - `zeus-battery-optimizer` ("Zeus — Battery Optimizer") — the full history view.
 - `zeus-kiosk` ("Zeus — Live (kiosk)") — a compact small-screen/wall-display
-  view: SoC, working mode, savings, charged/discharged, energy stored, price now
-  + position in today's range, target power, next action, freshness, failures,
-  and a today's-prices bar chart colored cheapest-green → priciest-red
-  (continuous Green-Yellow-Red scale).
+  view (Rackmate T1 1280×400). SoC, working mode, savings, charged/discharged,
+  energy stored, price position, target power, next action, freshness, failures,
+  and a today's-prices bar chart with the current hour highlighted. **Tile-by-tile
+  reference:** [`.docs/zeus-kiosk-dashboard.md`](../../.docs/zeus-kiosk-dashboard.md).
 
 The kube-prometheus-stack Grafana sidecar runs with `NAMESPACE=ALL`, so the
 ConfigMap can live in the `zeus` namespace and still be picked up. The sidecar's
