@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.4"
+  tag: "0.1.5"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -67,9 +67,10 @@ config:
     house_load_is_counter: true
     solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
     current_price: sensor.current_electricity_market_price
-  # Keep disabled: existing HA automations + EMHASS already drive this select.
+  # LIVE: zeus drives this select. The previous price automations must stay
+  # disabled to avoid two controllers fighting the battery.
   control:
-    enabled: false
+    enabled: true
     mode: working_mode
     working_mode:
       entity: select.apex300_working_mode
@@ -80,13 +81,14 @@ config:
   prices:
     source: ha_forecast
     ha_forecast:
-      # ENTSO-e integration sensor; `prices` attr = [{time, price}] in EUR/kWh.
-      entity: sensor.average_electricity_price
-      forecast_attribute: prices
+      # Nord Pool market price; raw_today (+raw_tomorrow) curve in c/kWh.
+      entity: sensor.nordpool_kwh_be_eur_3_10_006
+      forecast_attribute: raw_today
     entsoe:
       api_token: "${ENTSOE_TOKEN}"
       area_code: "10YBE----------2"
-    import_markup: 0.0 # average_electricity_price is already all-in EUR/kWh
+    price_scale: 0.01 # Nord Pool c/kWh -> EUR/kWh
+    import_markup: 0.0
     export_price: 0.0
   optimizer:
     horizon_hours: 36
@@ -103,4 +105,4 @@ config:
     mode: arbitrage
   run:
     interval_minutes: 60
-    dry_run: true
+    dry_run: false # LIVE actuation
