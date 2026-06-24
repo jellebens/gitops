@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.3"
+  tag: "0.1.4"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -99,6 +99,8 @@ config:
   reporting:
     timezone: Europe/Brussels
     output_dir: /app/reports
+    # Battery only charges from grid and powers critical loads -> arbitrage model.
+    mode: arbitrage
   run:
     interval_minutes: 60
     dry_run: true
