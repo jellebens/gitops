@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.14"
+  tag: "0.1.15"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -125,12 +125,22 @@ config:
     cycle_penalty: 0.002
     terminal_value_price: null
   forecast:
-    model: baseline
+    # Weather-aware: the critical load is A/C, so scale it with outdoor temp.
+    model: temp
     history_days: 30
     # Accumulate realized load on the PVC so the forecaster keeps more than HA's
-    # short recorder retention (foundation for pattern/ML forecasting later).
+    # short recorder retention.
     persist_path: /app/reports/load_history.csv
     store_days: 120
+    weather:
+      # Home coordinates (from HA config). Temperature via Open-Meteo (no key).
+      latitude: 50.857017
+      longitude: 4.5362013
+      # Cooling-degree base ~ the indoor A/C setpoint (the "eye" reads ~22C
+      # inside); A/C load accrues as outdoor climbs above this.
+      base_temp_c: 21.0
+      past_days: 14
+      forecast_days: 2
   reporting:
     timezone: Europe/Brussels
     output_dir: /app/reports
