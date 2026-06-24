@@ -165,7 +165,7 @@
         "textMode": "value"
       },
       "pluginVersion": "10.0.0",
-      "title": "Mode",
+      "title": "Mode (live)",
       "type": "stat",
       "targets": [
         {
@@ -173,7 +173,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_mode_code)",
+          "expr": "max(zeus_actual_mode_code)",
           "refId": "A"
         }
       ]
@@ -750,6 +750,6 @@
   "timezone": "browser",
   "title": "Zeus — Live (kiosk)",
   "uid": "zeus-kiosk",
-  "version": 8,
+  "version": 9,
   "weekStart": ""
 }
