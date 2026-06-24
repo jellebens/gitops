@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.8"
+  tag: "0.1.9"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -75,10 +75,12 @@ config:
     soc: sensor.ap3002532000565690_battery_level
     grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
     ac_output_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
-    # Fluvius P1 meter cumulative consumption register (kWh counter); zeus
-    # differences successive readings to get per-slot load.
-    house_load_power: sensor.fluvius_meter_1sag1100121989_total_consumption
-    house_load_is_counter: true
+    # Load to plan discharge against = the critical loads the battery actually
+    # serves, i.e. the inverter AC output power (W). Forecasting against the
+    # Fluvius whole-home counter was both wrong-scope (battery can't power the
+    # whole home) and produced a ~0 forecast, so the optimizer never discharged.
+    house_load_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
+    house_load_is_counter: false
     solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
     current_price: sensor.current_electricity_market_price
   # LIVE: zeus drives this select. The previous price automations must stay
