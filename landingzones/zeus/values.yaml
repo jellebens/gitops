@@ -12,6 +12,13 @@ serviceMonitor:
   # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
   releaseLabel: kube-prometheus-stack
 
+# Grafana dashboard provisioned as a ConfigMap, discovered by the
+# kube-prometheus-stack Grafana sidecar (watches all namespaces).
+dashboard:
+  enabled: true
+  # Label the sidecar watches for (kube-prometheus-stack default).
+  sidecarLabel: grafana_dashboard
+
 # Persist generated savings reports across restarts.
 persistence:
   enabled: true

@@ -1,0 +1,15 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zeus-dashboard
+  namespace: zeus
+  labels:
+    app.kubernetes.io/name: zeus
+    app.kubernetes.io/part-of: zeus
+    # Picked up by the kube-prometheus-stack Grafana dashboard sidecar (NAMESPACE=ALL).
+    {{ .Values.dashboard.sidecarLabel }}: "1"
+data:
+  zeus.json: |
+{{ .Files.Get "dashboards/zeus.json" | indent 4 }}
+{{- end }}
