@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.15"
+  tag: "0.1.16"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -122,7 +122,11 @@ config:
   optimizer:
     horizon_hours: 36
     slot_minutes: 60
-    cycle_penalty: 0.002
+    # Battery-wear cost per kWh of throughput (charge+discharge each). Set to a
+    # realistic LFP degradation cost so zeus only cycles when the price spread
+    # clearly beats wear + round-trip losses (big-spread days), not for pennies.
+    # The battery's own totals show energy arbitrage is ~break-even before wear.
+    cycle_penalty: 0.03
     terminal_value_price: null
   forecast:
     # Weather-aware: the critical load is A/C, so scale it with outdoor temp.

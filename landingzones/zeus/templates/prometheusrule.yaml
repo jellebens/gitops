@@ -45,4 +45,15 @@ spec:
           annotations:
             summary: Zeus battery SoC critically low
             description: 'SoC has been {{ "{{ $value }}" }}% for over 1h (near the floor).'
+        - alert: ZeusDischargeNotApplied
+          # Commanded DISCHARGING but the battery is not actually discharging:
+          # the control link to the device may be failing. (Commanded CHARGING
+          # without charging is expected under the 7A input cap, so not alerted.)
+          expr: (zeus_mode_code == 2) and (zeus_actual_mode_code != 2)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus commanded discharge but battery is not discharging
+            description: zeus_mode_code=DISCHARGING but measured mode differs for 15m; actuation may be failing.
 {{- end }}
