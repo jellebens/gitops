@@ -1,0 +1,3 @@
+# csi-driver-smb (kubernetes-csi) Helm value overrides for the lab env.
+# Defaults are fine for k3s (kubelet dir /var/lib/kubelet, arm64 images).
+# Add chart overrides here if needed (controller.replicas, node.tolerations, …).

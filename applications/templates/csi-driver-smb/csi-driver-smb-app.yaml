@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: csi-driver-smb
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Foundational CSI driver — install before workloads that need SMB storage.
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  sources:
+    - repoURL: {{ .Values.repos.csiDriverSmb.url | quote }}
+      chart: csi-driver-smb
+      targetRevision: {{ .Values.repos.csiDriverSmb.targetRevision | quote }}
+      helm:
+        releaseName: csi-driver-smb
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/csi-driver-smb.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
