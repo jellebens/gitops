@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.19"
+  tag: "0.1.20"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -161,6 +161,10 @@ config:
   run:
     interval_minutes: 60
     dry_run: false # LIVE actuation
+    # Re-plan early (between hourly cycles) when the live load drops, e.g. the A/C
+    # cycles off and charge headroom opens under the 7A import cap.
+    poll_seconds: 120
+    replan_load_drop_kw: 0.4
   metrics:
     enabled: true
     port: 9000
