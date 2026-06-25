@@ -115,12 +115,7 @@
           },
           "mappings": []
         },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "savings_eur" },
-            "properties": [ { "id": "custom.hideFrom", "value": { "viz": true, "legend": true, "tooltip": true } } ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": { "showLegend": false, "calcs": [], "displayMode": "list", "placement": "bottom" },
@@ -175,6 +170,14 @@
             "cumulative": { "field": "savings_eur", "reducer": "sum" },
             "alias": "Cumulative €",
             "replaceFields": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "savings_eur": true },
+            "indexByName": {},
+            "renameByName": {}
           }
         }
       ]
