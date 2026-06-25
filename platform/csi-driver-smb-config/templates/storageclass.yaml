@@ -1,0 +1,22 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.name }}
+provisioner: smb.csi.k8s.io
+parameters:
+  source: {{ .Values.storageClass.source | quote }}
+  csi.storage.k8s.io/provisioner-secret-name: {{ .Values.secret.name }}
+  csi.storage.k8s.io/provisioner-secret-namespace: {{ .Values.secret.namespace }}
+  csi.storage.k8s.io/node-stage-secret-name: {{ .Values.secret.name }}
+  csi.storage.k8s.io/node-stage-secret-namespace: {{ .Values.secret.namespace }}
+reclaimPolicy: {{ .Values.storageClass.reclaimPolicy }}
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid={{ .Values.storageClass.uid }}
+  - gid={{ .Values.storageClass.gid }}
+  - noperm
+  - mfsymlinks
+  - cache=strict
