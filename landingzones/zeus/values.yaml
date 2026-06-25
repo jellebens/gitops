@@ -95,7 +95,9 @@ config:
     house_load_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
     house_load_is_counter: false
     # Dedicated A/C power plug (W) for the two_component forecast (base + A/C).
-    ac_power: sensor.bluetti_power
+    # NB: sensor.bluetti_power is the Bluetti unit (also named "A/C Power") — the
+    # real A/C plug is sensor.office_a_c_power.
+    ac_power: sensor.office_a_c_power
     solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
     current_price: sensor.current_electricity_market_price
   # LIVE: zeus drives this select. The previous price automations must stay
