@@ -45,6 +45,15 @@ spec:
           annotations:
             summary: Zeus battery SoC critically low
             description: 'SoC has been {{ "{{ $value }}" }}% for over 1h (near the floor).'
+        - alert: ZeusControlUnavailable
+          # The working-mode select went unavailable -> zeus commands are no-ops.
+          expr: zeus_control_available == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Zeus cannot control the battery
+            description: The control entity (working-mode select) has been unavailable for 10m; zeus charge/discharge commands have no effect.
         - alert: ZeusDischargeNotApplied
           # Commanded DISCHARGING but the battery is not actually discharging:
           # the control link to the device may be failing. (Commanded CHARGING
