@@ -24,10 +24,11 @@ dashboard:
   # Label the sidecar watches for (kube-prometheus-stack default).
   sidecarLabel: grafana_dashboard
 
-# Persist generated savings reports across restarts.
+# Persist generated savings reports + history on NAS001 (SMB) so data survives
+# node loss. Backed by the csi-driver-smb 'smb' StorageClass.
 persistence:
   enabled: true
-  storageClassName: ""
+  storageClassName: "smb"
   accessMode: ReadWriteOnce
   size: 1Gi
   mountPath: /app/reports
