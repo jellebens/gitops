@@ -43,9 +43,13 @@ further standalone agents later.
 
 The writer is **not** a separate deployment. It is a native Hermes
 `delegate_task` child spawned by Cortana inside the same pod (flat delegation:
-`config.delegation.max_spawn_depth: 1`). Its persona and workflow live in
-Cortana's `config.agent.system_prompt`, not in a named profile (v0.16.0 has no
-named agent profiles — see upstream issue #9459).
+`config.delegation.max_spawn_depth: 1`). v0.16.0 has no named agent profiles
+(upstream issue #9459), so its **workflow** lives in Cortana's
+`config.agent.system_prompt` and its **writing persona** is a separate SOUL file
+(`.Values.writer.soul`) rendered into the `hermes-writer-soul` ConfigMap and
+mounted read-only at `.Values.writer.soulPath` (`/opt/writer/SOUL.md`). Cortana
+instructs the writer to read and embody it. Edit `writer.soul` to tune the voice
+without touching delegation logic.
 
 Git wiring (`.Values.git`, enabled in `.config/lab/hermes.yaml`):
 
