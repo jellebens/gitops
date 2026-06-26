@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.34"
+  tag: "0.1.35"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -105,6 +105,9 @@ config:
     ac_power: sensor.office_a_c_power
     solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
     current_price: sensor.current_electricity_market_price
+    # Fluvius digital-meter running monthly peak grid power (kW) -> the
+    # capaciteitstarief is billed on this. Recorded as zeus_capacity_peak_kw.
+    capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
   # LIVE: zeus drives this select. The previous price automations must stay
   # disabled to avoid two controllers fighting the battery.
   control:
