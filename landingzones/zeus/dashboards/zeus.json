@@ -974,12 +974,14 @@
       "id": 14,
       "options": {
         "orientation": "vertical",
-        "xField": "hour",
+        "xField": "slot",
         "showValue": "never",
         "stacking": "normal",
         "barWidth": 0.98,
         "groupWidth": 1,
         "fullHighlight": true,
+        "xTickLabelSpacing": 100,
+        "xTickLabelRotation": -45,
         "legend": {
           "showLegend": false,
           "displayMode": "list",
@@ -992,7 +994,7 @@
         }
       },
       "pluginVersion": "10.0.0",
-      "title": "Today €/kWh by hour — green = cheapest 20%, orange = mid, red = priciest 20%, blue = now",
+      "title": "Today €/kWh by 15-min slot — green = cheapest 20%, orange = mid, red = priciest 20%, blue = now",
       "type": "barchart",
       "targets": [
         {
@@ -1000,7 +1002,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(max by (hour) (zeus_price_today_eur_per_kwh unless on (hour) zeus_price_now_marker_eur_per_kwh), \"hour\", \"$1:00\", \"hour\", \"(.*)\")",
+          "expr": "max by (slot) (zeus_price_today_eur_per_kwh unless on (slot) zeus_price_now_marker_eur_per_kwh)",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -1010,7 +1012,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(max by (hour) (zeus_price_now_marker_eur_per_kwh), \"hour\", \"$1:00\", \"hour\", \"(.*)\")",
+          "expr": "max by (slot) (zeus_price_now_marker_eur_per_kwh)",
           "format": "table",
           "instant": true,
           "refId": "B"
@@ -1020,7 +1022,7 @@
         {
           "id": "joinByField",
           "options": {
-            "byField": "hour",
+            "byField": "slot",
             "mode": "outer"
           }
         },
@@ -1045,7 +1047,7 @@
             "fields": {},
             "sort": [
               {
-                "field": "hour"
+                "field": "slot"
               }
             ]
           }
