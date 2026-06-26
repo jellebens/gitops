@@ -116,7 +116,7 @@ git:
 backup:
   enabled: false
   schedule: "17 3 * * *"
-  storageClassName: smb-hermes
+  storageClassName: smb-cortana
   size: 10Gi
   retentionDays: 14
   # SQLite databases backed up via the online .backup API.

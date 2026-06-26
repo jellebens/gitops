@@ -1,4 +1,6 @@
 {{- range .Values.extraStorageClasses }}
+{{- $secName := .secretName | default $.Values.secret.name }}
+{{- $secNs := .secretNamespace | default $.Values.secret.namespace }}
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -7,10 +9,10 @@ metadata:
 provisioner: smb.csi.k8s.io
 parameters:
   source: {{ .source | quote }}
-  csi.storage.k8s.io/provisioner-secret-name: {{ $.Values.secret.name }}
-  csi.storage.k8s.io/provisioner-secret-namespace: {{ $.Values.secret.namespace }}
-  csi.storage.k8s.io/node-stage-secret-name: {{ $.Values.secret.name }}
-  csi.storage.k8s.io/node-stage-secret-namespace: {{ $.Values.secret.namespace }}
+  csi.storage.k8s.io/provisioner-secret-name: {{ $secName }}
+  csi.storage.k8s.io/provisioner-secret-namespace: {{ $secNs }}
+  csi.storage.k8s.io/node-stage-secret-name: {{ $secName }}
+  csi.storage.k8s.io/node-stage-secret-namespace: {{ $secNs }}
 reclaimPolicy: {{ .reclaimPolicy | default "Retain" }}
 volumeBindingMode: Immediate
 allowVolumeExpansion: true

@@ -17,13 +17,25 @@ secret:
     #   { username: "Ag...", password: "Ag..." }
     encryptedData: {}
 
-# Additional StorageClasses sharing the same SMB credentials/share. Each entry
-# renders one StorageClass; the CSI driver gives every PVC its own subdirectory
-# under `source`, so consumers stay isolated even on a shared share.
+# Additional SMB credential secrets (sealed), e.g. a dedicated per-tenant NAS
+# user. Each entry renders one SealedSecret. Referenced by extraStorageClasses
+# via secretName/secretNamespace to keep tenants strictly separated.
 # Example:
-#   - name: smb-hermes
-#     source: //192.168.50.102/zeus-data
+#   - name: cortana-smbcreds
+#     namespace: kube-system
+#     sealedSecret:
+#       encryptedData: { username: "Ag...", password: "Ag..." }
+extraSecrets: []
+
+# Additional StorageClasses. Each entry renders one StorageClass; the CSI driver
+# gives every PVC its own subdirectory under `source`. Set secretName/
+# secretNamespace to use dedicated credentials (defaults to the shared secret).
+# Example:
+#   - name: smb-cortana
+#     source: //192.168.50.102/cortana-backup
 #     reclaimPolicy: Retain
 #     uid: 10000
 #     gid: 10000
+#     secretName: cortana-smbcreds
+#     secretNamespace: kube-system
 extraStorageClasses: []
