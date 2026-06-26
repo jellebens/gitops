@@ -1092,8 +1092,8 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byFrameRefID",
-              "options": "A"
+              "id": "byRegexp",
+              "options": ".*actual.*"
             },
             "properties": [
               {
@@ -1115,8 +1115,8 @@
           },
           {
             "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
+              "id": "byRegexp",
+              "options": ".*forecast.*"
             },
             "properties": [
               {
@@ -1167,18 +1167,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "zeus_load_kwh{kind=\"actual\"}",
-          "format": "table",
-          "instant": true,
-          "range": false
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "zeus_load_kwh{kind=\"forecast\"}",
+          "expr": "zeus_load_kwh",
           "format": "table",
           "instant": true,
           "range": false
@@ -1191,7 +1180,6 @@
             "excludeByName": {
               "Time": true,
               "__name__": true,
-              "kind": true,
               "instance": true,
               "job": true,
               "namespace": true,
@@ -1228,6 +1216,18 @@
               }
             ],
             "fields": {}
+          }
+        },
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "kind"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": false
+            }
           }
         }
       ]
