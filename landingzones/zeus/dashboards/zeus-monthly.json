@@ -427,7 +427,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Load cost: actual vs forecast (€/slot)",
+      "title": "Load cost: actual vs forecast (€/day)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -441,7 +441,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 3,
+          "decimals": 2,
           "color": {
             "mode": "palette-classic"
           },
@@ -452,7 +452,7 @@
             "fillOpacity": 0,
             "gradientMode": "none",
             "showPoints": "auto",
-            "pointSize": 5,
+            "pointSize": 6,
             "spanNulls": true,
             "axisPlacement": "auto",
             "scaleDistribution": {
@@ -465,7 +465,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Actual €"
+              "options": "Actual €/day"
             },
             "properties": [
               {
@@ -484,7 +484,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Forecast €"
+              "options": "Forecast €/day"
             },
             "properties": [
               {
@@ -527,8 +527,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_realized_load_kwh) * max(zeus_import_price_eur_per_kwh)",
-          "legendFormat": "Actual €",
+          "expr": "sum_over_time((max(zeus_realized_load_kwh) * max(zeus_import_price_eur_per_kwh))[1d:1h])",
+          "legendFormat": "Actual €/day",
+          "interval": "1d",
           "range": true
         },
         {
@@ -537,8 +538,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_forecast_load_kwh offset 1h) * max(zeus_import_price_eur_per_kwh)",
-          "legendFormat": "Forecast €",
+          "expr": "sum_over_time((max(zeus_forecast_load_kwh offset 1h) * max(zeus_import_price_eur_per_kwh))[1d:1h])",
+          "legendFormat": "Forecast €/day",
+          "interval": "1d",
           "range": true
         }
       ]
@@ -546,7 +548,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Forecast error in € (selected range)",
+      "title": "Forecast error in € (selected range, daily)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -560,7 +562,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 3,
+          "decimals": 2,
           "color": {
             "mode": "thresholds"
           },
@@ -573,11 +575,11 @@
               },
               {
                 "color": "orange",
-                "value": 0.03
+                "value": 1
               },
               {
                 "color": "red",
-                "value": 0.06
+                "value": 2
               }
             ]
           },
@@ -601,11 +603,11 @@
                     },
                     {
                       "color": "orange",
-                      "value": 1
+                      "value": 15
                     },
                     {
                       "color": "red",
-                      "value": 3
+                      "value": 30
                     }
                   ]
                 }
@@ -671,8 +673,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)) * max(zeus_import_price_eur_per_kwh))[$__range:1h])",
-          "legendFormat": "MAE €",
+          "expr": "avg_over_time((abs(sum_over_time((max(zeus_realized_load_kwh) * max(zeus_import_price_eur_per_kwh))[1d:1h]) - sum_over_time((max(zeus_forecast_load_kwh offset 1h) * max(zeus_import_price_eur_per_kwh))[1d:1h])))[$__range:1d])",
+          "legendFormat": "MAE €/day",
           "instant": true
         },
         {
@@ -681,7 +683,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)) * max(zeus_import_price_eur_per_kwh))[$__range:1h])",
+          "expr": "sum_over_time((abs(sum_over_time((max(zeus_realized_load_kwh) * max(zeus_import_price_eur_per_kwh))[1d:1h]) - sum_over_time((max(zeus_forecast_load_kwh offset 1h) * max(zeus_import_price_eur_per_kwh))[1d:1h])))[$__range:1d])",
           "legendFormat": "Total €",
           "instant": true
         },
@@ -691,7 +693,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * avg_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)) / clamp_min(max(zeus_realized_load_kwh), 0.05))[$__range:1h])",
+          "expr": "100 * avg_over_time((abs(sum_over_time((max(zeus_realized_load_kwh) * max(zeus_import_price_eur_per_kwh))[1d:1h]) - sum_over_time((max(zeus_forecast_load_kwh offset 1h) * max(zeus_import_price_eur_per_kwh))[1d:1h])) / clamp_min(sum_over_time((max(zeus_realized_load_kwh) * max(zeus_import_price_eur_per_kwh))[1d:1h]), 0.05))[$__range:1d])",
           "legendFormat": "MAPE",
           "instant": true
         }
