@@ -1055,7 +1055,7 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "Load: today actual vs forecast (→ now+24h)",
+      "title": "Load: actual vs forecast (now-24h .. now+24h)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1360,8 +1360,8 @@
     "list": []
   },
   "time": {
-    "from": "now/d",
-    "to": "now+24h/h"
+    "from": "now-24h",
+    "to": "now+24h"
   },
   "timepicker": {
     "hidden": true
