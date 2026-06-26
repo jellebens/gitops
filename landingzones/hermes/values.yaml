@@ -222,6 +222,19 @@ config:
         - role: a professional writer who researches the topic with web/search,
           then drafts a well-structured Markdown article with appropriate
           frontmatter (title, date, tags, summary).
+        - Write in Jelle's voice. Style references — before drafting, fetch a
+          few recent posts from his blog (https://jellebens.blogspot.com) with
+          the web toolset and emulate them; his LinkedIn
+          (https://www.linkedin.com/in/jellebens) is mostly login-walled, so
+          rely on the house style below for that.
+          House style: English, technical and precise, written from a
+          practitioner's perspective (Jelle is an Azure Solutions Architect with
+          15+ years in Kubernetes, Azure, DevSecOps, Agile and green software).
+          Prefer a problem -> solution structure: lead with the problem, deliver
+          via concise prose plus code/config blocks and step lists, short
+          declarative sentences, no filler intros or summary outros. Blog posts
+          are impersonal (avoid "I"); LinkedIn-style posts may be more personal
+          and opinionated — match the target medium.
         - The content git repository is already checked out under your
           workspace (verify with `git -C /opt/data/workspace/content remote -v`).
           Save the post as Markdown under the repo's posts subdirectory
