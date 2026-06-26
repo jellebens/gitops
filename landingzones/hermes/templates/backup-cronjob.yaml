@@ -45,10 +45,14 @@ spec:
                 - |
                   set -eu
                   TS="$(date +%Y%m%d-%H%M%S)"
+                  # Stage on local disk first: SQLite's .backup does page-by-page
+                  # writes/fsyncs that are pathologically slow over CIFS. Bulk-copy
+                  # the finished files to the SMB share at the end.
+                  STAGE="/stage/${TS}"
                   DEST="/backup/${TS}"
-                  mkdir -p "$DEST"
+                  mkdir -p "$STAGE"
                   DBS="{{ range .Values.backup.databases }}{{ . }} {{ end }}"
-                  /opt/hermes/.venv/bin/python - "$DEST" $DBS <<'PY'
+                  /opt/hermes/.venv/bin/python - "$STAGE" $DBS <<'PY'
                   import os, sqlite3, sys
                   dest = sys.argv[1]
                   for name in sys.argv[2:]:
@@ -64,13 +68,19 @@ spec:
                       print("backed up", name)
                   PY
                   {{- range .Values.backup.extraPaths }}
-                  [ -e "/state/{{ . }}" ] && cp -a "/state/{{ . }}" "$DEST/" || true
+                  [ -e "/state/{{ . }}" ] && cp -a "/state/{{ . }}" "$STAGE/" || true
                   {{- end }}
+                  # publish to SMB in one sequential bulk copy
+                  mkdir -p "$DEST"
+                  cp -a "$STAGE"/. "$DEST"/
+                  rm -rf "$STAGE"
                   find /backup -maxdepth 1 -type d -name '20*' -mtime +{{ .Values.backup.retentionDays }} -exec rm -rf {} + || true
                   echo "backup complete: $DEST"
               volumeMounts:
                 - name: state
                   mountPath: /state
+                - name: stage
+                  mountPath: /stage
                 - name: backup
                   mountPath: /backup
               resources:
@@ -84,6 +94,8 @@ spec:
             - name: state
               persistentVolumeClaim:
                 claimName: {{ .Values.persistence.claimName | default "hermes-state" }}
+            - name: stage
+              emptyDir: {}
             - name: backup
               persistentVolumeClaim:
                 claimName: hermes-backup
