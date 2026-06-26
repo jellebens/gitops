@@ -1,0 +1,13 @@
+{{- if .Values.aetos.soul }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-aetos-soul
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: hermes
+    app.kubernetes.io/part-of: hermes
+data:
+  SOUL.md: |-
+    {{- .Values.aetos.soul | nindent 4 }}
+{{- end }}

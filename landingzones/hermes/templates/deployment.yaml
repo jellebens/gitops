@@ -29,6 +29,9 @@ spec:
         {{- if .Values.writer.soul }}
         checksum/writer-soul: {{ include (print $.Template.BasePath "/writer-soul-configmap.yaml") . | sha256sum }}
         {{- end }}
+        {{- if .Values.aetos.soul }}
+        checksum/aetos-soul: {{ include (print $.Template.BasePath "/aetos-soul-configmap.yaml") . | sha256sum }}
+        {{- end }}
         {{- if .Values.openai.enabled }}
         checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
         {{- end }}
@@ -181,6 +184,12 @@ spec:
               subPath: SOUL.md
               readOnly: true
             {{- end }}
+            {{- if .Values.aetos.soul }}
+            - name: aetos-soul
+              mountPath: {{ .Values.aetos.soulPath }}
+              subPath: SOUL.md
+              readOnly: true
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
@@ -202,6 +211,11 @@ spec:
         - name: writer-soul
           configMap:
             name: hermes-writer-soul
+        {{- end }}
+        {{- if .Values.aetos.soul }}
+        - name: aetos-soul
+          configMap:
+            name: hermes-aetos-soul
         {{- end }}
         {{- if .Values.git.enabled }}
         - name: git-ssh
