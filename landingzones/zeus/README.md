@@ -194,9 +194,11 @@ topic `zeus`: `sensor.zeus_battery_savings_today`, `_baseline_cost_today`,
 
 ## Known issues / TODO
 
-- Daily savings can read negative on net-charge days (energy stored but not yet
-  discharged, SoC ended high). Possible fix: credit end-of-day SoC delta at avg
-  price.
+- ~~Daily savings can read negative on net-charge days (energy stored but not yet
+  discharged, SoC ended high).~~ **Fixed in 0.1.30** — the arbitrage reporter
+  marks net banked energy to market (net stored kWh × round-trip η × the day's
+  avg price), so charging cheap to use later reads as value, not a loss; it nets
+  to zero over a full cycle (`compute_arbitrage_savings(..., credit_stored=True)`).
 - **Forecast-accuracy line is a hindcast.** The monthly forecast-vs-actual chart
   recomputes the past forecast with the current model; the MAE/MAPE stat uses
   the true at-the-time series (`zeus_realized_load_kwh` vs
