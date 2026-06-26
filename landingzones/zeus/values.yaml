@@ -71,12 +71,14 @@ config:
     base_topic: zeus
   battery:
     usable_capacity_kwh: 13.0 # Apex 300 + 2x B500K
-    # AC input is capped at 7 A (~1.54 kW), shared by passthrough load + charging,
-    # so grid charging can never exceed ~1.54 kW (and only gets the headroom under
-    # the current load). Discharge to loads is not input-limited.
-    max_charge_kw: 1.54
+    # AC input capped at 10 A (~2.2 kW), shared by passthrough load + charging,
+    # so grid charging can never exceed ~2.2 kW (and only gets the headroom under
+    # the current load). Discharge to loads is not input-limited. Raised from
+    # 7 A/1.54 kW after the connection was upgraded — see ADR-0001 (backtest
+    # showed the 7 A cap throttled arbitrage; knee ~10 A).
+    max_charge_kw: 2.2
     max_discharge_kw: 3.84
-    max_grid_import_kw: 1.54
+    max_grid_import_kw: 2.2
     soc_min_pct: 10
     soc_max_pct: 100
     charge_efficiency: 0.95
