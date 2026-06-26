@@ -54,15 +54,19 @@ spec:
           annotations:
             summary: Zeus cannot control the battery
             description: The control entity (working-mode select) has been unavailable for 10m; zeus charge/discharge commands have no effect.
-        - alert: ZeusDischargeNotApplied
-          # Commanded DISCHARGING but the battery is not actually discharging:
-          # the control link to the device may be failing. (Commanded CHARGING
-          # without charging is expected under the 7A input cap, so not alerted.)
-          expr: (zeus_mode_code == 2) and (zeus_actual_mode_code != 2)
+        - alert: ZeusBatteryStateMismatch
+          # Measured battery mode disagrees with the commanded mode -> actuation is
+          # likely failing or another controller is driving the battery. Covers:
+          # commanded DISCHARGING/PASSTHROUGH not honoured, and CHARGING that is
+          # actually DISCHARGING. EXCLUDES the benign "commanded CHARGING but idle"
+          # case (charging is throttled under the shared grid-import cap, so it can
+          # legitimately read idle). Gated on control being available (a dead
+          # control surface is covered by ZeusControlUnavailable).
+          expr: ((zeus_mode_code != ignoring(__name__) zeus_actual_mode_code) unless ignoring(__name__) ((zeus_mode_code == 1) and ignoring(__name__) (zeus_actual_mode_code == 0))) and ignoring(__name__) (zeus_control_available == 1)
           for: 15m
           labels:
             severity: warning
           annotations:
-            summary: Zeus commanded discharge but battery is not discharging
-            description: zeus_mode_code=DISCHARGING but measured mode differs for 15m; actuation may be failing.
+            summary: Zeus battery not in the commanded mode
+            description: Measured battery mode has differed from the commanded mode (zeus_mode_code vs zeus_actual_mode_code) for 15m while control is available; charge/discharge actuation may be failing or something else is driving the battery.
 {{- end }}

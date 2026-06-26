@@ -43,7 +43,7 @@ templates/
   deployment.yaml       the zeus pod (envFrom the secret, mounts config + pvc)
   service.yaml          zeus-metrics ClusterIP :9000
   servicemonitor.yaml   Prometheus scrape (label release=kube-prometheus-stack)
-  prometheusrule.yaml   alerts (ZeusDown, ZeusControlUnavailable, ZeusDischargeNotApplied, …)
+  prometheusrule.yaml   alerts (ZeusDown, ZeusControlUnavailable, ZeusBatteryStateMismatch, …)
   dashboard.yaml        Grafana dashboard ConfigMap (globs dashboards/*.json)
 dashboards/*.json       four Grafana dashboard models (see Observability)
 ```
