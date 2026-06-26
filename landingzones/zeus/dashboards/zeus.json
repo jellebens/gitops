@@ -1361,7 +1361,7 @@
   },
   "time": {
     "from": "now/d",
-    "to": "now+24h"
+    "to": "now+25h/h"
   },
   "timepicker": {
     "hidden": true
