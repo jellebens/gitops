@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.21"
+  tag: "0.1.22"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -112,6 +112,10 @@ config:
       discharge_option: "DISCHARGING"
       idle_option: "PASSTHROUGH"
       intent_threshold_kw: 0.1
+    # Switch the A/C off while charging so it doesn't eat the shared ~7A grid
+    # input; zeus restores only an A/C it turned off itself.
+    ac_off_while_charging: true
+    ac_switch_entity: switch.office_a_c
   prices:
     source: ha_forecast
     ha_forecast:
