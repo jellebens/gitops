@@ -1055,7 +1055,7 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "Forecast vs actual load (kWh per slot, aligned)",
+      "title": "Load: actual (area) vs forecast 24h ahead (dashed)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1077,7 +1077,7 @@
             "drawStyle": "line",
             "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 10,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "showPoints": "auto",
             "pointSize": 5,
@@ -1092,25 +1092,37 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "Actual"
+              "id": "byFrameRefID",
+              "options": "A"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "Actual"
+              },
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "green"
                 }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 30
               }
             ]
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "Forecast"
+              "id": "byFrameRefID",
+              "options": "B"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "Forecast"
+              },
               {
                 "id": "color",
                 "value": {
@@ -1119,12 +1131,16 @@
                 }
               },
               {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
                 "id": "custom.lineStyle",
                 "value": {
                   "fill": "dash",
                   "dash": [
-                    8,
-                    4
+                    10,
+                    6
                   ]
                 }
               }
@@ -1151,9 +1167,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_realized_load_kwh)",
-          "legendFormat": "Actual",
-          "range": true
+          "expr": "zeus_load_kwh{kind=\"actual\"}",
+          "format": "table",
+          "instant": true,
+          "range": false
         },
         {
           "refId": "B",
@@ -1161,9 +1178,57 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_forecast_load_kwh offset 1h)",
-          "legendFormat": "Forecast",
-          "range": true
+          "expr": "zeus_load_kwh{kind=\"forecast\"}",
+          "format": "table",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "kind": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "endpoint": true,
+              "container": true,
+              "service": true,
+              "prometheus": true,
+              "prometheus_replica": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "ts",
+                "destinationType": "number"
+              }
+            ],
+            "fields": {}
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "ts",
+                "destinationType": "time"
+              }
+            ],
+            "fields": {}
+          }
         }
       ]
     },
@@ -1296,9 +1361,11 @@
   },
   "time": {
     "from": "now-24h",
-    "to": "now"
+    "to": "now+24h"
   },
-  "timepicker": {},
+  "timepicker": {
+    "hidden": true
+  },
   "timezone": "browser",
   "title": "Zeus — Battery Optimizer",
   "uid": "zeus-battery-optimizer",
