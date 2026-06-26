@@ -1067,7 +1067,9 @@
     "from": "now-24h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "hidden": true
+  },
   "timezone": "browser",
   "title": "Zeus — Battery Optimizer",
   "uid": "zeus-battery-optimizer",

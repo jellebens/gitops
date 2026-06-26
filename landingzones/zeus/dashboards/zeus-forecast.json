@@ -24,7 +24,7 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "Load: actual vs forecast (now-24h .. now+24h)",
+      "title": "Actual vs forecast (selected window)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -61,14 +61,10 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byRegexp",
-              "options": ".*actual.*"
+              "id": "byName",
+              "options": "Actual"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Actual"
-              },
               {
                 "id": "color",
                 "value": {
@@ -78,30 +74,22 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 30
+                "value": 25
               }
             ]
           },
           {
             "matcher": {
-              "id": "byRegexp",
-              "options": ".*forecast.*"
+              "id": "byName",
+              "options": "Forecast"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Forecast"
-              },
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "orange"
                 }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
               },
               {
                 "id": "custom.lineStyle",
@@ -136,75 +124,26 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "zeus_load_kwh",
-          "format": "table",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "instance": true,
-              "job": true,
-              "namespace": true,
-              "pod": true,
-              "endpoint": true,
-              "container": true,
-              "service": true,
-              "prometheus": true,
-              "prometheus_replica": true
-            },
-            "indexByName": {},
-            "renameByName": {}
-          }
+          "expr": "max(zeus_realized_load_kwh)",
+          "legendFormat": "Actual",
+          "range": true
         },
         {
-          "id": "convertFieldType",
-          "options": {
-            "conversions": [
-              {
-                "targetField": "ts",
-                "destinationType": "number"
-              }
-            ],
-            "fields": {}
-          }
-        },
-        {
-          "id": "convertFieldType",
-          "options": {
-            "conversions": [
-              {
-                "targetField": "ts",
-                "destinationType": "time"
-              }
-            ],
-            "fields": {}
-          }
-        },
-        {
-          "id": "partitionByValues",
-          "options": {
-            "fields": [
-              "kind"
-            ],
-            "keepFields": false,
-            "naming": {
-              "asLabels": false
-            }
-          }
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_forecast_load_kwh offset 1h)",
+          "legendFormat": "Forecast",
+          "range": true
         }
       ]
     },
     {
       "id": 16,
       "type": "stat",
-      "title": "Forecast accuracy (7d)",
+      "title": "Forecast accuracy (selected range)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -301,7 +240,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h))[7d:1h])",
+          "expr": "avg_over_time(abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h))[$__range:1h])",
           "legendFormat": "MAE",
           "instant": true
         },
@@ -311,7 +250,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * avg_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)) / clamp_min(max(zeus_realized_load_kwh), 0.05))[7d:1h])",
+          "expr": "100 * avg_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)) / clamp_min(max(zeus_realized_load_kwh), 0.05))[$__range:1h])",
           "legendFormat": "MAPE",
           "instant": true
         }
