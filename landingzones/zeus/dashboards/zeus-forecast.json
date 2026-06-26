@@ -329,11 +329,9 @@
   },
   "time": {
     "from": "now-24h",
-    "to": "now+24h"
+    "to": "now"
   },
-  "timepicker": {
-    "hidden": true
-  },
+  "timepicker": {},
   "timezone": "browser",
   "title": "Zeus — Load Forecast",
   "uid": "zeus-forecast",
