@@ -130,7 +130,10 @@ config:
     export_price: 0.0
   optimizer:
     horizon_hours: 36
-    slot_minutes: 60
+    # Nord Pool settles in 15-min blocks; match it so the optimizer sees the
+    # intra-hour spread (and the "current price" is the live quarter, not the
+    # :00 quarter held flat for the hour). 36h -> 144 slots, ~40ms solve.
+    slot_minutes: 15
     # Battery-wear cost per kWh of throughput (charge+discharge each). Set to a
     # realistic LFP degradation cost so zeus only cycles when the price spread
     # clearly beats wear + round-trip losses (big-spread days), not for pennies.
@@ -164,12 +167,14 @@ config:
     # Battery only charges from grid and powers critical loads -> arbitrage model.
     mode: arbitrage
   run:
-    interval_minutes: 60
+    # Re-plan + actuate every 15 min to follow the 15-min market price blocks
+    # (matches optimizer.slot_minutes; the battery can now act on intra-hour swings).
+    interval_minutes: 15
     dry_run: false # LIVE actuation
-    # Re-plan early (between hourly cycles) when the live load drops, e.g. the A/C
-    # cycles off and charge headroom opens under the 7A import cap. Also refreshes
-    # the live (measured) metrics each poll -> 10s for a near-real-time kiosk
-    # (ADR-0003). Each poll makes a few HA reads, so don't push this much lower.
+    # Re-plan early (between cycles) when the live load drops, opening charge
+    # headroom under the import cap. Also refreshes the live (measured) metrics
+    # each poll -> 10s for a near-real-time kiosk (ADR-0003). Each poll makes a few
+    # HA reads, so don't push this much lower.
     poll_seconds: 10
     replan_load_drop_kw: 0.4
   metrics:
