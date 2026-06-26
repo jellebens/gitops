@@ -3,8 +3,8 @@
 A single [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 (`nousresearch/hermes-agent`, currently `v0.16.0`) running on the cluster as
 **Cortana**, a voice-first personal assistant on Discord. Cortana delegates
-article/blog writing to an ephemeral **writer** subagent that commits to a git
-repo.
+article/blog writing to **Calliope**, an ephemeral writer subagent that commits
+to a git repo.
 
 Namespace: `hermes`. Deployed by Argo CD (`applications/templates/hermes`,
 sync-wave 30) from this chart, with values layered as:
@@ -25,7 +25,7 @@ cortana ── the single agent (Deployment "hermes")
   • memory + user profile (SQLite on a local-path PVC)
   • web dashboard at https://hermes.lab.local
   • delegation toolset enabled
-        └─ delegate_task ─▶ writer (ephemeral subagent)
+        └─ delegate_task ─▶ Calliope (ephemeral writer subagent)
                               toolsets: terminal, file, web, search, memory
                               clones the blog repo on the PVC, drafts Markdown,
                               commits and pushes to a drafts/<slug> branch
