@@ -47,7 +47,7 @@ extraAgents: {}
 git:
   enabled: true
   repoUrl: git@github.com:jellebens/blog.git
-  branch: main
+  branch: master
   postsSubdir: content/posts
   ssh:
     sealedSecret:

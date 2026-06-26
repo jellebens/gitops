@@ -81,6 +81,7 @@ spec:
                   git -C {{ $.Values.git.clonePath }} remote set-url origin {{ . }}
                   git -C {{ $.Values.git.clonePath }} fetch --prune origin || true
                 fi
+                git -C {{ $.Values.git.clonePath }} checkout {{ $.Values.git.branch }} 2>/dev/null || git -C {{ $.Values.git.clonePath }} checkout -B {{ $.Values.git.branch }} origin/{{ $.Values.git.branch }} 2>/dev/null || true
                 git -C {{ $.Values.git.clonePath }} config user.name {{ $.Values.git.author.name | quote }}
                 git -C {{ $.Values.git.clonePath }} config user.email {{ $.Values.git.author.email | quote }}
                 {{- end }}

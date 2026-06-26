@@ -54,7 +54,7 @@ Git wiring (`.Values.git`, enabled in `.config/lab/hermes.yaml`):
 | Repo | `git@github.com:jellebens/blog.git` |
 | Clone path (on PVC) | `/opt/data/workspace/content` |
 | Posts subdir | `content/posts` |
-| Branch | `main` |
+| Branch | `master` |
 | Auth | `ed25519` deploy key, sealed into secret `hermes-writer-git-ssh` |
 
 The `seed-config` init container installs the key to `/opt/data/.ssh`
