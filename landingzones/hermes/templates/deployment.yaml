@@ -74,6 +74,9 @@ spec:
                 chmod 600 /opt/data/.ssh/id_ed25519
                 printf '%s\n' {{ .Values.git.ssh.knownHosts | trim | quote }} > /opt/data/.ssh/known_hosts
                 export GIT_SSH_COMMAND="ssh -i /opt/data/.ssh/id_ed25519 -o UserKnownHostsFile=/opt/data/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+                # init runs as root but the clone is hermes-owned on restarts;
+                # allow git to operate on it without dubious-ownership errors.
+                git config --global --add safe.directory {{ .Values.git.clonePath }}
                 {{- with .Values.git.repoUrl }}
                 if [ ! -d {{ $.Values.git.clonePath }}/.git ]; then
                   git clone {{ . }} {{ $.Values.git.clonePath }}
