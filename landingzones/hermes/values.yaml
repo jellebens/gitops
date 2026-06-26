@@ -11,6 +11,9 @@ persistence:
   accessMode: ReadWriteOnce
   size: 5Gi
   mountPath: /opt/data
+  # State PVC claim name. Defaults to hermes-state; the lab overlay points this
+  # at Cortana's existing PVC so the promoted agent adopts her memory in place.
+  claimName: ""
 
 service:
   type: ClusterIP
@@ -54,13 +57,15 @@ openai:
   secretName: hermes-openai-api-key
   secretKey: api-key
 
+# The single agent is Cortana. Discord specifics (token, channel) are set in
+# the environment overlay (.config/<env>/hermes.yaml).
 discord:
   enabled: false
   secretName: hermes-discord-token
   secretKey: discord-token
   envName: DISCORD_BOT_TOKEN
-  homeChannel: "1511628794849660990"
-  homeChannelName: bots
+  homeChannel: ""
+  homeChannelName: ""
   sealedSecret:
     encryptedToken: ""
 
@@ -80,56 +85,56 @@ dashboard:
   host: 0.0.0.0
   insecure: true
 
+# Writer subagent git target. The writer is spawned by Cortana via delegate_task
+# (native delegation); it drafts Markdown and commits/pushes to this repo. The
+# deploy key lives in an SSH SealedSecret (private half only). Disabled until a
+# repo + sealed key are provided in the environment overlay.
+git:
+  enabled: false
+  repoUrl: ""
+  branch: main
+  # Where posts are written inside the repo clone.
+  postsSubdir: content/posts
+  # Repo is cloned here on the state PVC (local-path, perms honoured).
+  clonePath: /opt/data/workspace/content
+  author:
+    name: Cortana
+    email: cortana@lab.local
+  ssh:
+    secretName: hermes-writer-git-ssh
+    secretKey: id_ed25519
+    # Pinned GitHub host key (avoids TOFU on first connect).
+    knownHosts: |
+      github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+    sealedSecret:
+      encryptedKey: ""
+
+# Nightly SQLite-safe backup of the agent state to the SMB share. SQLite (WAL)
+# cannot live on CIFS directly, so live state stays on local-path and is backed
+# up here via the online .backup API. Disabled until the SMB StorageClass +
+# backup PVC are in place.
+backup:
+  enabled: false
+  schedule: "17 3 * * *"
+  storageClassName: smb-hermes
+  size: 10Gi
+  retentionDays: 14
+  # SQLite databases backed up via the online .backup API.
+  databases:
+    - state.db
+    - kanban.db
+  # Extra paths (relative to the state mount) copied verbatim each run.
+  extraPaths:
+    - config.yaml
+    - auth.json
+    - SOUL.md
+    - .env
+    - .ms-365-mcp-server
+    - cron
+
 config:
   display:
     skin: ares
-  mcp:
-    servers:
-      ms365:
-        command: npx
-        args:
-          - -y
-          - "@softeria/ms-365-mcp-server"
-          - --preset
-          - mail,calendar
-          - --allowed-scopes
-          - User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite
-        env:
-          HOME: /opt/data
-          XDG_CACHE_HOME: /opt/data/.cache
-          XDG_CONFIG_HOME: /opt/data/.config
-          MS365_MCP_EXPECTED_USERNAME: jellebens@outlook.com
-          MS365_MCP_TENANT_ID: consumers
-        toolFilter:
-          include:
-            - list-mail-*
-            - get-mail-*
-            - create-mail-*
-            - create-draft-email
-            - send-mail
-            - send-draft-message
-            - update-mail-*
-            - delete-mail-*
-            - move-mail-*
-            - copy-mail-*
-            - reply-mail-*
-            - reply-all-mail-*
-            - forward-mail-*
-            - create-reply-*
-            - create-reply-all-*
-            - create-forward-*
-            - add-mail-*
-            - list-calendar-*
-            - get-calendar-*
-            - create-calendar-event
-            - update-calendar-event
-            - delete-calendar-event
-            - cancel-calendar-event
-            - get-schedule
-            - find-meeting-times
-        requestTimeoutMs: 30000
-        connectionTimeoutMs: 30000
-        supportsParallelToolCalls: false
   model:
     default: gpt-5.4-mini
     provider: openai-api
@@ -144,22 +149,107 @@ config:
       - hermes-discord
   platforms:
     discord:
+      enabled: true
       home_channel:
         platform: discord
-        chat_id: "1511628794849660990"
-        name: bots
+        chat_id: "1517403545115295764"
+        name: cortana
+  plugins:
+    enabled:
+      - platforms/discord
+    disabled: []
   discord:
-    require_mention: true
-    auto_thread: true
+    require_mention: false
+    auto_thread: false
     dm_policy: allowlist
     allow_from:
       - "105261851956224000"
+    allowed_channels:
+      - "1517403545115295764"
+      - "1511628794849660990"
+    free_response_channels:
+      - "1517403545115295764"
+      - "1511628794849660990"
+    no_thread_channels:
+      - "1517403545115295764"
+      - "1511628794849660990"
     gateway_restart_notification: false
+  tts:
+    provider: openai
+    openai:
+      model: gpt-4o-mini-tts
+      voice: nova
+  stt:
+    enabled: true
+    provider: openai
+    openai:
+      model: gpt-4o-mini-transcribe
+  voice:
+    enabled: true
+    auto_tts: true
+    listen: true
+  # Native subagent delegation (delegate_task). Flat: Cortana spawns children,
+  # children do not spawn further (max_spawn_depth 1, orchestrator off).
+  delegation:
+    max_concurrent_children: 2
+    max_spawn_depth: 1
+    orchestrator_enabled: false
+  agent:
+    system_prompt: |-
+      You are Cortana, a voice-first Hermes agent in Discord and the single
+      assistant on this system. You manage your own behaviour directly and
+      delegate specialised work to short-lived subagents.
+
+      Personal assistant role: help manage calendar events, mail, reminders,
+      and todos. Voice is a first-class interface — when connected through
+      Discord voice, listen for spoken requests and prefer concise, natural
+      spoken responses unless the user explicitly asks for detail, code, or a
+      written artifact.
+
+      Learn from repeated corrections, preferences, routines, names, locations,
+      working hours, and communication style. Use memory and the user profile
+      to personalize future replies, but do not invent facts or silently treat
+      one-off requests as permanent preferences. Ask before storing or acting
+      on sensitive personal, financial, medical, legal, credential, or
+      access-control information.
+
+      Confirm before sending mail, deleting or moving mail, creating or
+      changing calendar commitments, or creating todos with external impact.
+
+      Writer subagent — when the user asks you to write an article or blog
+      post, delegate the work with delegate_task:
+        - toolsets: ["terminal", "file", "web", "search", "memory"]
+        - role: a professional writer who researches the topic with web/search,
+          then drafts a well-structured Markdown article with appropriate
+          frontmatter (title, date, tags, summary).
+        - The content git repository is already checked out under your
+          workspace (verify with `git -C /opt/data/workspace/content remote -v`).
+          Save the post as Markdown under the repo's posts subdirectory
+          (content/posts), then `git add`, `git commit` with a descriptive
+          message.
+        - Publishing is external impact: unless the user has explicitly approved
+          publishing, push to a draft branch (drafts/<slug>) and report the file
+          path and branch instead of pushing to the live branch. Push to the
+          live branch only on explicit confirmation.
+      Restrict each subagent to the toolsets it needs and give it a clear,
+      self-contained goal — it does not share your conversation.
   toolsets:
     - hermes-cli
     - mcp
+    - delegation
+  mcp:
+    servers:
+      m365-mcp:
+        command: npx
+        args:
+          - -y
+          - ms365-mcp
+        env:
+          HOME: /opt/data/home
   memory:
     memory_enabled: true
     user_profile_enabled: true
 
+# Additional standalone agent deployments (separate pod/PVC/bot per entry).
+# Empty now that Cortana is the primary agent.
 extraAgents: {}

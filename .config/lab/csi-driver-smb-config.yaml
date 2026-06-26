@@ -1,4 +1,15 @@
 # SMB credentials for NAS001 (kube-system/smbcreds), sealed via kubeseal.
+
+# Dedicated StorageClass for Hermes/Cortana backups. Reuses the zeus-data share
+# (per-PVC subdir keeps it isolated); repoint `source` at //...x/hermes-data once
+# that share exists on the NAS.
+extraStorageClasses:
+  - name: smb-hermes
+    source: //192.168.50.102/zeus-data
+    reclaimPolicy: Retain
+    uid: 10000
+    gid: 10000
+
 secret:
   sealedSecret:
     encryptedData:

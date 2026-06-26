@@ -45,9 +45,46 @@ spec:
             - |
               set -eu
               mkdir -p /opt/data/workspace
-              [ -f /opt/data/config.yaml ] || cp /config/config.yaml /opt/data/config.yaml
-              {{- with .Values.config.display.skin }}
-              hermes config set display.skin {{ . | quote }}
+              cp /config/config.yaml /opt/data/config.yaml
+              /opt/hermes/.venv/bin/python - <<'PY'
+              import json
+              from pathlib import Path
+
+              state_file = Path("/opt/data/gateway_state.json")
+              if state_file.exists():
+                  try:
+                      state = json.loads(state_file.read_text())
+                  except json.JSONDecodeError:
+                      state = {}
+                  desired_state = state.get("desired_state")
+                  runtime_state = state.get("gateway_state")
+                  if desired_state is None and runtime_state in {"draining", "starting"}:
+                      state["gateway_state"] = "running"
+                      state["desired_state"] = "running"
+                      state["recovered_from_state"] = runtime_state
+                      state_file.write_text(json.dumps(state, separators=(",", ":")) + "\n")
+              PY
+              {{- if .Values.git.enabled }}
+              # Writer git setup is best-effort: never block the agent on it.
+              (
+                set -e
+                mkdir -p /opt/data/.ssh {{ .Values.git.clonePath }}
+                cp /secrets/git-ssh/{{ .Values.git.ssh.secretKey }} /opt/data/.ssh/id_ed25519
+                chmod 700 /opt/data/.ssh
+                chmod 600 /opt/data/.ssh/id_ed25519
+                printf '%s\n' {{ .Values.git.ssh.knownHosts | trim | quote }} > /opt/data/.ssh/known_hosts
+                export GIT_SSH_COMMAND="ssh -i /opt/data/.ssh/id_ed25519 -o UserKnownHostsFile=/opt/data/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+                {{- with .Values.git.repoUrl }}
+                if [ ! -d {{ $.Values.git.clonePath }}/.git ]; then
+                  git clone {{ . }} {{ $.Values.git.clonePath }}
+                else
+                  git -C {{ $.Values.git.clonePath }} remote set-url origin {{ . }}
+                  git -C {{ $.Values.git.clonePath }} fetch --prune origin || true
+                fi
+                git -C {{ $.Values.git.clonePath }} config user.name {{ $.Values.git.author.name | quote }}
+                git -C {{ $.Values.git.clonePath }} config user.email {{ $.Values.git.author.email | quote }}
+                {{- end }}
+              ) || echo "[seed] WARN: writer git setup failed; agent starting without it"
               {{- end }}
               chown -R {{ .Values.runtime.uid }}:{{ .Values.runtime.gid }} /opt/data
           volumeMounts:
@@ -59,6 +96,11 @@ spec:
               mountPath: /config/config.yaml
               subPath: config.yaml
               readOnly: true
+            {{- if .Values.git.enabled }}
+            - name: git-ssh
+              mountPath: /secrets/git-ssh
+              readOnly: true
+            {{- end }}
       containers:
         {{- if .Values.gatewayProcess.enabled }}
         - name: gateway
@@ -99,6 +141,10 @@ spec:
             - name: DISCORD_HOME_CHANNEL_NAME
               value: {{ .Values.discord.homeChannelName | quote }}
             {{- end }}
+            {{- if .Values.git.enabled }}
+            - name: GIT_SSH_COMMAND
+              value: "ssh -i /opt/data/.ssh/id_ed25519 -o UserKnownHostsFile=/opt/data/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+            {{- end }}
           ports:
             {{- if .Values.dashboard.enabled }}
             - name: http
@@ -117,8 +163,17 @@ spec:
         {{- if .Values.persistence.enabled }}
         - name: state
           persistentVolumeClaim:
-            claimName: hermes-state
+            claimName: {{ .Values.persistence.claimName | default "hermes-state" }}
         {{- end }}
         - name: config
           configMap:
             name: hermes-config
+        {{- if .Values.git.enabled }}
+        - name: git-ssh
+          secret:
+            secretName: {{ .Values.git.ssh.secretName | quote }}
+            defaultMode: 0400
+            items:
+              - key: {{ .Values.git.ssh.secretKey | quote }}
+                path: {{ .Values.git.ssh.secretKey | quote }}
+        {{- end }}

@@ -16,3 +16,14 @@ secret:
     # Filled per-env (.config/<env>/csi-driver-smb-config.yaml) from kubeseal:
     #   { username: "Ag...", password: "Ag..." }
     encryptedData: {}
+
+# Additional StorageClasses sharing the same SMB credentials/share. Each entry
+# renders one StorageClass; the CSI driver gives every PVC its own subdirectory
+# under `source`, so consumers stay isolated even on a shared share.
+# Example:
+#   - name: smb-hermes
+#     source: //192.168.50.102/zeus-data
+#     reclaimPolicy: Retain
+#     uid: 10000
+#     gid: 10000
+extraStorageClasses: []

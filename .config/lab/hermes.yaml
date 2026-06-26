@@ -1,4 +1,8 @@
 # Hermes lab overrides.
+#
+# The single agent is Cortana, promoted into the main deployment. Her base
+# config (persona, voice, MS365, delegation, writer playbook) lives in
+# landingzones/hermes/values.yaml; only environment/secret bits are set here.
 
 gateway:
   parentRef:
@@ -15,119 +19,42 @@ tlsCertificate:
     name: lab-ca-issuer
     kind: ClusterIssuer
 
+# Adopt Cortana's existing state PVC in place (no copy). Argo keeps this PVC
+# when extraAgents.cortana is removed and prunes the old hermes-state instead.
+persistence:
+  claimName: hermes-cortana-state
+
+# Cortana's Discord bot. The sealed blob below was sealed for the secret name
+# `hermes-cortana-discord-token` in namespace hermes, so keep that name.
 discord:
   enabled: true
+  secretName: hermes-cortana-discord-token
+  secretKey: discord-token
+  envName: DISCORD_BOT_TOKEN
+  homeChannel: "1517403545115295764"
+  homeChannelName: cortana
   sealedSecret:
-    encryptedToken: AgAVmgX1yK223dcgIa1IPJAe+apVL5wfHUn+kUrphzY5snxFzrhf35dNLNBHBrEIx0WkeWrQr/A5gMChbfEHMysy3BM2ZRKIt46ly7On8cEsRx/zeHOeOQZfDyWQwOhuPV+/imgOigbsdkYAP9B2dGa/jvCAM7B9GdNbEcCm2TWhFLLt3uwlzGTS/ZU7Y0UEKMhu4Cd5Pd6qD86vjJjm2IC0LqMkHQW9ou7ngPNh08PwwlwNBSejBKpDGhaV2wpeN6qpygoLC2vG4Gt7CXfrKThT3s5HhLvqeAsMjXzVy0UADggBWZfLVU5mp/mziAATkXVf382SIhYMueqtvYZvW2L7z+d5FuCfQg7yMsJC02ZHP4CUcE4KJ6jUZVJa3C8lVTwvnhFlpz0uXNf1Ar2UR2pTljHinIKy0n04/U8EWYmudTI5rCvZe5D8VxrVrtublc0oUOOfl/Z0tGbHHVg0qZESnDRjAX+3PHZOFunA6kr3nBFTIR908V2xjPaU8BgbIbwsBeBR4zaE6h/NBFTHQbq4DUp4PBNkpM9J1pi8p9B2XQEzBuRprS4UKJh8vJ2Bp70tPxg0nAx7m89iKAHQMAHFfm2TdcwCSyiKUp536Jq8oX6slNp5hpwC2vjf3o5NlEDgPsWt2RC046FF2UTJLZnqh1h45eqfV0ECcLDjkO1Ez2MvLWD39IMKFTNi2cqdIge0/FUlNbVFS7l/JAljHWd+BHlcjbrhyO/F8jOQZp67HE8HOzbJlVlsbGcF9T7AuNxFAEuKuVarQz6B0RD4o5SMPzQ+/+XI1dE=
+    encryptedToken: AgB7QEVLxMRCyJX397XLgHmCjxOKuCBu2tUEa266fNYJ5Z3ittorYZAxMs4F1f2Bcu0fpvEFtwDNFwkrrHlqYqutmDpIxOfLRoZRFX1PMx9cxQZo+gmiktqSmoraeD+vSH6Mfbm99CG9AbOz/4J1q9FUbN9TF7uS5RICtfew/TuYwYI266o+owTmjdEfeH6FJQ+i2oGhwDuIht562KUkb7Wrf9HE5Jx0k1LDErjtzpqMsjEEOHFJ4iyb9ONqR2g94eU+b3TDF3PwCkd4oO7MYVRfG7ti3rwR2sKF2SH4yngNajo2rFj/MDwUNaTsQe+SjlHz3zXZmAB31eLxeeTV7gvpAmG5EpGykJOrBYPB5N5Dob+bR3ZaJ1qJ8DTITVV/NPu8EFQX5Mr6Xu/g0Ncz2kE6jqSUjLpLBlWOd2a9GPWSX4Q8Vx9kx3i26ayykJN2LSFXEr7I7OOdNbevrJKPhOe59O13eTm5AIMl+O9dRQHkpNVmjtFYi7afMwnymAny7438zl2zHQalVYYenUyxF41ajPMg97yaZJxlmFb+IynOTO9F8AMjxSB1v6o+vd3gHT4WbBIYpuF0WqQDLv7nL+Nup7CUq487yZ1Oo05J1RDiID0cP1qFTn1a79FoliIZyeoXfYO2OA+oujqEvDl6MDud7QlyYFyHi7wV56T6KonZVCVQ/4JCVSickCdIuFNR+P4+i+8chL/CHhQdCM3GiF32zDXXiHa4Ie8+SoH0R4R9F4QfE7HuAFFf8Ygp0vwf74tbs+oB5emm38iIhPSt17MZfn86F+1MHhY=
 
-extraAgents:
-  cortana:
-    enabled: true
-    discord:
-      enabled: true
-      secretName: hermes-cortana-discord-token
-      secretKey: discord-token
-      envName: DISCORD_BOT_TOKEN
-      homeChannel: "1517403545115295764"
-      homeChannelName: cortana
-      sealedSecret:
-        encryptedToken: AgB7QEVLxMRCyJX397XLgHmCjxOKuCBu2tUEa266fNYJ5Z3ittorYZAxMs4F1f2Bcu0fpvEFtwDNFwkrrHlqYqutmDpIxOfLRoZRFX1PMx9cxQZo+gmiktqSmoraeD+vSH6Mfbm99CG9AbOz/4J1q9FUbN9TF7uS5RICtfew/TuYwYI266o+owTmjdEfeH6FJQ+i2oGhwDuIht562KUkb7Wrf9HE5Jx0k1LDErjtzpqMsjEEOHFJ4iyb9ONqR2g94eU+b3TDF3PwCkd4oO7MYVRfG7ti3rwR2sKF2SH4yngNajo2rFj/MDwUNaTsQe+SjlHz3zXZmAB31eLxeeTV7gvpAmG5EpGykJOrBYPB5N5Dob+bR3ZaJ1qJ8DTITVV/NPu8EFQX5Mr6Xu/g0Ncz2kE6jqSUjLpLBlWOd2a9GPWSX4Q8Vx9kx3i26ayykJN2LSFXEr7I7OOdNbevrJKPhOe59O13eTm5AIMl+O9dRQHkpNVmjtFYi7afMwnymAny7438zl2zHQalVYYenUyxF41ajPMg97yaZJxlmFb+IynOTO9F8AMjxSB1v6o+vd3gHT4WbBIYpuF0WqQDLv7nL+Nup7CUq487yZ1Oo05J1RDiID0cP1qFTn1a79FoliIZyeoXfYO2OA+oujqEvDl6MDud7QlyYFyHi7wV56T6KonZVCVQ/4JCVSickCdIuFNR+P4+i+8chL/CHhQdCM3GiF32zDXXiHa4Ie8+SoH0R4R9F4QfE7HuAFFf8Ygp0vwf74tbs+oB5emm38iIhPSt17MZfn86F+1MHhY=
-    persistence:
-      size: 5Gi
-    config:
-      display:
-        skin: ares
-      model:
-        default: gpt-5.4-mini
-        provider: openai-api
-        base_url: https://api.openai.com/v1
-      terminal:
-        backend: local
-        cwd: /opt/data/workspace
-        timeout: 180
-        home_mode: profile
-      platform_toolsets:
-        discord:
-          - hermes-discord
-      platforms:
-        discord:
-          enabled: true
-          home_channel:
-            platform: discord
-            chat_id: "1517403545115295764"
-            name: cortana
-      plugins:
-        enabled:
-          - platforms/discord
-        disabled: []
-      discord:
-        require_mention: false
-        auto_thread: false
-        dm_policy: allowlist
-        allow_from:
-          - "105261851956224000"
-        allowed_channels:
-          - "1517403545115295764"
-          - "1511628794849660990"
-        free_response_channels:
-          - "1517403545115295764"
-          - "1511628794849660990"
-        no_thread_channels:
-          - "1517403545115295764"
-          - "1511628794849660990"
-        gateway_restart_notification: false
-      tts:
-        provider: openai
-        openai:
-          model: gpt-4o-mini-tts
-          voice: nova
+# No additional standalone agents — Cortana is the only agent now.
+extraAgents: {}
 
-      stt:
-        enabled: true
-        provider: openai
-        openai:
-          model: gpt-4o-mini-transcribe
-      voice:
-        enabled: true
-        auto_tts: true
-        listen: true
-      agent:
-        system_prompt: |-
-          You are Cortana, a voice-first Hermes agent in Discord.
-          You are separate from the main Hermes bot and act as the dedicated
-          personal assistant for the Cortana channel.
+# --- Writer subagent git target -------------------------------------------
+# Cortana delegates blog/article writing to a subagent that commits here.
+# The private deploy key is sealed for secret hermes-writer-git-ssh (key
+# id_ed25519) in namespace hermes; add the matching public key to the repo as a
+# WRITE deploy key before the first sync.
+git:
+  enabled: true
+  repoUrl: git@github.com:jellebens/blog.git
+  branch: main
+  postsSubdir: content/posts
+  ssh:
+    sealedSecret:
+      encryptedKey: AgC2i4UYp3LeQqvORRM9I/ZLtRT16Ny5mqm4vuMajDh9Awznkg+/NL9Hk4EqaTD+Cpcpy8IOcUTtnQmuinp+nPdg4AnTOv+I2wVkWavqnEq0ylOa24ADyyE8qcTMBH9Tyuj5kuqcwajYGjpbm/QhMKwGx3BkSqKKBoqOwPDr+5WNep9lUHFgzAu8Q2bd6D/cH70vAjXCFDJZYllYFLypEyPBVKd5anY8oGZr2WCAsNm1Orni0LsrlFu3xTA+A4jiah9wqGu/L9U5ZbHVjX6FTbDkYdxkehJ4H6KfXLa8Kc8K1spHR0Za4FtzWLGX68jkULQYkzUdly515hU40bf7XZqJ/t7WQHWHrNWupDVpBM0CiqnQjeGEjuQnaNi/BKPSdwBdbk+lQxeSwj7Ofvj+C1vYqCSeqT80mLyFBEOeAdi6M0FLA/DnMQKX01k6pnw3uqyg0fKo/HhzoQgEUTiC+UPszY+YUnFUJhhe8EUEY4KmrrcG2jQ1R6drgFJBMsNrhHWQ5gGv0d7f3bnhcybFlEyk2Cugyz4rDWkXEemTinodGvequ+oXtVp6Rngv083Hpa5y7pTK3LfYjo8uKtKfXwv0xTSH+HooVahY04ULeC8YGf11y0L/1W5oxxvdMox94rJpT/P8Y8FaI/r8J5zYIRenXkMfUlXNikRYd2B3j/fIZcrwyMN1aVT7IeQkp0iauDDpw2cED7JFcETfSINjDXmnpMVfPbOWOEDlE0opm9kX/C3wCrgawtTDvYiyW0PYFN1463usxLBiLOwrzZjqhD/GbJMvo5lV53DOIW84w4xXQ6pZYvDCtcNIPPeszIwVOa72w044JeRO2a0dkSRDmb5TabVY5rLf9+3jKmds3CxvKZx1QFt/GdLy09Q1ymtU0xoiWWZ3Dq6SMJnxXJHevacq46w+WCHXynzkU3yfkmfO963yGWgfzuw+Fi+gQ0ppXbhp1Uz/5LZ/JmI5NUoYLpbrbqcbkPEmPa+odq4k1JwJdmrw57eKHnODBITwillt2WFbdvnxCWqshQf1was8phMn5K+1LuISoLqATmOh8XuLUUNWpwDx9ihZZL3YNUx36jgDejTMRsATOz8tZuo86mPgdkyhWhzuLuXMkw98uu/9XzlL5RRehoMEmuUsnHvvDtv6H09bSk9UQfe1WwTrKdEoGH4e8bWKhvNhfaALl2kbMZq7flKSBt0HiUxBSSQpfYe7kuIqcS3okQypOWlgjrRKXsG2ss5on9/i8yW3qfyeg0OHxNQ8MHPvxyAlrYY6icFg/u0uCoWwktM0HZRGQPUU2uab9w==
 
-          Your current focus is personal assistance: help manage calendar
-          events, mail, reminders, and todos. In the future this agent may
-          coordinate more specialized sub-agents, but for now keep your own
-          behavior centered on the personal assistant role.
-
-          Voice is a first-class interface. When connected through Discord
-          voice, listen for spoken requests and prefer concise, natural spoken
-          responses unless the user explicitly asks for detail, code, or a
-          written artifact.
-
-          Learn from repeated corrections, preferences, routines, names,
-          locations, working hours, and communication style. Use memory and the
-          user profile to personalize future replies, but do not invent facts
-          or silently treat one-off requests as permanent preferences. Ask
-          before storing or acting on sensitive personal, financial, medical,
-          legal, credential, or access-control information.
-
-          Confirm before sending mail, deleting or moving mail, creating or
-          changing calendar commitments, or creating todos with external impact.
-      toolsets:
-        - hermes-cli
-        - mcp
-      mcp:
-        servers:
-          m365-mcp:
-            command: npx
-            args:
-              - -y
-              - ms365-mcp
-            env:
-              HOME: /opt/data/home
-      memory:
-        memory_enabled: true
-        user_profile_enabled: true
+# --- Nightly SQLite-safe backup to SMB ------------------------------------
+# SQLite (WAL) can't live on CIFS; live state stays on local-path and is backed
+# up to the smb-hermes StorageClass nightly via the online .backup API.
+backup:
+  enabled: true

@@ -1,0 +1,17 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-backup
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: hermes
+    app.kubernetes.io/part-of: hermes
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.backup.storageClassName | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.size }}
+{{- end }}
