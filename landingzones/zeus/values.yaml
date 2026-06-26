@@ -8,7 +8,9 @@ replicaCount: 1
 # Prometheus scraping via the Prometheus Operator (kube-prometheus-stack).
 serviceMonitor:
   enabled: true
-  interval: 60s
+  # 15s for a near-real-time kiosk (the scrape interval is the freshness ceiling,
+  # not the poll). See ADR-0003. Overrides the 30s global scrapeInterval for zeus.
+  interval: 15s
   # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
   releaseLabel: kube-prometheus-stack
 
@@ -169,8 +171,10 @@ config:
     interval_minutes: 60
     dry_run: false # LIVE actuation
     # Re-plan early (between hourly cycles) when the live load drops, e.g. the A/C
-    # cycles off and charge headroom opens under the 7A import cap.
-    poll_seconds: 120
+    # cycles off and charge headroom opens under the 7A import cap. Also refreshes
+    # the live (measured) metrics each poll -> 10s for a near-real-time kiosk
+    # (ADR-0003). Each poll makes a few HA reads, so don't push this much lower.
+    poll_seconds: 10
     replan_load_drop_kw: 0.4
   metrics:
     enabled: true
