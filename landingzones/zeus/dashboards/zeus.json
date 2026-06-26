@@ -1051,7 +1051,8 @@
           }
         }
       ]
-    }
+    },
+    0
   ],
   "refresh": "1m",
   "schemaVersion": 39,
