@@ -54,6 +54,18 @@ spec:
           annotations:
             summary: Zeus cannot control the battery
             description: The control entity (working-mode select) has been unavailable for 10m; zeus charge/discharge commands have no effect.
+        - alert: ZeusOptimizerNotOptimal
+          # The LP solver returned a non-Optimal status (e.g. Infeasible), so zeus
+          # is running on the price-percentile fallback rather than a real plan.
+          # Usually a bad/over-stated forecast or mis-set bound. Savings degrade
+          # until fixed.
+          expr: zeus_solver_optimal == 0
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus optimizer not solving to optimality
+            description: The dispatch LP has been non-Optimal for 20m; zeus is on the price-percentile fallback (charge cheap / discharge expensive) instead of an optimized plan.
         - alert: ZeusBatteryStateMismatch
           # Measured battery mode disagrees with the commanded mode -> actuation is
           # likely failing or another controller is driving the battery. Covers:

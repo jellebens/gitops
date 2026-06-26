@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.32"
+  tag: "0.1.33"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -130,12 +130,12 @@ config:
     export_price: 0.0
   optimizer:
     horizon_hours: 36
-    # TEMPORARILY back to 60-min: the 15-min switch inflated the load forecast
-    # (forecaster returns per-hour kWh; at 15-min each slot got ~4x the real
-    # energy), which exceeded the import cap and made the LP infeasible -> the
-    # battery sat in PASSTHROUGH at peak price. Re-enable 15-min once the
-    # forecaster is made slot-duration aware.
-    slot_minutes: 60
+    # 15-min to match Nord Pool's 15-min settlement: the optimizer sees the
+    # intra-hour spread and the "current price" is the live quarter. 36h -> 144
+    # slots, ~40ms solve. Safe since 0.1.33: the load forecast is slot-duration
+    # aware (forecasts hourly, expands to slots scaling by duration) and a
+    # non-Optimal solve falls back to a price heuristic instead of PASSTHROUGH.
+    slot_minutes: 15
     # Battery-wear cost per kWh of throughput (charge+discharge each). Set to a
     # realistic LFP degradation cost so zeus only cycles when the price spread
     # clearly beats wear + round-trip losses (big-spread days), not for pennies.
@@ -169,7 +169,7 @@ config:
     # Battery only charges from grid and powers critical loads -> arbitrage model.
     mode: arbitrage
   run:
-    # 15-min cadence is harmless with the 60-min grid (just re-plans more often).
+    # Re-plan + actuate every 15 min to follow the 15-min market price blocks.
     interval_minutes: 15
     dry_run: false # LIVE actuation
     # Re-plan early (between cycles) when the live load drops, opening charge
