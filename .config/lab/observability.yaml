@@ -18,6 +18,23 @@ grafana:
     userKey: admin-user
     passwordKey: admin-password
 
+  # InfluxDB admin token (observability/grafana-influxdb-token) injected as env
+  # INFLUXDB_TOKEN; the datasource references it as $INFLUXDB_TOKEN so the token
+  # is never stored in plaintext in the provisioned datasource.
+  envFromSecret: grafana-influxdb-token
+
+  additionalDataSources:
+    - name: InfluxDB
+      type: influxdb
+      access: proxy
+      url: http://influxdb-influxdb2.influxdb
+      jsonData:
+        version: Flux
+        organization: zeus
+        defaultBucket: zeus
+      secureJsonData:
+        token: $INFLUXDB_TOKEN
+
   persistence:
     enabled: true
     type: pvc

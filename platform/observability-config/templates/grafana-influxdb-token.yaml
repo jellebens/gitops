@@ -1,0 +1,16 @@
+# InfluxDB admin token for the Grafana InfluxDB datasource. Mounted into Grafana
+# as env INFLUXDB_TOKEN (grafana.envFromSecret) and referenced by the datasource
+# as $INFLUXDB_TOKEN. Sealed copy of influxdb/influxdb-auth:admin-token.
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: grafana-influxdb-token
+  namespace: observability
+spec:
+  encryptedData:
+    INFLUXDB_TOKEN: AgC1v0S+wk2uWtsR7Uk3U6m+AR/ll4YFyIEyed/vDmgwDqovI3k8zyFVgz2zG4IyaCYlPZhvyUpDEgpu/aVNQSpqTZluLe7fvN1gZhZwaWAlR+DY/UbTC5CLFhuLqjJAA9YRN1btEWcDCL/cF38/dExM+xIG9MbwDzyZHm6SNk9avggOoWX8FMH2O3+mRLi2zL40JEyKai3/nRnOpnNohZluiwrLLc0fPhoUZQQuOg84kf4MsV5M9/Z7n756WgZupq9ZURRCRbiPuFYmDc5lvg8KAOyoi8d78GF8A/wfN68+vVCCpQHY9W7eQD8SozttQOOc6G8wDP+metT5Feciv4eA69MTcz2ADpCcN/hnppEv49gqDtRkrVBcQXvWPjuhfvsnpqXuAogz6Y/+/xSvhG2A6238ov+GTStIaT1CRo/lijVWbdz3pZheQUzhe2I+ubRu6o8zy0MgkOc6fc/rocNStw/fsus5vPgoEncvi2WWxKypIPcImyST0TkJcRy+p+iYu1iDIOWFQ4heQX8RiVAn+i/FH4tj4wRZFio8WzIBmG10mVWVA2dtmSCSfmOFZKPBGawzXnzlkxc7KlippEFojZDM9hMsVxdnT8oLuEjejuiVmBMwVsh5RhujmjPw+uXDiLKIlN3gZclz6ljRJqlIdqzlsI/AF5zbGAu+hh8xxyCFA1b9ekkSiA35vyGK+qb2ojb3FjDrsqQSiHwTaBCGY6EK20Vtk4w8ZBa7HRmDzIGxQb7CBlQoSlIVDqmlhnwIvc/gtkFKgnPZnBSuqmHs
+  template:
+    metadata:
+      name: grafana-influxdb-token
+      namespace: observability
+    type: Opaque
