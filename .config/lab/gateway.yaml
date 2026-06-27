@@ -27,6 +27,16 @@ gateway:
             kind: Secret
             name: hermes-server-tls
             namespace: hermes
+    - name: influxdb-https
+      port: 443
+      hostname: influxdb.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: influxdb-server-tls
+            namespace: influxdb
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -56,4 +66,14 @@ routes:
       - grafana.lab.local
     backend:
       name: kube-prometheus-stack-grafana
+      port: 80
+
+  - name: influxdb
+    namespace: influxdb
+    listeners:
+      - influxdb-https
+    hostnames:
+      - influxdb.lab.local
+    backend:
+      name: influxdb-influxdb2
       port: 80

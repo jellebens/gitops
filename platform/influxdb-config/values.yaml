@@ -7,3 +7,17 @@ secret:
   namespace: influxdb
   sealedSecret:
     encryptedData: {}
+
+# TLS cert (lab CA) for exposing InfluxDB on the shared gateway so Home Assistant
+# (outside the cluster) can write to it. Secret consumed by the gateway listener.
+tlsCertificate:
+  enabled: true
+  secretName: influxdb-server-tls
+  commonName: influxdb.lab.local
+  dnsNames:
+    - influxdb.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
