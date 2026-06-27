@@ -21,3 +21,13 @@ tlsCertificate:
   issuerRef:
     name: lab-ca-issuer
     kind: ClusterIssuer
+
+# Nightly `influx backup` to the NAS (smb StorageClass) — durable archive +
+# disaster recovery + the migration vehicle to Proxmox/Ceph (see ADR-0009).
+backup:
+  enabled: true
+  schedule: "30 3 * * *" # 03:30 daily
+  retentionDays: 14
+  storageClass: smb
+  size: 10Gi
+  image: influxdb:2.7
