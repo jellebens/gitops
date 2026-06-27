@@ -108,13 +108,13 @@ config:
     # Fluvius digital-meter running monthly peak grid power (kW) -> the
     # capaciteitstarief is billed on this. Recorded as zeus_capacity_peak_kw.
     capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
-    # Aeotec Home Energy Meter on the grid mains: live whole-home grid power (W).
-    # net = import - export, published as zeus_grid_power_w for live capacity-peak
-    # tracking. Re-paired 2026-06-27 (old node froze) -> new "utility_room" names.
-    # Clamp still reads reversed (import lands in "production" while Fluvius shows
-    # zero injection), so the registers are swapped: "production" is real import.
-    grid_power_import: sensor.utility_room_home_energy_meter_electric_production_w
-    grid_power_export: sensor.utility_room_home_energy_meter_electric_consumption_w
+    # Aeotec Home Energy Meter on the grid mains: live whole-home grid power (W),
+    # published as zeus_grid_power_w for live capacity-peak tracking. Re-paired
+    # 2026-06-27 (old node froze) -> "utility_room" names; clamp now oriented
+    # correctly (import lands in consumption). No export at this site (no solar;
+    # Fluvius injection always 0), so export is left unset and zeus_grid_power_w =
+    # consumption — this also dodges the meter's stale-register residue.
+    grid_power_import: sensor.utility_room_home_energy_meter_electric_consumption_w
   # LIVE: zeus drives this select. The previous price automations must stay
   # disabled to avoid two controllers fighting the battery.
   control:
