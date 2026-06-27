@@ -25,6 +25,7 @@ grafana:
 
   additionalDataSources:
     - name: InfluxDB
+      uid: influxdb
       type: influxdb
       access: proxy
       url: http://influxdb-influxdb2.influxdb
