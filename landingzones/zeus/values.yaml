@@ -110,9 +110,11 @@ config:
     capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
     # Aeotec Home Energy Meter Gen5 on the grid mains: live whole-home grid power
     # (W). net = import - export, published as zeus_grid_power_w for live
-    # capacity-peak tracking.
-    grid_power_import: sensor.home_energy_meter_gen5_electric_consumption_w
-    grid_power_export: sensor.home_energy_meter_gen5_electric_production_w
+    # capacity-peak tracking. NB: the clamp reads reversed (it reported 411 W
+    # "production"/export while the Fluvius meter showed zero injection), so the
+    # registers are swapped here — "production" is the real grid import.
+    grid_power_import: sensor.home_energy_meter_gen5_electric_production_w
+    grid_power_export: sensor.home_energy_meter_gen5_electric_consumption_w
   # LIVE: zeus drives this select. The previous price automations must stay
   # disabled to avoid two controllers fighting the battery.
   control:
