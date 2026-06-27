@@ -1,23 +1,10 @@
 # InfluxDB admin credentials (influxdb/influxdb-auth), sealed via kubeseal.
 # Keys consumed by the influxdb2 chart's adminUser.existingSecret:
-#   admin-password  — the admin user's password
-#   admin-token     — the admin API token (used by Grafana / HA / zeus)
-#
-# Seal each value for namespace=influxdb name=influxdb-auth (controller is
-# sealed-secrets in namespace argocd), then paste the blobs below:
-#
-#   echo -n '<strong-password>' | kubeseal --raw \
-#     --controller-name sealed-secrets --controller-namespace argocd \
-#     --namespace influxdb --name influxdb-auth
-#
-#   openssl rand -hex 32 | tr -d '\n' | kubeseal --raw \
-#     --controller-name sealed-secrets --controller-namespace argocd \
-#     --namespace influxdb --name influxdb-auth
-#
-# Until both are filled in, the SealedSecret renders empty and InfluxDB stays
-# Pending (waiting on the influxdb-auth secret).
+#   admin-password, admin-token. Randomly generated + sealed 2026-06-28.
+# To retrieve the plaintext later (InfluxDB UI login / minting client tokens):
+#   kubectl -n influxdb get secret influxdb-auth -o jsonpath='{.data.admin-token}' | base64 -d
 secret:
   sealedSecret:
-    encryptedData: {}
-      # admin-password: "Ag..."
-      # admin-token: "Ag..."
+    encryptedData:
+      admin-password: "AgC8e0QFOQNTmYNCIRGRiL7buTG/MVt065PzT+C42dVKHPoOGiWeR1qEmtMxCKc3dwfZCodt4HBcSrwTux+MiHeatLonvDW1/j2H80sdEBFLKdAly+Hr/HTaw4LCpU4fJExx6N3TS0Fd9y43Y2IlgvNz6vKyCm8RsOWhSWfAQvh+SbXSei38HsPhXZ1DEb9WVh64nyOvcCCxwYJTkchsXtGh/BFUMTJv0fCoQbOr6YvUm4W9yYQmVoifwp0uQs0OylPRgMbc34VJf+Xc0ghLn6irLb9RHXc+FjvHNxszl13WVVD9iVZThl65ouBTrt0rjECRSa4qXJKeNCuC5eQTWedjdl2xNh5PE5+BjCHD+cXmginWyPGyK+8H+3Dq2t2sTl6MHOhJqBLZdIESuIf0G3Jwm1P+2QB9/RvMpKborhCy5i7XK2ruW05oimGfvZi+JoLTcCFhtuL8WZJozX9Kp6W91ggVEt2Cu4KvAYKcqRKDpGqccWq8cd3DdExYh/MTirqDujGf1FGM7gVCbknHnYBp1VufcIyaTOwXWgafTK/GcMMDgt3vt/As9yl1Zhh3w/7gcNjzwSl8wNFJBXnePhwRAkiZTXuAVA8hXGxxW3XMAEvfgt5oHuuH9JopLOmIOKACAVaZBBgkUsN5db7Zenn8JIiggw/MwdjFJxdT4dlfAnVaWBYAAFGszEVFJSpmKEjRmpUvBHu6M57L3z6r95tNrEv6ztVWJWJQrSoUX0hm5Q=="
+      admin-token: "AgCu5FusSahEvD7Gh11JFm3643RHh+aUhnbphXqpIJ6p51kL5t6wFW9uZkxUbKmVXgNXZxlxjiJnRJesVpB43ZjE8Ian04doum7ueepkZHZf/qgGtFJ8VJwCaL1RJDVdc2ruX/HJOa66gJ0ncy4hbI5vbckLdBGnUMgm0YMeS/ekN95smtZF+RsdPp4yOG5m4XxMfmHU5Kf9LTFeoGB3HiFGF35j3BDEt9QhsXqZTfTuPoeg7Pyp52G63ls2c3wj1Zljs2xleICfD4TqrOW3Uk8J/tRePp6q42Lo5jxj1/9bRDx8or1MY/qyvyQeSKnAHyWffa+B807Mdvc2ytx0DGoTcmrgk4GvrqUOBWkjKmxnTOg5lOcyChk9a9oAWneswh2UF4O42A+do3t45aZF/coYavbs09gNCUTGmS219yW6NwBLm3JDr6GRa43VeTmgK6LyXKegZ3jM1h4vD1SXSGWkC39lWZUlerY3lyWI1aE+w/9YH5mSx6ky+rd6dy0AxehBIgzqltkQCxNGsm9gJf7fQQ76q7Duh5OY3J6qPfjSmc+6+kPWAkTQImQ/8BoNrgZ5/yb1/sUsb6N3Y/dPGHN46ZSRf+kOOmT1KxZntXZz+juBjf7cXro/uaqfV6OgnrmBkuNj1HeKWUKjvHySaggXGK8SzB+nu1pDcfGEZ36G3PhSJ+6TXqF4J+M+Ok24oWcZoMB+d9l77J5+vva05qdWgUB7/ShZyVR8O8Yv7tH5vrqhkI8QXVSB24Zk9geMNfdiDVkb30IB+ARHJoWzT5NF"
