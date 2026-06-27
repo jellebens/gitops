@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.36"
+  tag: "0.1.37"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -188,6 +188,10 @@ config:
     # HA reads, so don't push this much lower.
     poll_seconds: 10
     replan_load_drop_kw: 0.4
+    # The Aeotec HEM doesn't push live Watts reliably, so actively poll it every
+    # 60s (it answers polls fine) to keep zeus_grid_power_w fresh for the capacity
+    # cross-check. 60s gives ~15 samples per quarter for the 15-min average.
+    grid_power_poll_seconds: 60
   metrics:
     enabled: true
     port: 9000
