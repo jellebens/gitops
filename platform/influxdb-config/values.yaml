@@ -1,0 +1,9 @@
+# Admin credentials for InfluxDB, consumed by the influxdb2 chart's
+# adminUser.existingSecret. Keys: admin-password, admin-token.
+# The actual sealed values are provided per-environment in
+# .config/<env>/influxdb-config.yaml.
+secret:
+  name: influxdb-auth
+  namespace: influxdb
+  sealedSecret:
+    encryptedData: {}

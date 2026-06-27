@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: influxdb
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Durable time-series store. After its sealed creds (influxdb-config, wave 17)
+    # and before workloads that write to it (zeus, wave 30).
+    argocd.argoproj.io/sync-wave: "18"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: influxdb
+  sources:
+    - repoURL: {{ .Values.repos.influxdb.url | quote }}
+      chart: influxdb2
+      targetRevision: {{ .Values.repos.influxdb.targetRevision | quote }}
+      helm:
+        releaseName: influxdb
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/influxdb.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

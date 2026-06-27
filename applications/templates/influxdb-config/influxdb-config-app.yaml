@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: influxdb-config
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Sealed admin creds (influxdb/influxdb-auth) — before the influxdb chart
+    # (wave 18) consumes them via adminUser.existingSecret.
+    argocd.argoproj.io/sync-wave: "17"
+spec:
+  project: platform-services
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      path: platform/influxdb-config
+      helm:
+        releaseName: influxdb-config
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/influxdb-config.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: influxdb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

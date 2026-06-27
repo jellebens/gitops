@@ -1,0 +1,6 @@
+apiVersion: v2
+name: influxdb-config
+description: InfluxDB admin credentials (SealedSecret) for the influxdb2 chart
+type: application
+version: 0.1.0
+appVersion: "2.7"

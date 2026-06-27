@@ -1,0 +1,31 @@
+# InfluxDB 2.x (influxdata influxdb2 chart) — durable time-series store for
+# zeus savings/forecast history, long-term sensor history, capacity tracking.
+#
+# DB files live on NODE-LOCAL storage (local-path), NOT the SMB share: databases
+# need block/POSIX semantics (mmap, flock, fsync) that SMB doesn't provide, and
+# the share has proven flaky. Durability/migration comes from scheduled backups
+# to the NAS (follow-up), and the future Proxmox+Ceph move is a StorageClass swap.
+#
+# Admin password + token come from the influxdb-auth SealedSecret (see the
+# influxdb-config app). InfluxDB will stay Pending until that secret exists.
+adminUser:
+  organization: zeus
+  bucket: zeus
+  user: admin
+  retention_policy: "0s" # infinite at the bucket level; tune retention later
+  # Secret with keys: admin-password, admin-token
+  existingSecret: influxdb-auth
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

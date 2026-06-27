@@ -1,0 +1,23 @@
+# InfluxDB admin credentials (influxdb/influxdb-auth), sealed via kubeseal.
+# Keys consumed by the influxdb2 chart's adminUser.existingSecret:
+#   admin-password  — the admin user's password
+#   admin-token     — the admin API token (used by Grafana / HA / zeus)
+#
+# Seal each value for namespace=influxdb name=influxdb-auth (controller is
+# sealed-secrets in namespace argocd), then paste the blobs below:
+#
+#   echo -n '<strong-password>' | kubeseal --raw \
+#     --controller-name sealed-secrets --controller-namespace argocd \
+#     --namespace influxdb --name influxdb-auth
+#
+#   openssl rand -hex 32 | tr -d '\n' | kubeseal --raw \
+#     --controller-name sealed-secrets --controller-namespace argocd \
+#     --namespace influxdb --name influxdb-auth
+#
+# Until both are filled in, the SealedSecret renders empty and InfluxDB stays
+# Pending (waiting on the influxdb-auth secret).
+secret:
+  sealedSecret:
+    encryptedData: {}
+      # admin-password: "Ag..."
+      # admin-token: "Ag..."
