@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.38"
+  tag: "0.1.39"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -71,6 +71,14 @@ config:
     password: "${MQTT_PASS}"
     discovery_prefix: homeassistant
     base_topic: zeus
+  # Durable long-term series + FUTURE-dated forecast curves (Prometheus can't
+  # store the future). Token injected via the zeus-secrets envFrom (INFLUXDB_TOKEN).
+  influx:
+    enabled: true
+    url: http://influxdb-influxdb2.influxdb
+    org: zeus
+    bucket: zeus
+    token: "${INFLUXDB_TOKEN}"
   battery:
     usable_capacity_kwh: 13.0 # Apex 300 + 2x B500K
     # AC input capped at 10 A (~2.2 kW), shared by passthrough load + charging,
