@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.39"
+  tag: "0.1.40"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -97,6 +97,11 @@ config:
     # arbitrage never drains the critical-load battery's backup. Tune to taste
     # (higher = more backup, less arbitrage headroom).
     backup_reserve_pct: 30
+    # Weather-dependent reserve: on hot days (max horizon temp >= 25C, when A/C
+    # dominates and outages are less likely) relax the reserve to 10% for more
+    # usable capacity. Set hot_weather_temp_c: 0 to disable.
+    hot_weather_temp_c: 25
+    hot_weather_reserve_pct: 10
   entities:
     soc: sensor.ap3002532000565690_battery_level
     grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
