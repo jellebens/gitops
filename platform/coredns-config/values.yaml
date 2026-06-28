@@ -1,0 +1,16 @@
+# Custom CoreDNS server blocks, delivered via the k3s `coredns-custom` ConfigMap
+# (mounted at /etc/coredns/custom; the Corefile does `import .../*.server`).
+#
+# Each entry renders one standalone `<name>:53` server block that forwards that
+# name to an upstream resolver. We forward *specific* FQDNs, NOT the whole
+# `local` zone: cluster.local is a sub-zone of .local, and a blanket `local:53`
+# block would win the longest-suffix match for every `*.svc.cluster.local`
+# query and break in-cluster service discovery. Scope each forward to the exact
+# host instead.
+#
+# Real values come from .config/<env>/coredns-config.yaml.
+forwards: []
+# Example:
+# forwards:
+#   - name: vesta.local      # the FQDN to resolve in-cluster
+#     to: 192.168.50.1       # upstream resolver that knows it (router/Pi-hole)

@@ -1,0 +1,23 @@
+{{- /*
+k3s reads extra CoreDNS server blocks from the `coredns-custom` ConfigMap in
+kube-system (Corefile: `import /etc/coredns/custom/*.server`). Keys ending in
+`.server` become top-level server blocks; CoreDNS's `reload` plugin picks up
+changes within ~30s (no pod restart needed).
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: coredns
+data:
+{{- range .Values.forwards }}
+  {{ .name }}.server: |
+    {{ .name }}:53 {
+        errors
+        cache 30
+        forward . {{ .to }}
+    }
+{{- end }}

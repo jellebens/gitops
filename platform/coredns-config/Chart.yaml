@@ -1,0 +1,6 @@
+apiVersion: v2
+name: coredns-config
+description: CoreDNS custom server blocks (coredns-custom) — forward home LAN .local names to the router resolver
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

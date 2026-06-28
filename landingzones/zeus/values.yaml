@@ -61,11 +61,11 @@ secret:
 # config.example.yaml. Override per environment in .config/<env>/.
 config:
   home_assistant:
-    base_url: "http://192.168.50.18:8123"  # vesta.local (mDNS) no longer resolves via cluster DNS
+    base_url: "http://vesta.local:8123"  # resolved in-cluster via coredns-config (forwards vesta.local -> router)
     token: "${HA_TOKEN}"
     verify_ssl: true
   mqtt:
-    host: 192.168.50.18  # vesta.local (mDNS) no longer resolves via cluster DNS
+    host: vesta.local  # resolved in-cluster via coredns-config (forwards vesta.local -> router)
     port: 1883
     username: "${MQTT_USER}"
     password: "${MQTT_PASS}"

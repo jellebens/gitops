@@ -1,0 +1,7 @@
+# coredns-config value overrides for the lab env.
+# Forward specific home LAN .local FQDNs to the router resolver (it knows them
+# from the DHCP leases). Scope to exact hosts — never the whole `local` zone
+# (that would shadow cluster.local and break in-cluster service discovery).
+forwards:
+  - name: vesta.local        # Home Assistant + MQTT host (DHCP-reserved 192.168.50.18)
+    to: 192.168.50.1         # router resolves vesta.local -> 192.168.50.18
