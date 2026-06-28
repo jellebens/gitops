@@ -1,0 +1,217 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Daily savings (€) — green = savings, red = loss",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "green", "value": 0 } ] },
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "barAlignment": 0, "showPoints": "never", "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> aggregateWindow(every: 1d, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sort(columns: [\"_time\"])" } ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Cumulative savings (€) — rolling window",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 25, "gradientMode": "opacity", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> aggregateWindow(every: 1d, fn: last, createEmpty: false)\n  |> sort(columns: [\"_time\"])\n  |> cumulativeSum(columns: [\"_value\"])\n  |> keep(columns: [\"_time\", \"_value\"])" } ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Time in mode per day (hours) — charging / passthrough / discharging",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h", "decimals": 1, "min": 0, "max": 24,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "barAlignment": 0, "axisSoftMax": 24, "showPoints": "never", "axisPlacement": "auto", "stacking": { "mode": "normal", "group": "A" } },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "charging" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "passthrough" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byName", "options": "discharging" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": { "legend": { "showLegend": true, "calcs": [ "sum" ], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_mode_code\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"mode_code\")\nunion(tables: [hist, live])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r._value == 1.0 then 1.0 else 0.0}))\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: r._value * 24.0, mode: \"charging\"}))\n  |> keep(columns: [\"_time\", \"_value\", \"mode\"])" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_mode_code\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"mode_code\")\nunion(tables: [hist, live])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r._value == 0.0 then 1.0 else 0.0}))\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: r._value * 24.0, mode: \"passthrough\"}))\n  |> keep(columns: [\"_time\", \"_value\", \"mode\"])" },
+        { "refId": "C", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_mode_code\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"mode_code\")\nunion(tables: [hist, live])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r._value == 2.0 then 1.0 else 0.0}))\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: r._value * 24.0, mode: \"discharging\"}))\n  |> keep(columns: [\"_time\", \"_value\", \"mode\"])" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Load cost: actual vs forecast (€/day)",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 9, "w": 18, "x": 0, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 2,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 0, "showPoints": "auto", "pointSize": 6, "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Actual €/day" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }, { "id": "custom.fillOpacity", "value": 25 } ] },
+          { "matcher": { "id": "byName", "options": "Forecast €/day" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }, { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [ 10, 6 ] } } ] }
+        ]
+      },
+      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "load_h = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\nload_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_realized_load_kwh\" and r._field == \"value\")\nload = union(tables: [load_h, load_i]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"kwh\"})\nprice_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_import_price_eur_per_kwh\" and r._field == \"value\")\nprice_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"import_price_eur\")\nprice = union(tables: [price_i, price_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"price\"})\njoin(tables: {l: load, r: price}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.kwh * r.price}))\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false)\n  |> set(key: \"_field\", value: \"Actual €/day\")\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "fl_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_forecast_load_kwh\" and r._field == \"value\")\nfl_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_forecast\" and r._field == \"load_kwh\")\nload = union(tables: [fl_i, fl_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"kwh\"})\nprice_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_import_price_eur_per_kwh\" and r._field == \"value\")\nprice_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"import_price_eur\")\nprice = union(tables: [price_i, price_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"price\"})\njoin(tables: {l: load, r: price}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.kwh * r.price}))\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false)\n  |> set(key: \"_field\", value: \"Forecast €/day\")\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Forecast error in € (selected range, daily)",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 9, "w": 6, "x": 18, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 2 } ] },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Total €" }, "properties": [ { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 15 }, { "color": "red", "value": 30 } ] } } ] }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value_and_name", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "load_h = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\nload_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_realized_load_kwh\" and r._field == \"value\")\nload = union(tables: [load_h, load_i]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"kwh\"})\nfl_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_forecast_load_kwh\" and r._field == \"value\")\nfl_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_forecast\" and r._field == \"load_kwh\")\nfload = union(tables: [fl_i, fl_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"fkwh\"})\nprice_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_import_price_eur_per_kwh\" and r._field == \"value\")\nprice_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"import_price_eur\")\nprice = union(tables: [price_i, price_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"price\"})\na = join(tables: {l: load, r: price}, on: [\"_time\"]) |> map(fn: (r) => ({_time: r._time, _value: r.kwh * r.price})) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"act\"})\nf = join(tables: {l: fload, r: price}, on: [\"_time\"]) |> map(fn: (r) => ({_time: r._time, _value: r.fkwh * r.price})) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"fc\"})\njoin(tables: {a: a, f: f}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r.act - r.fc >= 0.0 then r.act - r.fc else r.fc - r.act}))\n  |> mean()\n  |> set(key: \"_field\", value: \"MAE €/day\")\n  |> keep(columns: [\"_value\", \"_field\"])" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "load_h = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\nload_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_realized_load_kwh\" and r._field == \"value\")\nload = union(tables: [load_h, load_i]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"kwh\"})\nfl_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_forecast_load_kwh\" and r._field == \"value\")\nfl_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_forecast\" and r._field == \"load_kwh\")\nfload = union(tables: [fl_i, fl_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"fkwh\"})\nprice_i = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_import_price_eur_per_kwh\" and r._field == \"value\")\nprice_l = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"import_price_eur\")\nprice = union(tables: [price_i, price_l]) |> group() |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"price\"})\na = join(tables: {l: load, r: price}, on: [\"_time\"]) |> map(fn: (r) => ({_time: r._time, _value: r.kwh * r.price})) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"act\"})\nf = join(tables: {l: fload, r: price}, on: [\"_time\"]) |> map(fn: (r) => ({_time: r._time, _value: r.fkwh * r.price})) |> aggregateWindow(every: 1d, fn: sum, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"fc\"})\njoin(tables: {a: a, f: f}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r.act - r.fc >= 0.0 then r.act - r.fc else r.fc - r.act}))\n  |> sum()\n  |> set(key: \"_field\", value: \"Total €\")\n  |> keep(columns: [\"_value\", \"_field\"])" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "State of charge (%) — history",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "color": { "mode": "fixed", "fixedColor": "yellow" },
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 15, "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_soc_percent\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"soc_pct\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sort(columns: [\"_time\"])" } ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Import price (€/kWh) — history",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 3,
+          "color": { "mode": "fixed", "fixedColor": "orange" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_import_price_eur_per_kwh\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"import_price_eur\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sort(columns: [\"_time\"])" } ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Grid power (W) & Capacity tariff peak (kW) — history",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 40 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt", "decimals": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Grid power (W)" }, "properties": [
+            { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } },
+            { "id": "unit", "value": "watt" },
+            { "id": "custom.axisPlacement", "value": "left" },
+            { "id": "custom.axisLabel", "value": "Grid power (W)" } ] },
+          { "matcher": { "id": "byName", "options": "Capacity peak (kW)" }, "properties": [
+            { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+            { "id": "unit", "value": "kwatt" },
+            { "id": "decimals", "value": 2 },
+            { "id": "custom.axisPlacement", "value": "right" },
+            { "id": "custom.axisLabel", "value": "Capacity peak (kW)" },
+            { "id": "custom.lineInterpolation", "value": "stepAfter" },
+            { "id": "custom.lineWidth", "value": 2 },
+            { "id": "custom.fillOpacity", "value": 0 } ] }
+        ]
+      },
+      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"Grid power (W)\")\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])\n  |> sort(columns: [\"_time\"])" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_capacity_peak_kw\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"capacity_peak_kw\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false)\n  |> set(key: \"_field\", value: \"Capacity peak (kW)\")\n  |> keep(columns: [\"_time\", \"_value\", \"_field\"])\n  |> sort(columns: [\"_time\"])" }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [ "zeus", "battery", "savings", "influxdb" ],
+  "templating": { "list": [] },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Zeus — Monthly Savings & Mode (InfluxDB)",
+  "uid": "zeus-monthly-influx",
+  "version": 1,
+  "weekStart": ""
+}
