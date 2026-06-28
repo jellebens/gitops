@@ -5,15 +5,19 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: argocd-server
     app.kubernetes.io/part-of: argocd
-    lb-pool: platform
   name: argocd-server
   namespace: argocd
 spec:
-  type: LoadBalancer
-  loadBalancerIP: 192.168.50.180
+  # ClusterIP: argocd is reached only through the gateway (argocd.lab.local
+  # -> 192.168.50.200). The old LoadBalancer override (.180) is dropped so the
+  # IP returns to the platform pool. The :80 port is the gateway HTTPRoute backend.
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: argocd-server
   ports:
+    - name: http
+      port: 80
+      targetPort: 8080
     - name: https
       port: 443
       targetPort: 8080
