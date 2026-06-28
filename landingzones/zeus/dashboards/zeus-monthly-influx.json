@@ -36,8 +36,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR", "decimals": 2,
-          "color": { "mode": "fixed", "fixedColor": "green" },
-          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 25, "gradientMode": "opacity", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "green", "value": 0 } ] },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 25, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto", "thresholdsStyle": { "mode": "off" } },
           "mappings": []
         },
         "overrides": []
