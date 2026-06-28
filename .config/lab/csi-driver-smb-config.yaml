@@ -13,7 +13,7 @@ extraSecrets:
 
 extraStorageClasses:
   - name: smb-cortana
-    source: //192.168.50.102/cortana-backup
+    source: //nas001.lab.local/cortana-backup
     reclaimPolicy: Retain
     uid: 10000
     gid: 10000

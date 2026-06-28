@@ -2,8 +2,10 @@
 # under the share, so this is reusable cluster-wide.
 storageClass:
   name: smb
-  # NAS001 = 192.168.50.102 (the name 'nas001' does not resolve in-cluster).
-  source: //192.168.50.102/zeus-data
+  # NAS001 — addressed by name (resolves in-cluster via coredns-config, which
+  # forwards nas001.lab.local -> 192.168.50.144 -> 192.168.50.2). The old static
+  # IP 192.168.50.102 went stale when the NAS got a new DHCP lease.
+  source: //nas001.lab.local/zeus-data
   reclaimPolicy: Retain        # keep NAS data when a PVC is deleted
   # SMB mount maps files to this uid/gid (zeus runs as 1000).
   uid: 1000

@@ -5,3 +5,5 @@
 forwards:
   - name: vesta.local        # Home Assistant + MQTT host (DHCP-reserved 192.168.50.18)
     to: 192.168.50.1         # router resolves vesta.local -> 192.168.50.18
+  - name: nas001.lab.local   # NAS001 SMB host (zeus-data / cortana-backup shares)
+    to: 192.168.50.144       # this resolver serves the lab.local zone -> 192.168.50.2
