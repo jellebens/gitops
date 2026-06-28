@@ -4,17 +4,25 @@ crds:
 grafana:
   enabled: true
   defaultDashboardsEnabled: true
-  
+
+  # The datasource sidecar's reload API call is unauthenticated (basic auth is
+  # off) and 403s, so runtime datasource changes never register. initDatasources
+  # makes the sidecar write the datasource files via an init container BEFORE
+  # Grafana starts, so boot-time provisioning picks them up; skipReload avoids the
+  # pointless 403 reload afterwards.
+  sidecar:
+    datasources:
+      initDatasources: true
+      skipReload: true
+
+
   grafana.ini:
     auth.anonymous:
       enabled: true
       org_name: Main Org.
       org_role: Viewer
-    # Keep basic auth ENABLED: the Grafana datasource sidecar reloads provisioning
-    # via the API with basic auth — disabling it makes datasource reloads 403, so
-    # new datasources (e.g. InfluxDB) never register. Anonymous Viewer still works.
     auth.basic:
-      enabled: true
+      enabled: false
       
   admin:
     existingSecret: grafana-admin
