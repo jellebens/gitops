@@ -5,17 +5,6 @@ grafana:
   enabled: true
   defaultDashboardsEnabled: true
 
-  # The datasource sidecar's reload API call is unauthenticated (basic auth is
-  # off) and 403s, so runtime datasource changes never register. initDatasources
-  # makes the sidecar write the datasource files via an init container BEFORE
-  # Grafana starts, so boot-time provisioning picks them up; skipReload avoids the
-  # pointless 403 reload afterwards.
-  sidecar:
-    datasources:
-      initDatasources: true
-      skipReload: true
-
-
   grafana.ini:
     auth.anonymous:
       enabled: true
@@ -34,18 +23,19 @@ grafana:
   # is never stored in plaintext in the provisioned datasource.
   envFromSecret: grafana-influxdb-token
 
-  additionalDataSources:
-    - name: InfluxDB
-      uid: influxdb
-      type: influxdb
-      access: proxy
-      url: http://influxdb-influxdb2.influxdb
-      jsonData:
-        version: Flux
-        organization: zeus
-        defaultBucket: zeus
-      secureJsonData:
-        token: $INFLUXDB_TOKEN
+  # The InfluxDB datasource is provisioned via a statically mounted file (the
+  # grafana-influxdb-datasource ConfigMap from observability-config), NOT via the
+  # additionalDataSources sidecar path. The sidecar writes its datasource file a
+  # few seconds AFTER Grafana boot-provisions, and its reload call is unauthed
+  # (403, basic auth off), so sidecar-managed datasources lose a boot race and
+  # never register. A direct mount is present before Grafana starts -> loads
+  # deterministically at boot. $INFLUXDB_TOKEN comes from envFromSecret above.
+  extraConfigmapMounts:
+    - name: influxdb-datasource
+      mountPath: /etc/grafana/provisioning/datasources/influxdb.yaml
+      subPath: influxdb.yaml
+      configMap: grafana-influxdb-datasource
+      readOnly: true
 
   persistence:
     enabled: true

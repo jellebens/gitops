@@ -1,0 +1,38 @@
+# InfluxDB datasource for Grafana, provisioned via a STATIC file mount
+# (grafana.extraConfigmapMounts) instead of the additionalDataSources sidecar.
+#
+# The kube-prometheus-stack datasource sidecar writes its provisioning file a few
+# seconds AFTER Grafana boot-provisions datasources, and its reload API call is
+# unauthenticated (basic auth is disabled) so it 403s. Result: sidecar-managed
+# datasources lose a boot race and never register ("datasource not found").
+#
+# This ConfigMap is mounted directly at
+# /etc/grafana/provisioning/datasources/influxdb.yaml so it is present BEFORE
+# Grafana starts and loads deterministically at boot. The token is injected as
+# env INFLUXDB_TOKEN (grafana.envFromSecret: grafana-influxdb-token) and expanded
+# from $INFLUXDB_TOKEN, so it is never stored in plaintext here.
+#
+# NOTE: deliberately has NO grafana_datasource label, so the sidecar does NOT
+# also pick it up (which would create a duplicate uid and fail provisioning).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-influxdb-datasource
+  namespace: observability
+data:
+  influxdb.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: InfluxDB
+        uid: influxdb
+        type: influxdb
+        access: proxy
+        url: http://influxdb-influxdb2.influxdb
+        isDefault: false
+        editable: false
+        jsonData:
+          version: Flux
+          organization: zeus
+          defaultBucket: zeus
+        secureJsonData:
+          token: $INFLUXDB_TOKEN
