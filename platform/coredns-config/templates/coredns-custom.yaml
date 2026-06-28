@@ -18,6 +18,12 @@ data:
     {{ .name }}:53 {
         errors
         cache 30
+    {{- if kindIs "slice" .to }}
+        forward . {{ join " " .to }} {
+            policy {{ .policy | default "sequential" }}
+        }
+    {{- else }}
         forward . {{ .to }}
+    {{- end }}
     }
 {{- end }}

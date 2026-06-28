@@ -1,9 +1,16 @@
 # coredns-config value overrides for the lab env.
-# Forward specific home LAN .local FQDNs to the router resolver (it knows them
-# from the DHCP leases). Scope to exact hosts — never the whole `local` zone
-# (that would shadow cluster.local and break in-cluster service discovery).
+# Forward home LAN names that the cluster CoreDNS can't resolve itself to the
+# resolver that knows them. NEVER forward the bare `local` zone (it would shadow
+# cluster.local and break in-cluster service discovery) — but `lab.local` is a
+# distinct suffix and is safe to forward whole.
 forwards:
   - name: vesta.local        # Home Assistant + MQTT host (DHCP-reserved 192.168.50.18)
     to: 192.168.50.1         # router resolves vesta.local -> 192.168.50.18
-  - name: nas001.lab.local   # NAS001 SMB host (zeus-data / cortana-backup shares)
-    to: 192.168.50.144       # this resolver serves the lab.local zone -> 192.168.50.2
+  # Whole lab.local zone (nas001, etc.): resolve via the in-cluster secondary
+  # (coredns-lab, an AXFR replica of the DS918) FIRST, fall back to the DS918
+  # master if the replica is down.
+  - name: lab.local
+    to:
+      - 192.168.50.180       # in-cluster secondary (coredns-lab) — preferred
+      - 192.168.50.144       # DS918 DNS master — fallback
+    policy: sequential
