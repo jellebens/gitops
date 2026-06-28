@@ -2,12 +2,14 @@
 
 Runs a small CoreDNS deployment in `kube-system` that is a **secondary**
 (read-only AXFR replica) of the `lab.local` zone. The **primary/master is the
-Synology DS918+ DNS Server** (`192.168.50.102`).
+Synology DS918+ DNS Server** (`192.168.50.144`).
 
 The cluster is deliberately *only a replica*: DS918 stays authoritative, so LAN
 name resolution never depends on k8s being healthy (no circular dependency). The
-in-cluster copy adds fast, local `*.lab.local` resolution for pods and a second
-resolver for LAN clients.
+in-cluster copy gives a local cached copy of the zone — the cluster's own CoreDNS
+forwards `lab.local` to this secondary **first** and falls back to the DS918
+(`.144`) if it's down (see `coredns-config`), and LAN clients can use it as a
+second resolver.
 
 ## How it's deployed
 
@@ -21,32 +23,32 @@ resolver for LAN clients.
 ## Pieces
 
 - **Deployment + ConfigMap (`coredns-lab`)** — CoreDNS with the `secondary`
-  plugin: `transfer from 192.168.50.102`. Pulls the zone via AXFR, caches it,
+  plugin: `transfer from 192.168.50.144`. Pulls the zone via AXFR, caches it,
   refreshes on the SOA timers. 2 replicas, anti-affinity across nodes.
 - **Service (`coredns-lab`, LoadBalancer)** — VIP `192.168.50.180` (Cilium
-  `platform` pool), `53/UDP` + `53/TCP`. This is the address LAN clients use as a
-  **secondary** resolver — **DS918 stays first** in DHCP.
-- **`coredns-custom` ConfigMap** — makes the cluster's own (k3s) CoreDNS forward
-  `lab.local` → the secondary, so pods resolve `*.lab.local` (no more mDNS / no
-  hardcoded `192.168.50.18` / `.102`). Gated by `clusterForward.enabled`; turn
-  it off if k3s CoreDNS custom config is owned by Ansible.
+  `platform` pool), `53/UDP` + `53/TCP`. LAN clients can use it as a **secondary**
+  resolver (DS918 stays first in DHCP).
+- **Cluster forwarding is owned by `coredns-config`, not here.** That app's
+  `coredns-custom` ConfigMap forwards `lab.local` to `[.180, .144]` with
+  `policy sequential` — this secondary first, DS918 fallback. `clusterForward` in
+  this chart stays **disabled** so two Argo apps don't fight over `coredns-custom`.
 
 ## DS918 side (one-time)
 
 The master must permit the zone transfer. In **DNS Server → Zones → `lab.local`
-→ Edit → Zone Transfer**: enable transfer and allow the **k3s node IPs** (pods
-egress to the LAN are SNAT'd to the node IP, so a single pod IP won't match).
-Optionally enable **NOTIFY** so edits push immediately instead of waiting for the
-refresh interval.
+→ Edit → Zone Transfer**: add a **Subnet** rule `192.168.50.0` / `255.255.255.0`
+(pods egress to the LAN SNAT'd to a node IP, so the whole subnet covers all
+nodes). Optionally enable **NOTIFY** so edits push immediately instead of waiting
+for the SOA refresh interval.
 
 ## Verify
 
 ```sh
 kubectl -n kube-system rollout status deploy/coredns-lab
 kubectl -n kube-system get svc coredns-lab          # EXTERNAL-IP = 192.168.50.180
-dig @192.168.50.180 vesta.lab.local +short          # from the LAN
+dig @192.168.50.180 nas001.lab.local +short         # from the LAN -> 192.168.50.2
 kubectl run -n default dnstest --rm -it --image=busybox --restart=Never -- \
-  nslookup vesta.lab.local                          # from a pod (via cluster CoreDNS)
+  nslookup nas001.lab.local                         # from a pod (via cluster CoreDNS)
 ```
 
 If the transfer is refused, the pod logs show `axfr ... no transfer`:
