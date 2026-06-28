@@ -66,9 +66,11 @@ and is rendered verbatim into `/config/config.yaml`. Key choices:
   computes savings = discharge value − charge cost from `grid_input_power` /
   `ac_output_power`. The house-load/optimizer forecast is advisory in this
   topology.
-- **Optimizer:** 36 h horizon, 60 min slots. `cycle_penalty: 0.03` €/kWh of
-  throughput (LFP wear) so zeus only cycles when the price spread clearly beats
-  wear + losses. `backup_reserve_pct: 30` — a **soft** reserve (penalty, not a
+- **Optimizer:** 36 h horizon, 60 min slots. `cycle_penalty: 0.0` €/kWh of
+  throughput — **wear-agnostic, maximize savings** (changed from `0.03` on
+  2026-06-28: a live-curve sweep showed `0.03` sat past a cliff — it skipped a
+  €0.51/kWh peak and captured ~2.5× less savings; round-trip efficiency ~90%
+  still floors pointless cycling). `backup_reserve_pct: 30` — a **soft** reserve (penalty, not a
   hard floor) so the LP stays feasible. `max_grid_import_kw: 1.54` models the
   **7 A AC input cap** shared by passthrough load + charging.
 - **A/C peak management:** `control.ac_off_while_charging: true` switches the
@@ -86,7 +88,9 @@ and is rendered verbatim into `/config/config.yaml`. Key choices:
   (e.g. the A/C cycles off, opening charge headroom under the 7 A cap).
 - **Persistence (NAS001 / SMB):** `persistence.storageClassName: smb` puts
   `/app/reports` on the NAS over SMB (via the `csi-driver-smb` platform service),
-  so history/reports survive node loss. See
+  so history/reports survive node loss. The share is `//nas001.lab.local/zeus-data`,
+  resolved in-cluster via [`coredns-config`](../../platform/coredns-config) (the
+  old static IP `.102` went stale after a DHCP change on 2026-06-28). See
   [`platform/csi-driver-smb-config`](../../platform/csi-driver-smb-config).
 
 ## Observability
@@ -97,7 +101,12 @@ and is rendered verbatim into `/config/config.yaml`. Key choices:
 `zeus_target_charge_kw`, `zeus_target_discharge_kw`, `zeus_plan_cost_eur`,
 `zeus_import_price_eur_per_kwh`, `zeus_working_mode{mode=…}`, `zeus_mode_code`
 (commanded), `zeus_battery_power_w` + `zeus_actual_mode_code` (**measured** from
-the live power flow), `zeus_control_available` (1/0 — the apex300 select goes
+the live power flow — ⚠️ derived from the Bluetti's own `grid_input_power`
+sensor, which **misreports as passthrough during discharge** (reads ≈
+`ac_output_power`), so these two tiles read ~0 / idle even while the battery is
+discharging. The **Aeotec** whole-home meter `zeus_grid_power_w` is the source of
+truth: low grid import + nonzero load ⇒ the battery is covering it),
+`zeus_control_available` (1/0 — the apex300 select goes
 404 intermittently), `zeus_next_charge_in_seconds`,
 `zeus_next_discharge_in_seconds`, `zeus_last_cycle_timestamp_seconds`,
 `zeus_cycle_failures_total`.
@@ -187,10 +196,34 @@ docker buildx build --platform linux/arm64 --provenance=false \
 
 ## MQTT / Home Assistant
 
-Broker is `vesta.local:1883` (reachable from the cluster; `core-mosquitto` only
-resolves inside HA's docker network). Discovery sensors published under base
+Broker (and the HA base URL) is `vesta.local:1883` / `:8123` — `.local`/mDNS
+names don't resolve through CoreDNS by default, so they're made resolvable
+in-cluster by the `vesta.local` forward in
+[`coredns-config`](../../platform/coredns-config) (→ router `.1` → `.18`).
+(`core-mosquitto` only resolves inside HA's docker network.) Discovery sensors published under base
 topic `zeus`: `sensor.zeus_battery_savings_today`, `_baseline_cost_today`,
 `_actual_cost_today`, `_target_charge_power`, `_target_discharge_power`.
+
+## Grid metering — note on the Aeotec ZW095 (not a Zeus input)
+
+Zeus's grid/capacity signal is the **Fluvius digital meter**
+(`sensor.fluvius_meter_1sag1100121989_peak_power`), **not** the Aeotec Home
+Energy Meter Gen5 (**ZW095**, Z-Wave **node 15**, manufacturer `0x0086`,
+product `0x0002:0x005F`). The ZW095 is an independent monitoring device — **Zeus
+does not read it, so a ZW095 fault does not affect Zeus.**
+
+Diagnosed 2026-06-27: the ZW095 "stopped updating" in HA. Findings — node is
+reachable (`ping` → alive) and still sends **threshold-triggered power reports**,
+but its **time-interval reports (param 111) never fire**, so kWh/V/A freeze.
+Config writes from the **official Z-Wave JS add-on don't land on the device**
+(set param 111 → HA returns 200 but cadence never changes; verified over the WS
+API too). The HEM was excluded/re-included before (old node 14 entities
+`home_energy_meter_gen5_*` are stale; live ones are `utility_room_home_energy_meter_*`).
+Fix is HA-side, not GitOps: **exclude + re-include the unit next to the
+controller** (applies lifeline + config cleanly), or run the **Z-Wave JS UI**
+add-on (the official one has no associations UI and can't verify config writes).
+Association WS commands (`zwave_js/get_associations`) return `unknown_command` on
+this HA build.
 
 ## Known issues / TODO
 
@@ -215,3 +248,11 @@ _Resolved:_ `zeus_daily_savings_eur` is now wired (monthly dashboard);
 `sensor.zeus_optimizer_schedule` moved to `json_attributes_topic`; the apex300
 control surface is confirmed writable (`ZeusControlUnavailable` alert covers its
 intermittent 404s).
+
+- **0.1.41 (2026-06-28):** zeus survives transient HA/MQTT network blips
+  (DNS failure / timeout / connection refused) instead of crash-looping —
+  `HAClient._get/_post` wrap `requests.RequestException` as `HAError` (so
+  `get_float` degrades to its default), and the inter-cycle wait
+  (`_sleep_until_next_cycle`) is guarded in the main loop. Triggered by an mDNS
+  outage where `vesta.local` briefly stopped resolving and crash-looped the pod
+  64×/8 h before the fix.

@@ -8,7 +8,7 @@ plus the sealed SMB credentials.
 |---|---|
 | Driver app | `csi-driver-smb` (external chart, `repos.csiDriverSmb`, ns `kube-system`, sync-wave 10) |
 | This config app | `csi-driver-smb-config` (sync-wave 11) |
-| StorageClass | `smb` → `//192.168.50.102/zeus-data`, provisioner `smb.csi.k8s.io` |
+| StorageClass | `smb` → `//nas001.lab.local/zeus-data`, provisioner `smb.csi.k8s.io` |
 | Reclaim policy | **Retain** (deleting a PVC leaves the data subdir on the NAS) |
 | Credentials | SealedSecret `smbcreds` in `kube-system` (user/password) |
 
@@ -28,8 +28,12 @@ Files are mapped to uid/gid `1000` (mount `0777`); tune in [`values.yaml`](value
 
 ## Credentials
 
-NAS001 = `192.168.50.102` (the name `nas001` does not resolve in-cluster, so the
-StorageClass `source` uses the IP). The SMB user/password are sealed into
+NAS001 is addressed by name as `nas001.lab.local`, resolved in-cluster via the
+`lab.local` forward in [`coredns-config`](../coredns-config) (→ in-cluster
+secondary `coredns-lab` / DS918 `.144` → `192.168.50.2`). The old static IP
+`192.168.50.102` went stale when the NAS got a new DHCP lease (2026-06-28), which
+broke every SMB mount; the hostname avoids that. The SMB user/password are sealed
+into
 `kube-system/smbcreds`; the sealed values live in
 `.config/<env>/csi-driver-smb-config.yaml` under `secret.sealedSecret.encryptedData`:
 
