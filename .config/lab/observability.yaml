@@ -10,8 +10,11 @@ grafana:
       enabled: true
       org_name: Main Org.
       org_role: Viewer
+    # Keep basic auth ENABLED: the Grafana datasource sidecar reloads provisioning
+    # via the API with basic auth — disabling it makes datasource reloads 403, so
+    # new datasources (e.g. InfluxDB) never register. Anonymous Viewer still works.
     auth.basic:
-      enabled: false
+      enabled: true
       
   admin:
     existingSecret: grafana-admin
