@@ -106,8 +106,8 @@
           "mappings": []
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "Actual €/day" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }, { "id": "custom.fillOpacity", "value": 25 } ] },
-          { "matcher": { "id": "byName", "options": "Forecast €/day" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }, { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [ 10, 6 ] } } ] }
+          { "matcher": { "id": "byName", "options": "Actual €/day" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }, { "id": "custom.fillOpacity", "value": 35 }, { "id": "custom.gradientMode", "value": "opacity" } ] },
+          { "matcher": { "id": "byName", "options": "Forecast €/day" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }, { "id": "custom.fillOpacity", "value": 0 }, { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [ 2, 8 ] } }, { "id": "custom.lineWidth", "value": 2 } ] }
         ]
       },
       "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi", "sort": "none" } },
