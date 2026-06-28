@@ -62,4 +62,63 @@ spec:
             - name: backup
               persistentVolumeClaim:
                 claimName: influxdb-backups
+{{- if .Values.backup.incremental.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: influxdb-incremental-backup
+  namespace: {{ .Values.secret.namespace }}
+spec:
+  schedule: {{ .Values.backup.incremental.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+            - name: incremental
+              image: {{ .Values.backup.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  ts=$(date +%Y%m%d-%H%M%S)
+                  dir=/backup/incremental
+                  mkdir -p "$dir"
+                  for b in {{ join " " .Values.backup.incremental.buckets }}; do
+                    f="$dir/$b-$ts.csv"
+                    echo "incremental export $b (last {{ .Values.backup.incremental.windowMinutes }}m) -> $f"
+                    influx query --raw \
+                      --host http://influxdb-influxdb2.{{ .Values.secret.namespace }} \
+                      --token "$INFLUXDB_TOKEN" --org {{ .Values.backup.org }} \
+                      "from(bucket:\"$b\") |> range(start: -{{ .Values.backup.incremental.windowMinutes }}m)" \
+                      > "$f" || echo "  (export of $b failed/empty)"
+                  done
+                  echo "pruning increments older than {{ .Values.backup.incremental.retentionDays }} days"
+                  find "$dir" -name '*.csv' -type f \
+                    -mtime +{{ .Values.backup.incremental.retentionDays }} -delete || true
+                  echo "done; recent increments:"; ls -1t "$dir" | head -6
+              env:
+                - name: INFLUXDB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: admin-token
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: influxdb-backups
+{{- end }}
 {{- end }}

@@ -26,8 +26,21 @@ tlsCertificate:
 # disaster recovery + the migration vehicle to Proxmox/Ceph (see ADR-0009).
 backup:
   enabled: true
-  schedule: "30 3 * * *" # 03:30 daily
+  schedule: "30 3 * * *" # 03:30 daily (full backup)
   retentionDays: 14
   storageClass: smb
   size: 10Gi
   image: influxdb:2.7
+  org: zeus
+  # Incremental: hourly line-protocol/CSV export of the recent window per bucket
+  # to the NAS, between the nightly fulls (tighter recovery point). InfluxDB OSS
+  # has no native incremental; restore = restore the last full, then replay the
+  # increments with `influx write --format csv` (idempotent, overlap-safe).
+  incremental:
+    enabled: true
+    schedule: "5 * * * *" # hourly at :05
+    windowMinutes: 75 # > 60 so consecutive runs overlap and never gap
+    retentionDays: 3
+    buckets:
+      - zeus
+      - homeassistant
