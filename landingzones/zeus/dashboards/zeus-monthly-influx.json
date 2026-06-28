@@ -206,8 +206,9 @@
             { "id": "decimals", "value": 2 },
             { "id": "custom.axisPlacement", "value": "right" },
             { "id": "custom.axisLabel", "value": "Capacity peak (kW)" },
-            { "id": "custom.lineInterpolation", "value": "stepAfter" },
+            { "id": "custom.lineInterpolation", "value": "linear" },
             { "id": "custom.lineWidth", "value": 2 },
+            { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [ 2, 8 ] } },
             { "id": "custom.fillOpacity", "value": 0 } ] }
         ]
       },
