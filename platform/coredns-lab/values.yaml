@@ -20,8 +20,9 @@ corednsLab:
       cpu: 100m
       memory: 128Mi
 
-# Manage the kube-system `coredns-custom` ConfigMap so the cluster's own CoreDNS
-# forwards the zone to this secondary (fixes "*.lab.local doesn't resolve in
-# pods"). Disable if k3s CoreDNS custom config is owned by Ansible instead.
+# The kube-system `coredns-custom` ConfigMap is owned by the separate
+# `coredns-config` app (it manages the per-FQDN forwards). Keep this OFF so two
+# Argo apps don't fight over the same ConfigMap and wipe each other's keys. The
+# lab.local -> secondary forward (if wanted) is added to coredns-config instead.
 clusterForward:
-  enabled: true
+  enabled: false
