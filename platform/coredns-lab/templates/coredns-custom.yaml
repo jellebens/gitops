@@ -1,0 +1,20 @@
+{{- if .Values.clusterForward.enabled }}
+# k3s CoreDNS imports /etc/coredns/custom/*.server as additional server blocks
+# (from the `coredns-custom` ConfigMap in kube-system). This makes the cluster's
+# own CoreDNS forward the lab.local zone to the in-cluster secondary, so pods
+# resolve *.lab.local without mDNS and without depending on DS918 at query time.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: coredns-lab
+    app.kubernetes.io/part-of: platform
+data:
+  lab.local.server: |
+    {{ .Values.corednsLab.zone }}:53 {
+        forward . {{ .Values.corednsLab.loadBalancerIP }}
+        cache 30
+    }
+{{- end }}

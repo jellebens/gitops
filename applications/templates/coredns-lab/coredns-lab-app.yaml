@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: coredns-lab
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # after cilium-config (5) so the platform LB-IPAM pool exists for the VIP
+    argocd.argoproj.io/sync-wave: "15"
+spec:
+  project: platform-services
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      path: platform/coredns-lab
+      helm:
+        releaseName: coredns-lab
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/coredns-lab.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

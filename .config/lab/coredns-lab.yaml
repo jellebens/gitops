@@ -1,0 +1,5 @@
+# In-cluster CoreDNS secondary for the lab.local zone.
+# PRIMARY/master is the Synology DS918+ DNS Server (192.168.50.102).
+corednsLab:
+  transferFrom: 192.168.50.102   # DS918 master — must allow AXFR from the node IPs
+  loadBalancerIP: 192.168.50.180 # freed from the old argocd LoadBalancer

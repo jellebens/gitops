@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-lab
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: coredns-lab
+    app.kubernetes.io/part-of: platform
+data:
+  Corefile: |
+    {{ .Values.corednsLab.zone }}:53 {
+        errors
+        health {
+            lameduck 5s
+        }
+        ready
+        secondary {
+            transfer from {{ required "corednsLab.transferFrom (DS918 IP) is required" .Values.corednsLab.transferFrom }}
+        }
+        prometheus :9153
+        cache 30
+        loadbalance
+        log
+    }

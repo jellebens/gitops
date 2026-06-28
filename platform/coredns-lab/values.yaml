@@ -1,0 +1,27 @@
+# In-cluster CoreDNS acting as a SECONDARY (AXFR replica) of the lab.local zone
+# whose PRIMARY/master is the Synology DS918+ DNS Server. The cluster is only a
+# replica — DS918 stays authoritative, so LAN name resolution never depends on
+# k8s being healthy. See README.md.
+corednsLab:
+  # Multi-arch image (arm64 cluster). secondary plugin is in the default build.
+  image: coredns/coredns:1.11.3
+  replicas: 2
+  zone: lab.local
+  # AXFR source (DS918 master). Set per-env in .config/<env>/coredns-lab.yaml.
+  transferFrom: ""
+  # LoadBalancer VIP for LAN clients to use as a SECONDARY resolver (DS918 first).
+  # Set per-env; comes from the Cilium `platform` LB-IPAM pool (.180-.199).
+  loadBalancerIP: ""
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Manage the kube-system `coredns-custom` ConfigMap so the cluster's own CoreDNS
+# forwards the zone to this secondary (fixes "*.lab.local doesn't resolve in
+# pods"). Disable if k3s CoreDNS custom config is owned by Ansible instead.
+clusterForward:
+  enabled: true
