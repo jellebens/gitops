@@ -159,11 +159,12 @@ config:
     # aware (forecasts hourly, expands to slots scaling by duration) and a
     # non-Optimal solve falls back to a price heuristic instead of PASSTHROUGH.
     slot_minutes: 15
-    # Battery-wear cost per kWh of throughput (charge+discharge each). Set to a
-    # realistic LFP degradation cost so zeus only cycles when the price spread
-    # clearly beats wear + round-trip losses (big-spread days), not for pennies.
-    # The battery's own totals show energy arbitrage is ~break-even before wear.
-    cycle_penalty: 0.03
+    # Battery-wear cost per kWh of throughput (charge+discharge each). 0.0 =
+    # maximize energy savings, wear-agnostic. It still won't cycle for nothing:
+    # round-trip efficiency (~90%) is a natural floor on pointless cycling. A
+    # sweep on 2026-06-28 vs the live curve showed 0.03 sat past a cliff (skipped
+    # a €0.51/kWh peak, ~2.5x less savings); 0.0 captures every profitable spread.
+    cycle_penalty: 0.0
     terminal_value_price: null
   forecast:
     # Two-component: flat base load + temperature-driven A/C (from the A/C plug).
