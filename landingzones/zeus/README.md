@@ -131,28 +131,45 @@ vs a no-battery baseline), `zeus_predicted_baseline_cost_eur`,
 (cumulative savings through each future slot, for the next-36 h ramp chart).
 
 **Grafana dashboards** — provisioned as ConfigMap `zeus-dashboard` (the template
-globs `dashboards/*.json`), labeled `grafana_dashboard=1`:
-- **`zeus-battery-optimizer`** ("Zeus — Battery Optimizer") — full operations
-  view (SoC, mode timeline, prices, target power, cost, savings). Time picker
-  hidden (fixed `now-24h..now`).
-- **`zeus-kiosk`** ("Zeus — Live (kiosk)") — compact wall display (Rackmate T1
-  1280×400). **Tile-by-tile:** [`.docs/zeus-kiosk-dashboard.md`](../../.docs/zeus-kiosk-dashboard.md).
-- **`zeus-monthly`** ("Zeus — Monthly …", rolling 30 d, picker visible) — daily
-  savings bars (green ≥0 / red loss), cumulative savings, time-in-mode stacked
-  bars, plus daily forecast **cost & error in €** (MAE/Total/MAPE over the
-  selected range — for historical accuracy review).
-- **`zeus-forecast`** ("Zeus — Savings Forecast", picker visible) — predicted
-  **next-36 h savings** (€) with baseline/optimized breakdown, an
-  evolution-over-time chart, and a cumulative-savings bar chart spanning the
-  next 36 h (red below 0 / green above 0).
+globs `dashboards/*.json`), labeled `grafana_dashboard=1`. **Datasource split by
+purpose** (see zeus [ADR-0010](../../../zeus/.docs/adr/0010-dashboard-datasource-strategy.md)):
+live operational dashboards stay on **Prometheus** (15 s scrape + ops-only
+metrics); durable savings/forecast "reports" use **InfluxDB** (uid `influxdb`).
 
-> **Plotting the future in Grafana + Prometheus:** Prometheus can't hold
-> future-dated samples, and Grafana evaluates instant queries at the range's
-> `to` and clips a timeseries x-axis to `[from, to]`. So a forward (now→+36 h)
-> *line* can't render — set `to=now+36h` and the instant query reads the future
-> (no data). The workaround used here: publish per-slot values with future-ms
-> `ts` labels and render with a **bar chart** (its x-axis is data-driven, not
-> time-clipped) while the range stays at `to=now` so the query reads fresh.
+- **`zeus-battery-optimizer`** ("Zeus — Battery Optimizer", **Prometheus**) — full
+  operations view (SoC, mode timeline, prices, target power, cost, savings, live
+  Aeotec grid power + capacity cross-check). Fixed `now-24h..now`.
+- **`zeus-kiosk`** ("Zeus — Live (kiosk)", **Prometheus**) — compact wall display
+  (Rackmate T1 1280×400). **Tile-by-tile:** [`.docs/zeus-kiosk-dashboard.md`](../../.docs/zeus-kiosk-dashboard.md).
+- **`zeus-monthly-influx`** ("Zeus — Monthly Savings & Mode (InfluxDB)", rolling
+  30 d) — daily savings bars (green ≥0 / red loss), cumulative savings, time-in-mode
+  stacked bars, load cost actual-vs-forecast, forecast error (MAE/Total), SoC,
+  import price, and grid-power-vs-capacity (blue grid, red dotted running peak,
+  yellow dotted **2.5 kW** capaciteitstarief floor, all in kW on one axis).
+- **`zeus-forecast-influx`** ("Zeus — Savings Forecast (InfluxDB)") — predicted
+  **next-36 h** savings/baseline/optimized stat cards, savings evolution, and the
+  **real future-dated** look-ahead cumulative-savings + per-slot-load curves.
+
+> **Why the live dashboards aren't on InfluxDB:** they read Prometheus-only metrics
+> (`zeus_next_charge/discharge_in_seconds`, `zeus_last_cycle_timestamp_seconds`,
+> `zeus_cycle_failures_total`, the slot price curve `zeus_price_today_*` /
+> `zeus_price_now_marker_*`, `zeus_plan_cost_eur`) and want 15 s granularity — no
+> durability gain for a "now" view. See ADR-0010.
+
+> **Plotting the future — InfluxDB vs the old Prometheus hack:** the InfluxDB
+> forecast dashboard stores **real future-dated points** (`zeus_forecast` written at
+> slot timestamps) and renders forward lines directly (range `now-24h..now+40h`).
+> The retired Prometheus `zeus-forecast` couldn't hold future samples, so it used a
+> bar-chart with future-ms `ts` labels (data-driven x-axis, not time-clipped) —
+> see zeus [ADR-0007](../../../zeus/.docs/adr/0007-forecast-visualization-grafana-prometheus.md),
+> now partially superseded by [ADR-0009](../../../zeus/.docs/adr/0009-influxdb-durable-time-series-store.md)/ADR-0010.
+
+**InfluxDB datasource provisioning + Flux gotchas** (datasource registered via a
+static ConfigMap mount, series named with `rename()`, per-bar colour via
+`barchart`/`colorByField`, constant lines via `array.from`, local dates via the
+`timezone` `location` option) are documented in ADR-0010 and the
+`platform/observability-config/templates/grafana-influxdb-datasource-configmap.yaml`
+comments.
 
 The kube-prometheus-stack Grafana sidecar runs with `NAMESPACE=ALL`, so the
 ConfigMap can live in the `zeus` namespace and still be picked up. The sidecar's
