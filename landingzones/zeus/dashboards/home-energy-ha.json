@@ -9,7 +9,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Battery net savings (HA buzzbrick)",
+      "title": "Battery savings today (zeus — source of truth)",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -19,16 +19,19 @@
           "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0 } ] },
           "mappings": []
         },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Baseline cost today" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byName", "options": "Actual cost today" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] }
+        ]
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "horizontal", "textMode": "value_and_name", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
       "targets": [
         { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"buzzbrick_net_savings_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_battery_savings_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" },
         { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -32d) |> filter(fn: (r) => r.entity_id == \"buzzbrick_net_savings_this_month\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings this month\"})" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_baseline_cost_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Baseline cost today\"})" },
         { "refId": "C", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -400d) |> filter(fn: (r) => r.entity_id == \"buzzbrick_net_savings_total\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings total\"})" }
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_actual_cost_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Actual cost today\"})" }
       ]
     },
     {
