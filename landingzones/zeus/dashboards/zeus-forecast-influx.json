@@ -71,8 +71,8 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR", "decimals": 2,
-          "color": { "mode": "fixed", "fixedColor": "green" },
-          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20, "gradientMode": "opacity", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "color": { "mode": "fixed", "fixedColor": "yellow" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 0, "gradientMode": "none", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto", "lineStyle": { "fill": "dash", "dash": [ 10, 6 ] } },
           "mappings": []
         },
         "overrides": []
