@@ -229,7 +229,7 @@
   "time": { "from": "now-30d", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Zeus — Monthly Savings & Mode (InfluxDB)",
+  "title": "Zeus — Monthly Savings & Mode",
   "uid": "zeus-monthly-influx",
   "version": 1,
   "weekStart": ""

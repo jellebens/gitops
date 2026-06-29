@@ -141,12 +141,12 @@ metrics); durable savings/forecast "reports" use **InfluxDB** (uid `influxdb`).
   Aeotec grid power + capacity cross-check). Fixed `now-24h..now`.
 - **`zeus-kiosk`** ("Zeus — Live (kiosk)", **Prometheus**) — compact wall display
   (Rackmate T1 1280×400). **Tile-by-tile:** [`.docs/zeus-kiosk-dashboard.md`](../../.docs/zeus-kiosk-dashboard.md).
-- **`zeus-monthly-influx`** ("Zeus — Monthly Savings & Mode (InfluxDB)", rolling
+- **`zeus-monthly-influx`** ("Zeus — Monthly Savings & Mode", rolling
   30 d) — daily savings bars (green ≥0 / red loss), cumulative savings, time-in-mode
   stacked bars, load cost actual-vs-forecast, forecast error (MAE/Total), SoC,
   import price, and grid-power-vs-capacity (blue grid, red dotted running peak,
   yellow dotted **2.5 kW** capaciteitstarief floor, all in kW on one axis).
-- **`zeus-forecast-influx`** ("Zeus — Savings Forecast (InfluxDB)") — predicted
+- **`zeus-forecast-influx`** ("Zeus — Savings Forecast") — predicted
   **next-36 h** savings/baseline/optimized stat cards, savings evolution, and the
   **real future-dated** look-ahead cumulative-savings + per-slot-load curves.
 
