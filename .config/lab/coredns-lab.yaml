@@ -1,6 +1,42 @@
-# In-cluster CoreDNS secondary for the lab.local zone.
-# PRIMARY/master is the Synology DS918+ DNS Server (192.168.50.144 — confirmed
-# via SOA; .102 is a stale NAS IP and serves no DNS).
+# In-cluster CoreDNS — AUTHORITATIVE PRIMARY for the lab.local zone (lab env).
+# The DS918+ (192.168.50.144) is now a SLAVE that AXFRs this zone. Clients get
+# this VIP (.180) as DHCP DNS1 and the DS918 as DNS2.
 corednsLab:
-  transferFrom: 192.168.50.144   # DS918 DNS master — allows AXFR from 192.168.50.0/24
-  loadBalancerIP: 192.168.50.180 # freed from the old argocd LoadBalancer
+  loadBalancerIP: 192.168.50.180  # platform LB-IPAM pool; LAN clients' DNS1
+  transferTo:
+    - 192.168.50.144              # DS918 slave — allow AXFR + send NOTIFY
+  upstreams:
+    - 192.168.50.1                # Asus router: answers .local + recurses internet
+    - 1.1.1.1                     # fallback recursion
+  # Authoritative zone. BUMP the serial on EVERY edit (DS918 slave keys off it).
+  zoneFile: |
+    $ORIGIN lab.local.
+    $TTL 86400
+    @   IN SOA ns.lab.local. hostmaster.lab.local. (
+            2026063001 ; serial — BUMP on every change (YYYYMMDDnn)
+            43200      ; refresh
+            180        ; retry
+            1209600    ; expire
+            10800 )    ; minimum
+    @            IN NS  ns.lab.local.
+    @            IN NS  ns2.lab.local.
+    ns           IN A   192.168.50.180   ; in-cluster CoreDNS (this VIP) — primary
+    ns2          IN A   192.168.50.144   ; DS918 — slave
+    ; cluster services (Cilium gateway VIP)
+    argocd       IN A   192.168.50.200
+    grafana      IN A   192.168.50.200
+    influxdb     IN A   192.168.50.200
+    hermes       IN A   192.168.50.200
+    chaos-mesh   IN A   192.168.50.200
+    ; infra / hosts
+    nas001       IN A   192.168.50.2
+    vesta        IN A   192.168.50.18    ; Home Assistant + MQTT
+    mercurius    IN A   192.168.50.150
+    ; k3s control-plane name + nodes (reserved .151-.156 block)
+    k3s          IN A   192.168.50.151   ; kube-API control-plane (master01)
+    k3s-master01 IN A   192.168.50.151
+    k3s-node01   IN A   192.168.50.152
+    k3s-node02   IN A   192.168.50.153
+    k3s-node03   IN A   192.168.50.154
+    k3s-node04   IN A   192.168.50.155
+    k3s-node05   IN A   192.168.50.156

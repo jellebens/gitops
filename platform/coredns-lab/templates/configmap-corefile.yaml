@@ -14,11 +14,23 @@ data:
             lameduck 5s
         }
         ready
-        secondary {
-            transfer from {{ required "corednsLab.transferFrom (DS918 IP) is required" .Values.corednsLab.transferFrom }}
+        file /etc/coredns-zones/db.{{ .Values.corednsLab.zone }}
+        {{- if .Values.corednsLab.transferTo }}
+        transfer {
+            to {{ join " " .Values.corednsLab.transferTo }}
         }
+        {{- end }}
         prometheus :9153
         cache 30
+        loadbalance
+        log
+    }
+    .:53 {
+        errors
+        cache 30
+        forward . {{ join " " (required "corednsLab.upstreams is required" .Values.corednsLab.upstreams) }} {
+            policy sequential
+        }
         loadbalance
         log
     }

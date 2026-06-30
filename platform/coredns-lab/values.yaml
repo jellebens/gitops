@@ -1,17 +1,27 @@
-# In-cluster CoreDNS acting as a SECONDARY (AXFR replica) of the lab.local zone
-# whose PRIMARY/master is the Synology DS918+ DNS Server. The cluster is only a
-# replica — DS918 stays authoritative, so LAN name resolution never depends on
-# k8s being healthy. See README.md.
+# In-cluster CoreDNS acting as the AUTHORITATIVE PRIMARY for the lab.local zone
+# (zone-in-git, served via the `file` plugin). The Synology DS918+ is now a
+# SLAVE that AXFRs this zone (see corednsLab.transferTo). Because clients use
+# this VIP as their primary resolver, the deployment is also a full recursive
+# forwarder for everything else (catch-all `.` block -> corednsLab.upstreams).
+# See README.md.
 corednsLab:
-  # Multi-arch image (arm64 cluster). secondary plugin is in the default build.
+  # Multi-arch image (arm64 cluster). file + transfer plugins are in the default build.
   image: coredns/coredns:1.11.3
-  replicas: 2
+  replicas: 3
   zone: lab.local
-  # AXFR source (DS918 master). Set per-env in .config/<env>/coredns-lab.yaml.
-  transferFrom: ""
-  # LoadBalancer VIP for LAN clients to use as a SECONDARY resolver (DS918 first).
+  # LoadBalancer VIP for LAN clients (DHCP hands this out as DNS1).
   # Set per-env; comes from the Cilium `platform` LB-IPAM pool (.180-.199).
   loadBalancerIP: ""
+  # Secondaries allowed to pull the zone via AXFR and receive NOTIFY
+  # (e.g. the DS918 slave). Set per-env in .config/<env>/coredns-lab.yaml.
+  transferTo: []
+  # Upstream resolvers for the catch-all (non-lab.local) queries: the router
+  # answers home `.local` names and recurses to the internet; 1.1.1.1 is a
+  # fallback. Set per-env.
+  upstreams: []
+  # Authoritative zone file (zone-in-git). BUMP the SOA serial on every change.
+  # Set per-env in .config/<env>/coredns-lab.yaml.
+  zoneFile: ""
   resources:
     requests:
       cpu: 25m
@@ -23,6 +33,6 @@ corednsLab:
 # The kube-system `coredns-custom` ConfigMap is owned by the separate
 # `coredns-config` app (it manages the per-FQDN forwards). Keep this OFF so two
 # Argo apps don't fight over the same ConfigMap and wipe each other's keys. The
-# lab.local -> secondary forward (if wanted) is added to coredns-config instead.
+# lab.local -> primary forward is added to coredns-config instead.
 clusterForward:
   enabled: false

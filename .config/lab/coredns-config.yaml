@@ -6,11 +6,13 @@
 forwards:
   - name: vesta.local        # Home Assistant + MQTT host (DHCP-reserved 192.168.50.18)
     to: 192.168.50.1         # router resolves vesta.local -> 192.168.50.18
-  # Whole lab.local zone (nas001, etc.): resolve via the in-cluster secondary
-  # (coredns-lab, an AXFR replica of the DS918) FIRST, fall back to the DS918
-  # master if the replica is down.
+                             # (vesta is now also vesta.lab.local in the zone; this
+                             #  forward stays so existing .local references keep working)
+  # Whole lab.local zone: resolve via the in-cluster authoritative PRIMARY
+  # (coredns-lab @ .180) FIRST, fall back to the DS918 slave (.144) if the
+  # cluster service is down.
   - name: lab.local
     to:
-      - 192.168.50.180       # in-cluster secondary (coredns-lab) — preferred
-      - 192.168.50.144       # DS918 DNS master — fallback
+      - 192.168.50.180       # in-cluster authoritative primary (coredns-lab) — preferred
+      - 192.168.50.144       # DS918 slave — fallback
     policy: sequential

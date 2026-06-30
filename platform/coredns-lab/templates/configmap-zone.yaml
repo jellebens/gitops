@@ -1,0 +1,17 @@
+{{- /*
+Authoritative lab.local zone file, served by the `file` plugin (zone-in-git).
+The actual records live in .config/<env>/coredns-lab.yaml under
+corednsLab.zoneFile. Remember to bump the SOA serial whenever you edit it,
+otherwise the DS918 slave won't pull the new copy via AXFR.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-lab-zone
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: coredns-lab
+    app.kubernetes.io/part-of: platform
+data:
+  db.{{ .Values.corednsLab.zone }}: |
+{{ required "corednsLab.zoneFile is required" .Values.corednsLab.zoneFile | indent 4 }}

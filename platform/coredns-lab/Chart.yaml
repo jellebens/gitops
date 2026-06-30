@@ -1,6 +1,6 @@
 apiVersion: v2
 name: coredns-lab
-description: In-cluster CoreDNS secondary that replicates the lab.local zone from the DS918 (AXFR)
+description: In-cluster CoreDNS authoritative primary for the lab.local zone (zone-in-git) + catch-all resolver
 type: application
 version: 0.1.0
 appVersion: "1.11.3"

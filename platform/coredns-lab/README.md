@@ -1,15 +1,17 @@
-# coredns-lab — in-cluster `lab.local` secondary (AXFR replica)
+# coredns-lab — in-cluster `lab.local` authoritative primary
 
-Runs a small CoreDNS deployment in `kube-system` that is a **secondary**
-(read-only AXFR replica) of the `lab.local` zone. The **primary/master is the
-Synology DS918+ DNS Server** (`192.168.50.144`).
+Runs a small CoreDNS deployment in `kube-system` that is the **authoritative
+primary** for the `lab.local` zone, served from a **zone file kept in git** (the
+`file` plugin). The Synology DS918+ (`192.168.50.144`) is now a **slave** that
+pulls the zone via AXFR.
 
-The cluster is deliberately *only a replica*: DS918 stays authoritative, so LAN
-name resolution never depends on k8s being healthy (no circular dependency). The
-in-cluster copy gives a local cached copy of the zone — the cluster's own CoreDNS
-forwards `lab.local` to this secondary **first** and falls back to the DS918
-(`.144`) if it's down (see `coredns-config`), and LAN clients can use it as a
-second resolver.
+Because LAN clients use this deployment's VIP as their **primary resolver**
+(DHCP DNS1), it is also a **full recursive forwarder**: a catch-all `.:53` block
+forwards everything that isn't `lab.local` to the router (`192.168.50.1`, which
+answers home `.local` names and recurses to the internet) with `1.1.1.1` as a
+fallback. The DS918 is handed out as **DNS2**, so if the whole cluster is down
+clients still resolve `lab.local` (from the slave) and the internet (DS918
+recurses independently).
 
 ## How it's deployed
 
@@ -22,34 +24,51 @@ second resolver.
 
 ## Pieces
 
-- **Deployment + ConfigMap (`coredns-lab`)** — CoreDNS with the `secondary`
-  plugin: `transfer from 192.168.50.144`. Pulls the zone via AXFR, caches it,
-  refreshes on the SOA timers. 2 replicas, anti-affinity across nodes.
+- **Zone ConfigMap (`coredns-lab-zone`)** — the authoritative `lab.local` zone
+  file (`db.lab.local`), rendered verbatim from `corednsLab.zoneFile` in
+  `.config/<env>/coredns-lab.yaml`. **This is the source of truth for the zone —
+  edit it here.** Bump the SOA serial on every change (see below).
+- **Corefile ConfigMap (`coredns-lab`)** — two server blocks:
+  `lab.local:53` (`file` plugin + `transfer { to <slaves> }` to allow AXFR /
+  send NOTIFY) and a catch-all `.:53` (`forward` to `corednsLab.upstreams`).
+- **Deployment (`coredns-lab`)** — 3 replicas, anti-affinity across nodes. The
+  pods roll automatically when the Corefile or zone changes (`checksum/config`).
 - **Service (`coredns-lab`, LoadBalancer)** — VIP `192.168.50.180` (Cilium
-  `platform` pool), `53/UDP` + `53/TCP`. LAN clients can use it as a **secondary**
-  resolver (DS918 stays first in DHCP).
+  `platform` pool), `53/UDP` + `53/TCP`. This is DHCP **DNS1** for LAN clients.
 - **Cluster forwarding is owned by `coredns-config`, not here.** That app's
-  `coredns-custom` ConfigMap forwards `lab.local` to `[.180, .144]` with
-  `policy sequential` — this secondary first, DS918 fallback. `clusterForward` in
-  this chart stays **disabled** so two Argo apps don't fight over `coredns-custom`.
+  `coredns-custom` ConfigMap forwards `lab.local` to `.180` so pods resolve
+  `*.lab.local`. `clusterForward` in this chart stays **disabled** so two Argo
+  apps don't fight over `coredns-custom`.
 
-## DS918 side (one-time)
+## Editing the zone — IMPORTANT
 
-The master must permit the zone transfer. In **DNS Server → Zones → `lab.local`
-→ Edit → Zone Transfer**: add a **Subnet** rule `192.168.50.0` / `255.255.255.0`
-(pods egress to the LAN SNAT'd to a node IP, so the whole subnet covers all
-nodes). Optionally enable **NOTIFY** so edits push immediately instead of waiting
-for the SOA refresh interval.
+1. Edit the records under `corednsLab.zoneFile` in `.config/<env>/coredns-lab.yaml`.
+2. **Bump the SOA `serial`** (convention: `YYYYMMDDnn`). The DS918 slave keys off
+   the serial — if you don't bump it, the slave won't pull your change.
+3. Commit/push to `main`; Argo syncs, the pods roll, the `file` plugin loads the
+   new zone and NOTIFYs the slave.
+
+## DS918 side (one-time, see cutover)
+
+Reconfigure the `lab.local` zone on the DS918 from **master → slave**, pulling
+from `192.168.50.180`. Keep its recursion/forwarding enabled so it can still
+serve internet lookups for clients that fail over to it as DNS2.
 
 ## Verify
 
 ```sh
 kubectl -n kube-system rollout status deploy/coredns-lab
 kubectl -n kube-system get svc coredns-lab          # EXTERNAL-IP = 192.168.50.180
-dig @192.168.50.180 nas001.lab.local +short         # from the LAN -> 192.168.50.2
-kubectl run -n default dnstest --rm -it --image=busybox --restart=Never -- \
-  nslookup nas001.lab.local                         # from a pod (via cluster CoreDNS)
+dig @192.168.50.180 nas001.lab.local +short         # -> 192.168.50.2 (authoritative)
+dig @192.168.50.180 k3s.lab.local +short            # -> 192.168.50.151
+dig @192.168.50.180 google.com +short               # catch-all forward -> internet
+dig @192.168.50.180 lab.local AXFR                   # works from .144; refused elsewhere
 ```
 
-If the transfer is refused, the pod logs show `axfr ... no transfer`:
-`kubectl -n kube-system logs deploy/coredns-lab` — fix the DS918 transfer ACL.
+Local render + parse check (no cluster needed):
+
+```sh
+helm template coredns-lab platform/coredns-lab -f .config/lab/coredns-lab.yaml
+# then boot the real binary against the rendered Corefile/zone with docker to
+# confirm it parses and resolves (see commit history / session notes).
+```
