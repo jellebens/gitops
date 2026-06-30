@@ -1163,17 +1163,17 @@
                     "type": "value",
                     "options": {
                       "100000": {
-                        "text": "PASSTHRU",
+                        "text": "⏸",
                         "color": "blue",
                         "index": 0
                       },
                       "100001": {
-                        "text": "CHARGING",
+                        "text": "⬆",
                         "color": "green",
                         "index": 1
                       },
                       "100002": {
-                        "text": "DISCHRG",
+                        "text": "⬇",
                         "color": "orange",
                         "index": 2
                       }
