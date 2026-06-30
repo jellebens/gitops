@@ -919,6 +919,23 @@
           "instant": true
         }
       ]
+    },
+    {
+      "id": 60,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 5
+      },
+      "options": {
+        "mode": "html",
+        "content": "<style>.rdg-cell{padding-left:4px !important;padding-right:4px !important;}</style>"
+      },
+      "datasource": null
     }
   ],
   "refresh": "5s",

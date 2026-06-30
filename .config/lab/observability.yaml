@@ -12,7 +12,12 @@ grafana:
       org_role: Viewer
     auth.basic:
       enabled: false
-      
+    # Allow raw HTML/CSS in Text panels (used by a scoped <style> on the zeus
+    # live-ops kiosk to tighten table cell padding). NOTE: this is instance-wide —
+    # any Text panel can now inject HTML/CSS/JS, so only trusted editors here.
+    panels:
+      disable_sanitize_html: true
+
   admin:
     existingSecret: grafana-admin
     userKey: admin-user
