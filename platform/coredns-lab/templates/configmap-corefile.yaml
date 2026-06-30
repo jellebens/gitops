@@ -21,7 +21,6 @@ data:
         }
         {{- end }}
         prometheus :9153
-        cache 30
         loadbalance
         log
     }

@@ -3,8 +3,13 @@
 # this VIP (.180) as DHCP DNS1 and the DS918 as DNS2.
 corednsLab:
   loadBalancerIP: 192.168.50.180  # platform LB-IPAM pool; LAN clients' DNS1
+  # Cilium SNAT-masquerades LoadBalancer traffic, so AXFR from the DS918 arrives
+  # at the pod with a cluster (cilium_host) source IP, not .144 — a bare
+  # `to 192.168.50.144` ACL then REFUSES it. So allow `*` for the transfer ACL,
+  # and keep .144 listed as the NOTIFY target (pushes zone changes to the slave).
   transferTo:
-    - 192.168.50.144              # DS918 slave — allow AXFR + send NOTIFY
+    - 192.168.50.144              # DS918 slave — NOTIFY target
+    - "*"                         # allow AXFR (LB SNAT hides the real source IP)
   upstreams:
     - 192.168.50.1                # Asus router: answers .local + recurses internet
     - 1.1.1.1                     # fallback recursion
@@ -13,8 +18,8 @@ corednsLab:
     $ORIGIN lab.local.
     $TTL 86400
     @   IN SOA ns.lab.local. hostmaster.lab.local. (
-            2026063001 ; serial — BUMP on every change (YYYYMMDDnn)
-            43200      ; refresh
+            2026070101 ; serial — BUMP on every change (YYYYMMDDnn)
+            3600       ; refresh (1h backstop if NOTIFY to the slave is missed)
             180        ; retry
             1209600    ; expire
             10800 )    ; minimum
