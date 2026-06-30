@@ -194,8 +194,8 @@
         "justifyMode": "auto",
         "wideLayout": true,
         "text": {
-          "titleSize": 14,
-          "valueSize": 28
+          "titleSize": 12,
+          "valueSize": 18
         }
       },
       "targets": [
