@@ -37,7 +37,24 @@
       "Read(///wsl.localhost/ubuntu/home/jelle/repos/gitops/.config/**)",
       "Bash(grep -r \"m365\\\\|m365-mcp\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops\" -r -l -i 2>/dev/null | grep -v \".git\")",
       "Bash(grep -r \"mcp\" \"//wsl.localhost/ubuntu/home/jelle/repos/gitops/.config\" -i -A10 -B2 2>/dev/null | grep -v \"Binary\\\\|#\")",
-      "WebSearch"
+      "WebSearch",
+      "Bash(ls -la \"//wsl.localhost/Ubuntu/home/jelle/repos/home-assitant\" 2>/dev/null || echo \"PATH NOT ACCESSIBLE via this form\")",
+      "Read(///wsl.localhost/Ubuntu/home/jelle/repos/home-assitant/**)",
+      "Bash(wsl -d ubuntu -- bash -lc 'cd ~/repos/gitops && git log --oneline -6 && echo \"---LZ---\" && ls landingzones/zeus/')",
+      "Bash(wsl -d ubuntu -- bash -lc 'kubectl get pods -n zeus; echo \"---\"; kubectl get application zeus -n argocd -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status')",
+      "Bash(wsl -d ubuntu -- bash -lc 'kubectl logs -n zeus deploy/zeus --tail=40 2>&1')",
+      "Bash(wsl -d ubuntu -- bash -lc 'cd ~/repos/gitops && echo \"=== existing dashboard configmaps in repo ===\" && grep -rl \"grafana_dashboard\" --include=*.yaml . 2>/dev/null | head -20; echo; echo \"=== grep dashboard json files ===\" && find . -path ./node_modules -prune -o -name \"*dashboard*\" -print 2>/dev/null | head -20')",
+      "Bash(wsl -d ubuntu -- bash -lc 'kubectl get cm -A -l grafana_dashboard=1 2>/dev/null | head; echo \"---sidecar label search---\"; kubectl get deploy -n observability kube-prometheus-stack-grafana -o yaml 2>/dev/null | grep -iA2 \"LABEL\\\\|FOLDER\" | head -30')",
+      "Bash(wsl -d ubuntu -- bash -lc 'kubectl get deploy -n observability kube-prometheus-stack-grafana -o yaml 2>/dev/null | grep -iE \"SEARCH_NAMESPACE|FOLDER_ANNOTATION|NAMESPACE\" | head -20; echo \"---datasource uid---\"; kubectl get cm -n observability -l grafana_datasource=1 -o jsonpath=\"{.items[*].metadata.name}\" 2>/dev/null')",
+      "Bash(wsl -d ubuntu -- bash -lc 'echo \"=== actual metrics exported by zeus ===\"; kubectl exec -n zeus deploy/zeus -- python -c \"import urllib.request; print\\(urllib.request.urlopen\\(\\\\\"http://localhost:9000/metrics\\\\\"\\).read\\(\\).decode\\(\\)\\)\" 2>/dev/null | grep -E \"^zeus_|^# HELP zeus\" | head -60')",
+      "Bash(wsl -d ubuntu -- bash -lc 'kubectl get cm -n observability kube-prometheus-stack-grafana-datasource -o jsonpath=\"{.data}\" 2>/dev/null | head -c 800; echo; echo \"=== zeus app destination ===\"; kubectl get application zeus -n argocd -o jsonpath=\"{.spec.destination}{\\\\\"\\\\n\\\\\"}{.spec.source.path}{\\\\\"\\\\n\\\\\"}\"; echo \"=== observability landing zone in repo? ===\"; cd ~/repos/gitops && ls landingzones/ 2>/dev/null')",
+      "Bash(wsl -d ubuntu -- bash -lc 'proj=$\\(kubectl get application zeus -n argocd -o jsonpath=\"{.spec.project}\"\\); echo \"project=$proj\"; kubectl get appproject $proj -n argocd -o jsonpath=\"{.spec.destinations}{\\\\\"\\\\n\\\\\"}\" 2>/dev/null')",
+      "Bash(wsl -d ubuntu -- bash -lc 'cd ~/repos/gitops && echo \"=== zeus templates ===\" && ls -la landingzones/zeus/templates/ && echo \"=== values \\(metrics/dashboard region\\) ===\" && grep -nA3 -iE \"metrics|servicemonitor|dashboard|grafana\" landingzones/zeus/values.yaml')",
+      "Bash(wsl -d ubuntu -- bash -lc 'kubectl get deploy -n observability kube-prometheus-stack-grafana -o json | jq -r \".spec.template.spec.containers[] | select\\(.name|test\\(\\\\\"sc-dashboard\\\\\"\\)\\) | .env[] | \\\\\"\\\\\\(.name\\)=\\\\\\(.value // .valueFrom\\)\\\\\"\"')",
+      "Bash(wsl -d ubuntu -- bash -lc 'cd ~/repos/gitops && echo \"=== json valid? ===\" && jq empty landingzones/zeus/dashboards/zeus.json && echo OK && echo \"=== helm template ===\" && helm template zeus landingzones/zeus --show-only templates/dashboard.yaml > /tmp/zeus-dash.yaml 2>&1 && head -15 /tmp/zeus-dash.yaml && echo \"...\" && echo \"=== embedded json valid? ===\" && yq -r \".data[\\\\\"zeus.json\\\\\"]\" /tmp/zeus-dash.yaml | jq empty && echo \"EMBEDDED-JSON-OK\"')",
+      "Bash(wsl -d ubuntu -- bash -lc 'cd ~/repos/gitops && helm template zeus landingzones/zeus --show-only templates/dashboard.yaml 2>/dev/null | python3 -c \"import sys,yaml,json; d=yaml.safe_load\\(sys.stdin\\); j=json.loads\\(d[\\\\\"data\\\\\"][\\\\\"zeus.json\\\\\"]\\); print\\(\\\\\"panels:\\\\\", len\\(j[\\\\\"panels\\\\\"]\\), \\\\\"| uid:\\\\\", j[\\\\\"uid\\\\\"], \\\\\"| title:\\\\\", j[\\\\\"title\\\\\"]\\)\"')",
+      "Bash(wsl -d ubuntu -- bash -lc 'cd ~/repos/gitops && git status --short landingzones/zeus/')",
+      "Bash(wsl -d *)"
     ]
   }
 }
