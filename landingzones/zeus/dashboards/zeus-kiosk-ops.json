@@ -17,8 +17,8 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
+        "h": 10,
+        "w": 8,
         "x": 0,
         "y": 0
       },
@@ -189,7 +189,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 4,
+        "x": 8,
         "y": 0
       },
       "fieldConfig": {
@@ -272,7 +272,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 8,
+        "x": 12,
         "y": 0
       },
       "fieldConfig": {
@@ -344,7 +344,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 12,
+        "x": 16,
         "y": 0
       },
       "fieldConfig": {
@@ -412,7 +412,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 16,
+        "x": 20,
         "y": 0
       },
       "fieldConfig": {
@@ -495,8 +495,8 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 20,
-        "y": 0
+        "x": 8,
+        "y": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -579,7 +579,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 0,
+        "x": 12,
         "y": 5
       },
       "fieldConfig": {
@@ -653,7 +653,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 4,
+        "x": 16,
         "y": 5
       },
       "fieldConfig": {
@@ -727,7 +727,7 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 8,
+        "x": 20,
         "y": 5
       },
       "fieldConfig": {
@@ -803,8 +803,8 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 12,
-        "y": 5
+        "x": 0,
+        "y": 10
       },
       "fieldConfig": {
         "defaults": {
@@ -875,8 +875,8 @@
       "gridPos": {
         "h": 5,
         "w": 4,
-        "x": 16,
-        "y": 5
+        "x": 4,
+        "y": 10
       },
       "fieldConfig": {
         "defaults": {
@@ -927,9 +927,9 @@
       "transparent": true,
       "gridPos": {
         "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 5
+        "w": 16,
+        "x": 8,
+        "y": 10
       },
       "options": {
         "mode": "html",
