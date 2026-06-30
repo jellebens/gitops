@@ -150,7 +150,7 @@
       },
       "options": {
         "showHeader": false,
-        "cellHeight": "md",
+        "cellHeight": "sm",
         "footer": {
           "show": false
         }
