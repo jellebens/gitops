@@ -146,7 +146,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto",
-        "wideLayout": false
+        "wideLayout": true
       },
       "targets": [
         {
