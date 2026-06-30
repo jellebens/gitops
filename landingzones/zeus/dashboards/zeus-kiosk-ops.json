@@ -1180,23 +1180,27 @@
                     "type": "value",
                     "options": {
                       "100000": {
-                        "text": "⏸",
+                        "text": "■",
                         "color": "blue",
                         "index": 0
                       },
                       "100001": {
-                        "text": "⬆",
+                        "text": "▲",
                         "color": "green",
                         "index": 1
                       },
                       "100002": {
-                        "text": "⬇",
+                        "text": "▼",
                         "color": "orange",
                         "index": 2
                       }
                     }
                   }
                 ]
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
