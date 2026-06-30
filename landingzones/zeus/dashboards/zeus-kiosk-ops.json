@@ -54,19 +54,6 @@
               {
                 "id": "custom.width",
                 "value": 150
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#000000"
-                }
               }
             ]
           },
@@ -146,7 +133,7 @@
       },
       "options": {
         "showHeader": false,
-        "cellHeight": "md",
+        "cellHeight": "sm",
         "footer": {
           "show": false
         }
