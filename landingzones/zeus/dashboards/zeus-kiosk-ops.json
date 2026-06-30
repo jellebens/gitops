@@ -1224,12 +1224,25 @@
       ],
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "keepLabels": [
+              "k"
+            ]
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true
             }
           }
+        },
+        {
+          "id": "merge",
+          "options": {}
         }
       ]
     }
