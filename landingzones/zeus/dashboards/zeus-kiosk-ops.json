@@ -187,7 +187,7 @@
           "fields": "",
           "values": false
         },
-        "orientation": "vertical",
+        "orientation": "horizontal",
         "textMode": "value_and_name",
         "colorMode": "background",
         "graphMode": "none",
