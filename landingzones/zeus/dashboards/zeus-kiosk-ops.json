@@ -933,7 +933,7 @@
       },
       "options": {
         "mode": "html",
-        "content": "<style>.rdg-cell,[role='gridcell'],[role='cell']{font-size:12px !important;line-height:1.15 !important;padding-left:4px !important;padding-right:4px !important;}</style>"
+        "content": "<style>.rdg-cell,[role='gridcell'],[role='cell']{font-size:10px !important;line-height:1.1 !important;padding-left:4px !important;padding-right:4px !important;}</style>"
       },
       "datasource": null
     }
