@@ -1023,6 +1023,337 @@
         "content": "<style>.rdg-cell,[role='gridcell'],[role='cell']{font-size:12px !important;line-height:1.1 !important;padding-left:4px !important;padding-right:4px !important;}</style>"
       },
       "datasource": null
+    },
+    {
+      "id": 70,
+      "type": "row",
+      "title": "InfluxDB",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "panels": []
+    },
+    {
+      "id": 71,
+      "type": "table",
+      "title": "Backup",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "filterable": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "k"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace(((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-backup\"}))/3600), \"k\", \"Full backup age (h)\", \"\", \"\")) or (label_replace(((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-incremental-backup\"}))/3600), \"k\", \"Incremental age (h)\", \"\", \"\")) or (label_replace((sum(increase(kube_job_status_failed{namespace=\"influxdb\",job_name=~\"influxdb-.*backup.*\"}[26h]))), \"k\", \"Failed jobs (26h)\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "type": "table",
+      "title": "Performance",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "filterable": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "k"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace((100 * sum(go_memstats_heap_inuse_bytes{namespace=\"influxdb\"}) / sum(go_memstats_heap_sys_bytes{namespace=\"influxdb\"})), \"k\", \"Heap in-use (%)\", \"\", \"\")) or (label_replace((sum(qc_all_active{namespace=\"influxdb\"})), \"k\", \"Active queries\", \"\", \"\")) or (label_replace((sum(storage_compactions_queued{namespace=\"influxdb\"})), \"k\", \"Compactions queued\", \"\", \"\")) or (label_replace((sum(increase(storage_cache_writes_dropped{namespace=\"influxdb\"}[15m]))), \"k\", \"Cache drops (15m)\", \"\", \"\")) or (label_replace((sum(storage_bucket_series_num{namespace=\"influxdb\"})), \"k\", \"Series (cardinality)\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "type": "table",
+      "title": "Availability",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "filterable": false
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "k"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace((max(up{namespace=\"influxdb\", endpoint=\"http\"})), \"k\", \"Scrape up\", \"\", \"\")) or (label_replace((max(kube_pod_status_ready{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\", condition=\"true\"})), \"k\", \"Pod ready\", \"\", \"\")) or (label_replace((max(influxdb_uptime_seconds)/3600), \"k\", \"Uptime (h)\", \"\", \"\")) or (label_replace((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))), \"k\", \"Restarts (1h)\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "5s",
