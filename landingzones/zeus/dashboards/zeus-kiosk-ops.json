@@ -192,7 +192,11 @@
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto",
-        "wideLayout": true
+        "wideLayout": true,
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -302,7 +306,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -370,7 +378,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -434,7 +446,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -513,7 +529,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -593,7 +613,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -663,7 +687,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -733,7 +761,11 @@
         "textMode": "value",
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -805,7 +837,11 @@
         "textMode": "value",
         "colorMode": "value",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -873,7 +909,11 @@
         "textMode": "value",
         "colorMode": "value",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
@@ -925,7 +965,11 @@
         "textMode": "value",
         "colorMode": "value",
         "graphMode": "none",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 34
+        }
       },
       "targets": [
         {
