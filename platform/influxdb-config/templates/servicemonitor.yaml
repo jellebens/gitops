@@ -1,0 +1,21 @@
+# Scrape InfluxDB's built-in Prometheus /metrics (unauthenticated) so Prometheus
+# has write/query/cardinality/compaction/heap internals for the InfluxDB health
+# dashboard. Picked up by kube-prometheus-stack (serviceMonitorSelector matches
+# release=kube-prometheus-stack, namespaceSelector = all).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: influxdb
+  namespace: influxdb
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: influxdb2
+      app.kubernetes.io/instance: influxdb
+  endpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      interval: 30s
