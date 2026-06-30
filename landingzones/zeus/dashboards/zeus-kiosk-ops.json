@@ -1217,7 +1217,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap-Exp %\", \"\", \"\")) or (label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle m\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cyc\", \"\", \"\"))",
+          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
