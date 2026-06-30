@@ -212,7 +212,7 @@
         ]
       },
       "options": {
-        "showHeader": true,
+        "showHeader": false,
         "cellHeight": "lg",
         "footer": {
           "show": false
