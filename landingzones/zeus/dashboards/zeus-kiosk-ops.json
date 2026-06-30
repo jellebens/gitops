@@ -179,146 +179,6 @@
       ]
     },
     {
-      "id": 4,
-      "type": "stat",
-      "title": "Last cycle (age)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 4,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 900
-              },
-              {
-                "color": "red",
-                "value": 1800
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "time() - max(zeus_last_cycle_timestamp_seconds)",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Failed cycles",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 8,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_cycle_failures_total)",
-          "instant": true
-        }
-      ]
-    },
-    {
       "id": 6,
       "type": "stat",
       "title": "Solver",
@@ -329,7 +189,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 12,
+        "x": 8,
         "y": 0
       },
       "fieldConfig": {
@@ -402,164 +262,6 @@
       ]
     },
     {
-      "id": 7,
-      "type": "stat",
-      "title": "Mode (live)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 16,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "PASSTHROUGH",
-                  "color": "blue",
-                  "index": 0
-                },
-                "1": {
-                  "text": "CHARGING",
-                  "color": "green",
-                  "index": 1
-                },
-                "2": {
-                  "text": "DISCHARGING",
-                  "color": "orange",
-                  "index": 2
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "noValue": "?"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_actual_mode_code)",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "type": "stat",
-      "title": "Cheap → Expensive",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 0,
-        "y": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "min": 0,
-          "max": 100,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 34
-              },
-              {
-                "color": "red",
-                "value": 67
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_price_position_pct)",
-          "instant": true
-        }
-      ]
-    },
-    {
       "id": 9,
       "type": "stat",
       "title": "SoC",
@@ -570,7 +272,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 4,
+        "x": 0,
         "y": 6
       },
       "fieldConfig": {
@@ -644,7 +346,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 8,
+        "x": 4,
         "y": 6
       },
       "fieldConfig": {
@@ -720,7 +422,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 12,
+        "x": 8,
         "y": 6
       },
       "fieldConfig": {
@@ -792,7 +494,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 16,
+        "x": 12,
         "y": 6
       },
       "fieldConfig": {
@@ -845,7 +547,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 20,
+        "x": 16,
         "y": 6
       },
       "options": {
@@ -1362,6 +1064,166 @@
             "uid": "prometheus"
           },
           "expr": "(label_replace((((max(up{namespace=\"influxdb\", endpoint=\"http\"})) < bool 1) * 101 or vector(101)), \"k\", \"Scrape up\", \"\", \"\")) or (label_replace((((max(kube_pod_status_ready{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\", condition=\"true\"})) < bool 1) * 100), \"k\", \"Pod ready\", \"\", \"\")) or (label_replace((((max(influxdb_uptime_seconds)/3600) < bool 1) * 80), \"k\", \"Uptime\", \"\", \"\")) or (label_replace((((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))) >= bool 1) * 80 + ((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))) >= bool 3) * 20), \"k\", \"Restarts (1h)\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Cycle & Mode",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "filterable": false
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "k"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 135
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "100000": {
+                        "text": "PASSTHROUGH",
+                        "color": "blue",
+                        "index": 0
+                      },
+                      "100001": {
+                        "text": "CHARGING",
+                        "color": "green",
+                        "index": 1
+                      },
+                      "100002": {
+                        "text": "DISCHARGING",
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap-Exp %\", \"\", \"\")) or (label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle m\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cyc\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
