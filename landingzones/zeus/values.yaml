@@ -5,6 +5,19 @@ image:
 
 replicaCount: 1
 
+# Scoped CiliumNetworkPolicy for the zeus namespace. INGRESS-ONLY by design:
+# a Cilium policy with only `ingress` rules default-denies inbound to the zeus
+# pod while leaving EGRESS fully open, so live traffic to Home Assistant / MQTT
+# (vesta.local), in-cluster InfluxDB, the SMB NAS, and the weather/price APIs is
+# untouched. The only inbound allowed is a Prometheus scrape of the metrics port
+# from the namespace below. A fuller egress lockdown is a separate, human-
+# reviewed decision — do not enable it here without validating every egress hop.
+networkPolicy:
+  enabled: true
+  # Namespace Prometheus (kube-prometheus-stack) runs in; it scrapes the metrics
+  # port. Must match the observability app's destination namespace.
+  metricsScrapeNamespace: observability
+
 # Prometheus scraping via the Prometheus Operator (kube-prometheus-stack).
 serviceMonitor:
   enabled: true
