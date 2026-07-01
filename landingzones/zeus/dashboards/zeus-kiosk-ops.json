@@ -263,8 +263,8 @@
     },
     {
       "id": 9,
-      "type": "stat",
-      "title": "SoC",
+      "type": "table",
+      "title": "Battery & Grid",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -277,82 +277,13 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "min": 0,
-          "max": 100,
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "filterable": false
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 20
-              },
-              {
-                "color": "green",
-                "value": 50
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_soc_percent)",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Grid power (+imp/−exp)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 4,
-        "y": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "watt",
-          "decimals": 0,
           "color": {
             "mode": "thresholds"
           },
@@ -362,114 +293,78 @@
               {
                 "color": "green",
                 "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "k"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
               },
               {
-                "color": "text",
-                "value": 0
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               },
               {
-                "color": "orange",
-                "value": 2500
-              },
-              {
-                "color": "red",
-                "value": 5000
+                "id": "custom.width",
+                "value": 160
               }
             ]
           },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_grid_power_w)",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Capacity peak (mo.)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 8,
-        "y": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "kwatt",
-          "decimals": 2,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
               {
-                "color": "green",
-                "value": null
+                "id": "unit",
+                "value": "short"
               },
               {
-                "color": "orange",
-                "value": 2.5
+                "id": "decimals",
+                "value": 1
               },
               {
-                "color": "red",
-                "value": 5
+                "id": "custom.align",
+                "value": "center"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 60
               }
             ]
-          },
-          "mappings": []
-        },
-        "overrides": []
+          }
+        ]
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
+        "showHeader": false,
+        "cellHeight": "sm"
       },
       "targets": [
         {
@@ -478,64 +373,32 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_capacity_peak_kw)",
+          "expr": "(label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((max(zeus_grid_power_w)), \"k\", \"Grid power (W)\", \"\", \"\")) or (label_replace((max(zeus_capacity_peak_kw)), \"k\", \"Capacity peak (kW)\", \"\", \"\")) or (label_replace((max(zeus_backup_reserve_pct)), \"k\", \"Backup reserve %\", \"\", \"\"))",
+          "format": "table",
           "instant": true
         }
-      ]
-    },
-    {
-      "id": 12,
-      "type": "stat",
-      "title": "Backup reserve",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 12,
-        "y": 6
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
+      ],
+      "transformations": [
         {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_backup_reserve_pct)",
-          "instant": true
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "keepLabels": [
+              "k"
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
         }
       ]
     },
