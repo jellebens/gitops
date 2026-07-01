@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.44"
+  tag: "0.1.45"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -201,7 +201,7 @@ config:
     history_days: 30
     # Accumulate realized load on the PVC so the forecaster keeps more than HA's
     # short recorder retention.
-    persist_path: /app/reports/load_history.csv
+    load_cache_path: /app/reports/load_history.csv
     # A/C plug history (forward-only; the plug's pre-existing history is ignored).
     ac_persist_path: /app/reports/ac_history.csv
     store_days: 120
