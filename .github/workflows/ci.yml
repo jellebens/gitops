@@ -1,0 +1,66 @@
+name: ci
+
+# PR gate for GitHub Flow (trello-agents). Fast, dependency-free checks that
+# catch the mistakes agents actually make: broken dashboard JSON, malformed
+# YAML, and un-renderable Helm templates in the dependency-free app charts.
+# Starting point — extend with kubeconform + external-dep chart rendering later.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Grafana dashboard JSON
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          fail=0
+          for f in landingzones/**/dashboards/*.json; do
+            if ! jq empty "$f" 2>/dev/null; then
+              echo "::error file=$f::invalid JSON"; fail=1
+            else
+              echo "ok: $f"
+            fi
+          done
+          exit $fail
+
+      - name: YAML syntax lint
+        run: |
+          python3 - <<'PY'
+          import sys, glob, pathlib
+          try:
+              import yaml
+          except ImportError:
+              import subprocess; subprocess.run([sys.executable,"-m","pip","install","-q","pyyaml"],check=True); import yaml
+          bad = 0
+          for f in glob.glob("**/*.y*ml", recursive=True):
+              if f.startswith(".claude/") or "/charts/" in f: continue
+              try:
+                  list(yaml.safe_load_all(pathlib.Path(f).read_text()))
+              except Exception as e:
+                  print(f"::error file={f}::{e}"); bad = 1
+          sys.exit(bad)
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: helm template (dependency-free app charts)
+        run: |
+          set -euo pipefail
+          fail=0
+          for chart in applications bootstrap projects; do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "=== helm template $chart ==="
+              helm template "$chart" >/dev/null || { echo "::error::helm template $chart failed"; fail=1; }
+            fi
+          done
+          exit $fail
