@@ -497,16 +497,53 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value"
+              "options": "val"
             },
             "properties": [
               {
+                "id": "displayName",
+                "value": "Value"
+              },
+              {
                 "id": "unit",
-                "value": "percent"
+                "value": "short"
               },
               {
                 "id": "decimals",
                 "value": 1
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sev"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": " "
               },
               {
                 "id": "custom.align",
@@ -566,7 +603,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 70
+                "value": 54
               }
             ]
           }
@@ -581,22 +618,59 @@
       },
       "targets": [
         {
-          "refId": "A",
+          "refId": "SEV",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace(((((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-backup\"}))/3600) >= bool 26) * 80 + (((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-backup\"}))/3600) >= bool 50) * 20), \"k\", \"Full backup\", \"\", \"\")) or (label_replace(((((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-incremental-backup\"}))/3600) >= bool 2) * 80 + (((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-incremental-backup\"}))/3600) >= bool 3) * 20), \"k\", \"Incremental\", \"\", \"\")) or (label_replace((((sum(increase(kube_job_status_failed{namespace=\"influxdb\",job_name=~\"influxdb-.*backup.*\"}[26h]))) >= bool 1) * 100), \"k\", \"Failed (26h)\", \"\", \"\"))",
+          "expr": "(label_replace(((((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-backup\"}))/3600) >= bool 26) * 80 + (((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-backup\"}))/3600) >= bool 50) * 20), \"k\", \"Full backup (h)\", \"\", \"\")) or (label_replace(((((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-incremental-backup\"}))/3600) >= bool 2) * 80 + (((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-incremental-backup\"}))/3600) >= bool 3) * 20), \"k\", \"Incremental (h)\", \"\", \"\")) or (label_replace((((sum(increase(kube_job_status_failed{namespace=\"influxdb\",job_name=~\"influxdb-.*backup.*\"}[26h]))) >= bool 1) * 100), \"k\", \"Failed (26h)\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "VAL",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace(((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-backup\"}))/3600), \"k\", \"Full backup (h)\", \"\", \"\")) or (label_replace(((time() - max(kube_cronjob_status_last_successful_time{namespace=\"influxdb\",cronjob=\"influxdb-incremental-backup\"}))/3600), \"k\", \"Incremental (h)\", \"\", \"\")) or (label_replace((sum(increase(kube_job_status_failed{namespace=\"influxdb\",job_name=~\"influxdb-.*backup.*\"}[26h]))), \"k\", \"Failed (26h)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
       ],
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "keepLabels": [
+              "k"
+            ]
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true
+            },
+            "renameByName": {
+              "Value #SEV": "sev",
+              "Value #VAL": "val"
+            }
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "k": 0,
+              "val": 1,
+              "sev": 2
             }
           }
         }
@@ -667,16 +741,53 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value"
+              "options": "val"
             },
             "properties": [
               {
+                "id": "displayName",
+                "value": "Value"
+              },
+              {
                 "id": "unit",
-                "value": "percent"
+                "value": "short"
               },
               {
                 "id": "decimals",
-                "value": 1
+                "value": 0
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sev"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": " "
               },
               {
                 "id": "custom.align",
@@ -736,7 +847,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 70
+                "value": 54
               }
             ]
           }
@@ -751,22 +862,59 @@
       },
       "targets": [
         {
-          "refId": "A",
+          "refId": "SEV",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((((100 * sum(go_memstats_heap_inuse_bytes{namespace=\"influxdb\"}) / sum(go_memstats_heap_sys_bytes{namespace=\"influxdb\"})) >= bool 85) * 80 + ((100 * sum(go_memstats_heap_inuse_bytes{namespace=\"influxdb\"}) / sum(go_memstats_heap_sys_bytes{namespace=\"influxdb\"})) >= bool 95) * 20), \"k\", \"Heap\", \"\", \"\")) or (label_replace((((sum(qc_all_active{namespace=\"influxdb\"})) >= bool 20) * 80 + ((sum(qc_all_active{namespace=\"influxdb\"})) >= bool 50) * 20), \"k\", \"Active queries\", \"\", \"\")) or (label_replace((((sum(storage_compactions_queued{namespace=\"influxdb\"})) >= bool 6) * 80 + ((sum(storage_compactions_queued{namespace=\"influxdb\"})) >= bool 21) * 20), \"k\", \"Compactions Q\", \"\", \"\")) or (label_replace((((sum(increase(storage_cache_writes_dropped{namespace=\"influxdb\"}[15m]))) >= bool 1) * 100), \"k\", \"Cache drops\", \"\", \"\")) or (label_replace((((sum(storage_bucket_series_num{namespace=\"influxdb\"})) >= bool 1000000) * 80 + ((sum(storage_bucket_series_num{namespace=\"influxdb\"})) >= bool 5000000) * 20), \"k\", \"Series\", \"\", \"\"))",
+          "expr": "(label_replace((((100 * sum(go_memstats_heap_inuse_bytes{namespace=\"influxdb\"}) / sum(go_memstats_heap_sys_bytes{namespace=\"influxdb\"})) >= bool 85) * 80 + ((100 * sum(go_memstats_heap_inuse_bytes{namespace=\"influxdb\"}) / sum(go_memstats_heap_sys_bytes{namespace=\"influxdb\"})) >= bool 95) * 20), \"k\", \"Heap %\", \"\", \"\")) or (label_replace((((sum(qc_all_active{namespace=\"influxdb\"})) >= bool 20) * 80 + ((sum(qc_all_active{namespace=\"influxdb\"})) >= bool 50) * 20), \"k\", \"Active queries\", \"\", \"\")) or (label_replace((((sum(storage_compactions_queued{namespace=\"influxdb\"})) >= bool 6) * 80 + ((sum(storage_compactions_queued{namespace=\"influxdb\"})) >= bool 21) * 20), \"k\", \"Compactions Q\", \"\", \"\")) or (label_replace((((sum(increase(storage_cache_writes_dropped{namespace=\"influxdb\"}[15m]))) >= bool 1) * 100), \"k\", \"Cache drops (15m)\", \"\", \"\")) or (label_replace((((sum(storage_bucket_series_num{namespace=\"influxdb\"})) >= bool 1000000) * 80 + ((sum(storage_bucket_series_num{namespace=\"influxdb\"})) >= bool 5000000) * 20), \"k\", \"Series\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "VAL",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace((100 * sum(go_memstats_heap_inuse_bytes{namespace=\"influxdb\"}) / sum(go_memstats_heap_sys_bytes{namespace=\"influxdb\"})), \"k\", \"Heap %\", \"\", \"\")) or (label_replace((sum(qc_all_active{namespace=\"influxdb\"})), \"k\", \"Active queries\", \"\", \"\")) or (label_replace((sum(storage_compactions_queued{namespace=\"influxdb\"})), \"k\", \"Compactions Q\", \"\", \"\")) or (label_replace((sum(increase(storage_cache_writes_dropped{namespace=\"influxdb\"}[15m]))), \"k\", \"Cache drops (15m)\", \"\", \"\")) or (label_replace((sum(storage_bucket_series_num{namespace=\"influxdb\"})), \"k\", \"Series\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
       ],
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "keepLabels": [
+              "k"
+            ]
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true
+            },
+            "renameByName": {
+              "Value #SEV": "sev",
+              "Value #VAL": "val"
+            }
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "k": 0,
+              "val": 1,
+              "sev": 2
             }
           }
         }
@@ -837,16 +985,53 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value"
+              "options": "val"
             },
             "properties": [
               {
+                "id": "displayName",
+                "value": "Value"
+              },
+              {
                 "id": "unit",
-                "value": "percent"
+                "value": "short"
               },
               {
                 "id": "decimals",
                 "value": 1
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sev"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": " "
               },
               {
                 "id": "custom.align",
@@ -906,7 +1091,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 70
+                "value": 54
               }
             ]
           }
@@ -921,22 +1106,59 @@
       },
       "targets": [
         {
-          "refId": "A",
+          "refId": "SEV",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((((max(up{namespace=\"influxdb\", endpoint=\"http\"})) < bool 1) * 101 or vector(101)), \"k\", \"Scrape up\", \"\", \"\")) or (label_replace((((max(kube_pod_status_ready{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\", condition=\"true\"})) < bool 1) * 100), \"k\", \"Pod ready\", \"\", \"\")) or (label_replace((((max(influxdb_uptime_seconds)/3600) < bool 1) * 80), \"k\", \"Uptime\", \"\", \"\")) or (label_replace((((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))) >= bool 1) * 80 + ((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))) >= bool 3) * 20), \"k\", \"Restarts (1h)\", \"\", \"\"))",
+          "expr": "(label_replace((((max(up{namespace=\"influxdb\", endpoint=\"http\"})) < bool 1) * 101 or vector(101)), \"k\", \"Scrape up\", \"\", \"\")) or (label_replace((((max(kube_pod_status_ready{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\", condition=\"true\"})) < bool 1) * 100), \"k\", \"Pod ready\", \"\", \"\")) or (label_replace((((max(influxdb_uptime_seconds)/3600) < bool 1) * 80), \"k\", \"Uptime (h)\", \"\", \"\")) or (label_replace((((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))) >= bool 1) * 80 + ((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))) >= bool 3) * 20), \"k\", \"Restarts (1h)\", \"\", \"\"))",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "VAL",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace((max(influxdb_uptime_seconds)/3600), \"k\", \"Uptime (h)\", \"\", \"\")) or (label_replace((sum(increase(kube_pod_container_status_restarts_total{namespace=\"influxdb\", pod=~\"influxdb-influxdb2-.*\"}[1h]))), \"k\", \"Restarts (1h)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
       ],
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "keepLabels": [
+              "k"
+            ]
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true
+            },
+            "renameByName": {
+              "Value #SEV": "sev",
+              "Value #VAL": "val"
+            }
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "k": 0,
+              "val": 1,
+              "sev": 2
             }
           }
         }
