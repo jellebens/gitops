@@ -153,7 +153,15 @@ config:
       idle_option: "PASSTHROUGH"
       intent_threshold_kw: 0.1
   prices:
-    source: ha_forecast
+    # Fetch BE day-ahead prices DIRECTLY from the ENTSO-E Transparency API —
+    # no Home Assistant, no community nordpool integration in the path.
+    # (2026-07-01: nordpool HA integration went stale; HA's ENTSO-E integration
+    # worked, so we cut straight to ENTSO-E. Token in zeus-secrets/ENTSOE_TOKEN.)
+    # NOTE: entsoe path has no fallback/cache yet — a source outage skips the
+    # cycle (holds last mode). Add resilience via the staleness-guard work.
+    source: entsoe
+    # ha_forecast kept as a documented alternative (sensor.average_electricity_price
+    # is HA's ENTSO-E integration, EUR/kWh) — unused while source: entsoe.
     ha_forecast:
       # Market price with a fresh forward curve. prices_today (+prices_tomorrow)
       # is a list of {time, price} in EUR/kWh, dated for the current day.
