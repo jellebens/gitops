@@ -58,9 +58,15 @@ and is rendered verbatim into `/config/config.yaml`. Key choices:
   `PASSTHROUGH`. Mode-based control is self-limiting (sets a mode, not a power
   setpoint). ⚠️ The old HA price automations **must stay disabled** — two
   controllers fighting the battery is bad.
-- **Prices:** Nord Pool market price `sensor.nordpool_kwh_be_eur_3_10_006`,
-  attribute `raw_today` (+`raw_tomorrow` auto-appended), `price_scale: 0.01`
-  (c/kWh → EUR/kWh).
+- **Prices:** **ENTSO-E Transparency API, direct** (`prices.source: entsoe`,
+  area `10YBE----------2`) — no Home Assistant / community Nord Pool integration
+  in the path. Token in `zeus-secrets/ENTSOE_TOKEN` (needs *Restful API access*
+  enabled by ENTSO-E). The optimizer prices each 15-min slot at that slot's price
+  ("now" = current slot); no daily average is used. A stale/elapsed curve is
+  rejected (staleness guard) and a last-good cache covers transient outages,
+  else a safe idle + degraded alert. See zeus ADR-0011 for the 2026-07-01
+  Nord-Pool-went-stale incident that drove this. (`sensor.average_electricity_price`
+  — HA's own ENTSO-E integration — is the documented `ha_forecast` fallback.)
 - **Savings (arbitrage model):** the battery only charges from grid and powers
   critical loads (no solar charging, no export), so `reporting.mode: arbitrage`
   computes savings = discharge value − charge cost from `grid_input_power` /
