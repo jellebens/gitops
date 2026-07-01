@@ -35,11 +35,147 @@
       ]
     },
     {
+      "id": 10,
+      "type": "stat",
+      "title": "Grid now (net, import + / export −)",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "imp = from(bucket: \"homeassistant\") |> range(start: -30m) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_consumption_w\" and r._field == \"value\") |> aggregateWindow(every: 1m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])\nexp = from(bucket: \"homeassistant\") |> range(start: -30m) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_production_w\" and r._field == \"value\") |> aggregateWindow(every: 1m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])\njoin(tables: {imp: imp, exp: exp}, on: [\"_time\"]) |> map(fn: (r) => ({_time: r._time, _value: r._value_imp - r._value_exp})) |> rename(columns: {_value: \"Net grid (W)\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "gauge",
+      "title": "Battery SoC now",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 0, "min": 0, "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 20 }, { "color": "yellow", "value": 50 }, { "color": "green", "value": 80 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "showThresholdLabels": false, "showThresholdMarkers": true },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -1h) |> filter(fn: (r) => r.entity_id == \"ap3002532000565690_battery_level\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Battery SoC\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Price now",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 3,
+          "color": { "mode": "fixed", "fixedColor": "yellow" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -1h) |> filter(fn: (r) => r.entity_id == \"current_electricity_market_price\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Price now\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Price percentile (of today's highest)",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 0, "min": 0, "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 40 }, { "color": "orange", "value": 66 }, { "color": "red", "value": 85 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -1h) |> filter(fn: (r) => r.entity_id == \"current_percentage_of_highest_electricity_price\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Price percentile\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Today's totals",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth", "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Grid import" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+          { "matcher": { "id": "byName", "options": "Grid export" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "Grid cost today" }, "properties": [ { "id": "unit", "value": "currencyEUR" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byName", "options": "Net savings today" }, "properties": [ { "id": "unit", "value": "currencyEUR" }, { "id": "color", "value": { "mode": "thresholds" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0 } ] } } ] }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "horizontal", "textMode": "value_and_name", "colorMode": "value", "graphMode": "none", "justifyMode": "center" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\ntodayStart = date.truncate(t: now(), unit: 1d)\nfrom(bucket: \"homeassistant\") |> range(start: todayStart) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_consumption_kwh\" and r._field == \"value\") |> spread() |> rename(columns: {_value: \"Grid import\"})" },
+        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\ntodayStart = date.truncate(t: now(), unit: 1d)\nfrom(bucket: \"homeassistant\") |> range(start: todayStart) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_production_kwh\" and r._field == \"value\") |> spread() |> rename(columns: {_value: \"Grid export\"})" },
+        { "refId": "C", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_actual_cost_today\" and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Grid cost today\"})" },
+        { "refId": "D", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_battery_savings_today\" and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Net signed grid power (W) — import + / export −",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] },
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 18, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto", "thresholdsStyle": { "mode": "line" } },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "imp = from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_consumption_w\" and r._field == \"value\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])\nexp = from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_production_w\" and r._field == \"value\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])\njoin(tables: {imp: imp, exp: exp}, on: [\"_time\"]) |> map(fn: (r) => ({_time: r._time, _value: r._value_imp - r._value_exp})) |> rename(columns: {_value: \"Net grid (W)\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
       "id": 2,
       "type": "timeseries",
       "title": "Whole-home grid power (W) — Aeotec",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
       "fieldConfig": {
         "defaults": {
           "unit": "watt", "decimals": 0,
@@ -52,7 +188,7 @@
           { "matcher": { "id": "byName", "options": "Production (W)" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
         ]
       },
-      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "options": { "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": [ "mean", "max" ] }, "tooltip": { "mode": "multi", "sort": "none" } },
       "targets": [
         { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
           "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_consumption_w\" and r._field == \"value\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Consumption (W)\"}) |> sort(columns: [\"_time\"])" },
@@ -65,7 +201,7 @@
       "type": "timeseries",
       "title": "Bluetti power flows (W)",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
       "fieldConfig": {
         "defaults": {
           "unit": "watt", "decimals": 0,
@@ -78,7 +214,7 @@
           { "matcher": { "id": "byName", "options": "AC output (W)" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } } ] }
         ]
       },
-      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "options": { "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": [ "mean", "max" ] }, "tooltip": { "mode": "multi", "sort": "none" } },
       "targets": [
         { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
           "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"buzzbrick_ap3002532000565690_grid_input_power\" and r._field == \"value\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Grid input (W)\"}) |> sort(columns: [\"_time\"])" },
@@ -87,34 +223,11 @@
       ]
     },
     {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Key loads (W)",
-      "datasource": { "type": "influxdb", "uid": "influxdb" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "watt", "decimals": 0,
-          "color": { "mode": "palette-classic" },
-          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "none" } },
-      "targets": [
-        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"office_a_c_power\" and r._field == \"value\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Office A/C\"}) |> sort(columns: [\"_time\"])" },
-        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"tv_power\" and r._field == \"value\") |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"TV\"}) |> sort(columns: [\"_time\"])" }
-      ]
-    },
-    {
       "id": 5,
       "type": "timeseries",
       "title": "Electricity price (€/kWh)",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR", "decimals": 3,
@@ -136,11 +249,40 @@
       ]
     },
     {
+      "id": 16,
+      "type": "barchart",
+      "title": "Price percentile per hour (green = cheap, red = expensive)",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 31 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 0, "min": 0, "max": 100,
+          "color": { "mode": "continuous-GrYlRd" },
+          "custom": { "lineWidth": 1, "fillOpacity": 90, "gradientMode": "none", "axisPlacement": "auto", "axisLabel": "percentile %" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "vertical",
+        "xTickLabelRotation": -45,
+        "showValue": "auto",
+        "stacking": "none",
+        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" },
+        "colorByField": "Percentile"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "pct = from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"current_percentage_of_highest_electricity_price\" and r._field == \"value\") |> aggregateWindow(every: 1h, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"])\npct |> rename(columns: {_value: \"Percentile\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
       "id": 6,
       "type": "timeseries",
       "title": "Bluetti charge / discharge energy (kWh)",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 21 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 39 },
       "fieldConfig": {
         "defaults": {
           "unit": "kwatth", "decimals": 2,
@@ -153,12 +295,65 @@
           { "matcher": { "id": "byName", "options": "Discharged (kWh)" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
         ]
       },
-      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "options": { "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": [ "last" ] }, "tooltip": { "mode": "multi", "sort": "none" } },
       "targets": [
         { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
           "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"buzzbrick_charge_energy\" and r._field == \"value\") |> aggregateWindow(every: 15m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Charged (kWh)\"}) |> sort(columns: [\"_time\"])" },
         { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
           "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"buzzbrick_discharge_energy\" and r._field == \"value\") |> aggregateWindow(every: 15m, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Discharged (kWh)\"}) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Peak consumption — per-device power (W, stacked)",
+      "description": "What's drawing power right now / at the peak. Every per-device power (W) plug sensor (entity_id matching *_power), enumerated dynamically so new plugs appear automatically. Whole-home meter, Bluetti internal flows and zeus targets are excluded. Stacked so the contribution of each device to a spike is attributable.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 47 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt", "decimals": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 35, "showPoints": "never", "spanNulls": true, "axisPlacement": "auto", "stacking": { "mode": "normal", "group": "A" } },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": [ "mean", "max" ], "sortBy": "Max", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.entity_id =~ /_power$/) |> filter(fn: (r) => r.entity_id !~ /^zeus_/ and r.entity_id !~ /^buzzbrick_/ and r.entity_id !~ /net_power$/ and r.entity_id !~ /peak_power$/ and r.entity_id !~ /electric_consumption_w/ and r.entity_id !~ /electric_production_w/ and r.entity_id !~ /target_.*_power$/) |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> group(columns: [\"entity_id\"]) |> keep(columns: [\"_time\", \"_value\", \"entity_id\"]) |> sort(columns: [\"_time\"])" }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "barchart",
+      "title": "Peak consumption ranking — device max power over range (W)",
+      "description": "Ranks each per-device power (W) plug by its highest reading over the selected range, so the biggest contributor to peak consumption is obvious at a glance. Same dynamic set of *_power entities as the stacked breakdown above.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 55 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt", "decimals": 0, "min": 0,
+          "color": { "mode": "continuous-GrYlRd" },
+          "custom": { "lineWidth": 1, "fillOpacity": 90, "gradientMode": "none", "axisPlacement": "auto", "axisLabel": "peak W" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "showValue": "auto",
+        "stacking": "none",
+        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" },
+        "colorByField": "Peak W",
+        "xField": "Device"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.entity_id =~ /_power$/) |> filter(fn: (r) => r.entity_id !~ /^zeus_/ and r.entity_id !~ /^buzzbrick_/ and r.entity_id !~ /net_power$/ and r.entity_id !~ /peak_power$/ and r.entity_id !~ /electric_consumption_w/ and r.entity_id !~ /electric_production_w/ and r.entity_id !~ /target_.*_power$/) |> group(columns: [\"entity_id\"]) |> max() |> group() |> keep(columns: [\"_value\", \"entity_id\"]) |> rename(columns: {entity_id: \"Device\", _value: \"Peak W\"}) |> sort(columns: [\"Peak W\"], desc: true)" }
       ]
     }
   ],
@@ -171,6 +366,6 @@
   "timezone": "browser",
   "title": "Home — Energy & Battery (HA)",
   "uid": "home-energy-ha",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
