@@ -1,0 +1,42 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for zeus.
+#
+# Why ingress-only: in Cilium, a policy that specifies only `ingress` rules puts
+# the selected endpoint into default-deny for INGRESS only; its EGRESS stays
+# fully open. That is deliberate here — zeus is LIVE and talks to the LAN router
+# (Home Assistant / MQTT at vesta.local), in-cluster InfluxDB, the SMB NAS, and
+# public weather/price APIs. Locking egress down would risk severing live
+# battery control, so this first policy only constrains who may reach zeus.
+#
+# Effect: the only ingress allowed to the zeus pod is a Prometheus scrape of the
+# metrics port from the observability namespace. Everything else inbound is
+# dropped. A fuller egress lockdown is a separate, human-reviewed step (see the
+# zeus README / this card's plan).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: zeus
+  namespace: zeus
+  labels:
+    app.kubernetes.io/name: zeus
+    app.kubernetes.io/part-of: zeus
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: zeus
+  ingress:
+    {{- if .Values.config.metrics.enabled }}
+    # Allow Prometheus (kube-prometheus-stack, in the observability namespace) to
+    # scrape the metrics endpoint.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.config.metrics.port | quote }}
+              protocol: TCP
+    {{- else }}
+    # Metrics disabled: no ingress is permitted (default-deny ingress).
+    []
+    {{- end }}
+{{- end }}
