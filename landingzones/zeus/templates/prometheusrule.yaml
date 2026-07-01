@@ -37,6 +37,29 @@ spec:
           annotations:
             summary: Zeus optimization cycles are failing
             description: '{{ "{{ $value }}" }} cycle failure(s) in the last hour.'
+        - alert: ZeusPriceSourceDegraded
+          # zeus is self-healing over a price-feed hiccup: it fell back to the
+          # secondary price entity or the last-good cached curve (>0), or has no
+          # price data at all and is holding a safe idle (==3). The battery is
+          # still commanded (not coasting), but the primary feed needs attention.
+          expr: zeus_price_source > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus running on a degraded price source
+            description: The primary price feed has been unavailable for 30m; zeus is on the fallback entity / cached curve (or safe-holding if no prices at all). Check the price integration.
+        - alert: ZeusNoPriceData
+          # No prices from primary, fallback, or cache -> zeus is holding a SAFE
+          # IDLE each cycle (no arbitrage) until a feed returns. More urgent than
+          # a mere degrade because there is no price signal at all.
+          expr: zeus_price_source == 3
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: Zeus has no price data
+            description: Primary, fallback, and cached price sources have all been empty for 15m; zeus is holding a safe idle (no charge/discharge) until a feed returns.
         - alert: ZeusSocCriticallyLow
           expr: zeus_soc_percent < 12
           for: 1h
