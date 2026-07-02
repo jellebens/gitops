@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.54"
+  tag: "0.1.55"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -55,6 +55,34 @@ resources:
   limits:
     cpu: "1"
     memory: 512Mi
+
+# Kubernetes liveness/readiness probes on the /metrics port (card #60). Zeus is a
+# LIVE battery controller: the probes exist so a WEDGED process (e.g. a kernel-
+# level SMB hang on the reports mount that stops the process dead) gets restarted
+# instead of leaving the battery uncommanded with no self-healing. They are tuned
+# to NEVER kill a healthy pod — a restart loop on the controller is worse than the
+# bug being fixed. This is safe because /metrics is served on prometheus_client's
+# own daemon thread (brought up before any PVC I/O), so it answers independently
+# of the control loop: a merely slow optimization cycle can't fail these probes,
+# only a genuinely stuck process can.
+probes:
+  # Readiness marks the pod NotReady (drops it from the Service, pausing scrapes)
+  # if /metrics stops answering; it does NOT restart, so it is the gentle signal.
+  readiness:
+    initialDelaySeconds: 15  # config load + metrics.serve() is sub-second; 15s is ample
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3      # ~45s unresponsive before NotReady
+  # Liveness RESTARTS the pod, so it is deliberately far more tolerant: the
+  # process must be unresponsive on /metrics for ~3 min continuously
+  # (periodSeconds * failureThreshold = 30 * 6) before a restart. The metrics
+  # thread comes up within seconds of process start (before PVC I/O), so a
+  # freshly (re)started healthy pod always passes — no restart loop is possible.
+  liveness:
+    initialDelaySeconds: 60  # generous cold-start room (rehydration timeout is 10s)
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 6      # ~180s wedged before a restart
 
 runtime:
   uid: 1000
