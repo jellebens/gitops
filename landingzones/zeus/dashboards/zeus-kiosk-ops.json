@@ -983,6 +983,65 @@
       ]
     },
     {
+      "id": 81,
+      "type": "stat",
+      "title": "Capacity peak (W)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 18,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:W",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_capacity_peak_kw) * 1000",
+          "instant": true
+        }
+      ]
+    },
+    {
       "id": 13,
       "type": "table",
       "title": "Cycle",
@@ -1118,7 +1177,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\")) or (label_replace((200000 + max(zeus_solver_optimal)), \"k\", \"Solver\", \"\", \"\")) or (label_replace((max(zeus_capacity_peak_kw)), \"k\", \"Capacity peak (kW)\", \"\", \"\"))",
+          "expr": "(label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\")) or (label_replace((200000 + max(zeus_solver_optimal)), \"k\", \"Solver\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
