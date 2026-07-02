@@ -49,6 +49,33 @@ spec:
             - name: metrics
               containerPort: {{ .Values.config.metrics.port }}
               protocol: TCP
+          # Probes hit the prometheus_client /metrics server, which runs on its
+          # own daemon thread (started before any PVC I/O). It answers regardless
+          # of the control loop's state and only stops if the whole process is
+          # wedged (e.g. a kernel-level SMB hang on the reports mount) — exactly
+          # the failure we want Kubernetes to restart. Thresholds are deliberately
+          # generous: zeus is a LIVE battery controller and a restart loop is worse
+          # than the bug, so a HEALTHY pod must never be killed. See card #60.
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
           {{- end }}
           volumeMounts:
             - name: config
