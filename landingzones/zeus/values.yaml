@@ -130,7 +130,12 @@ config:
     # real A/C plug is sensor.office_a_c_power.
     ac_power: sensor.office_a_c_power
     solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
-    current_price: sensor.current_electricity_market_price
+    # DECOMMISSIONED 2026-07-02: was sensor.current_electricity_market_price
+    # (HA's ENTSO-E integration). It sat unavailable for 16h+ and zeroed the
+    # savings report; savings are now priced from zeus's own resilient ENTSO-E
+    # day curve (#54). Empty = the HA per-slot fallback path is skipped entirely
+    # — zeus has NO dependency on any HA price sensor.
+    current_price: ""
     # Fluvius digital-meter running monthly peak grid power (kW) -> the
     # capaciteitstarief is billed on this. Recorded as zeus_capacity_peak_kw.
     capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
@@ -157,20 +162,17 @@ config:
     # no Home Assistant, no community nordpool integration in the path.
     # (2026-07-01: nordpool HA integration went stale; HA's ENTSO-E integration
     # worked, so we cut straight to ENTSO-E. Token in zeus-secrets/ENTSOE_TOKEN.)
-    # NOTE: entsoe path has no fallback/cache yet — a source outage skips the
-    # cycle (holds last mode). Add resilience via the staleness-guard work.
+    # Resilience: staleness guard + last-good cache (memory + PVC-persisted) +
+    # retry with backoff/jitter — see zeus ADR-0011 and cards #48/#50/#57/#58.
     source: entsoe
-    # ha_forecast kept as a documented alternative (sensor.average_electricity_price
-    # is HA's ENTSO-E integration, EUR/kWh) — unused while source: entsoe.
+    # DECOMMISSIONED 2026-07-02: the ha_forecast alternative pointed at
+    # sensor.average_electricity_price (HA's ENTSO-E integration), which went
+    # unavailable for 16h+ on 07-02 (same failure class as the nordpool
+    # integration on 07-01, see ADR-0011). zeus must have NO dependency on any
+    # HA price sensor; ENTSO-E direct (+cache) is the only price path. Empty
+    # entity keeps the generic feature disabled for this deployment.
     ha_forecast:
-      # Market price with a fresh forward curve. prices_today (+prices_tomorrow)
-      # is a list of {time, price} in EUR/kWh, dated for the current day.
-      # NOTE 2026-07-01: switched off sensor.nordpool_kwh_be_eur_3_10_006 —
-      # its raw_today went STALE (served the previous day's curve, tomorrow
-      # empty), so _align LOCF-extended the last elapsed value flat across the
-      # whole horizon -> no arbitrage signal -> battery drained instead of
-      # charging the cheap window. average_electricity_price stays current.
-      entity: sensor.average_electricity_price
+      entity: ""
       forecast_attribute: prices_today
     entsoe:
       api_token: "${ENTSOE_TOKEN}"
@@ -180,7 +182,7 @@ config:
       # relative 'reports/entsoe_last_good.json', which only lands on the mount
       # by WORKDIR /app coincidence — pin it like the other /app/reports/* paths.
       cache_path: /app/reports/entsoe_last_good.json
-    price_scale: 1.0 # sensor.average_electricity_price is already EUR/kWh
+    price_scale: 1.0 # ENTSO-E parser already yields EUR/kWh
     import_markup: 0.0
     export_price: 0.0
   optimizer:
