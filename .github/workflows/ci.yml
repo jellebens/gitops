@@ -67,10 +67,17 @@ jobs:
         run: |
           set -euo pipefail
           fail=0
+          # These charts read repos.*.url / environment from the shared + env
+          # values files (mirroring how Argo CD supplies them via multi-source
+          # $values). Without them, templates like `{{ .Values.repos.config.url }}`
+          # render a nil pointer. See AGENTS.md "High-Value Commands".
           for chart in applications bootstrap projects; do
             if [ -f "$chart/Chart.yaml" ]; then
               echo "=== helm template $chart ==="
-              helm template "$chart" >/dev/null || { echo "::error::helm template $chart failed"; fail=1; }
+              helm template "$chart" "./$chart" \
+                -f .config/shared/values.yaml \
+                -f .config/lab/values.yaml \
+                >/dev/null || { echo "::error::helm template $chart failed"; fail=1; }
             fi
           done
           exit $fail
