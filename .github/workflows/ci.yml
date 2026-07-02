@@ -43,9 +43,19 @@ jobs:
               import subprocess; subprocess.run([sys.executable,"-m","pip","install","-q","pyyaml"],check=True); import yaml
           bad = 0
           for f in glob.glob("**/*.y*ml", recursive=True):
-              if f.startswith(".claude/") or "/charts/" in f: continue
+              # Skip Helm chart dirs (charts/) and rendered-from templates
+              # (templates/): those hold Go-template YAML like
+              # `{{ .Values.x | quote }}` that is not valid raw YAML. The
+              # separate `helm template` step validates their renderability
+              # instead. Also skip .claude/ tooling.
+              if f.startswith(".claude/") or "/charts/" in f or "/templates/" in f: continue
+              text = pathlib.Path(f).read_text()
+              # Belt-and-braces: skip any file carrying a Go-template marker, so
+              # a templated file placed outside a templates/ dir cannot break the
+              # lint. Real YAML (values.yaml, non-templated configs) still lints.
+              if "{{" in text: continue
               try:
-                  list(yaml.safe_load_all(pathlib.Path(f).read_text()))
+                  list(yaml.safe_load_all(text))
               except Exception as e:
                   print(f"::error file={f}::{e}"); bad = 1
           sys.exit(bad)
@@ -57,10 +67,17 @@ jobs:
         run: |
           set -euo pipefail
           fail=0
+          # These charts read repos.*.url / environment from the shared + env
+          # values files (mirroring how Argo CD supplies them via multi-source
+          # $values). Without them, templates like `{{ .Values.repos.config.url }}`
+          # render a nil pointer. See AGENTS.md "High-Value Commands".
           for chart in applications bootstrap projects; do
             if [ -f "$chart/Chart.yaml" ]; then
               echo "=== helm template $chart ==="
-              helm template "$chart" >/dev/null || { echo "::error::helm template $chart failed"; fail=1; }
+              helm template "$chart" "./$chart" \
+                -f .config/shared/values.yaml \
+                -f .config/lab/values.yaml \
+                >/dev/null || { echo "::error::helm template $chart failed"; fail=1; }
             fi
           done
           exit $fail
