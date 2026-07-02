@@ -319,7 +319,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\"))",
+          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((max(zeus_grid_power_w)), \"k\", \"Grid power (W)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
@@ -345,145 +345,6 @@
         {
           "id": "merge",
           "options": {}
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Grid power (W)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 13,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "watt",
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 2500
-              },
-              {
-                "color": "red",
-                "value": 3000
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_grid_power_w)",
-          "format": "time_series",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Capacity peak (kW)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 17,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "kwatt",
-          "decimals": 3,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_capacity_peak_kw)",
-          "format": "time_series",
-          "instant": true
         }
       ]
     },
@@ -1189,7 +1050,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\")) or (label_replace((200000 + max(zeus_solver_optimal)), \"k\", \"Solver\", \"\", \"\"))",
+          "expr": "(label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\")) or (label_replace((200000 + max(zeus_solver_optimal)), \"k\", \"Solver\", \"\", \"\")) or (label_replace((max(zeus_capacity_peak_kw)), \"k\", \"Capacity peak (kW)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
