@@ -4,8 +4,9 @@ A single [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 (`nousresearch/hermes-agent`, currently `v0.16.0`) running on the cluster as
 **Cortana**, a voice-first personal assistant on Discord. Cortana delegates
 specialised work to short-lived subagents: **Calliope** (writes articles/blog
-posts and commits them to a git repo) and **Aetos** (a read-only energy/battery
-analyst that reports on the Zeus optimizer).
+posts and commits them to a git repo), **Aetos** (a read-only energy/battery
+analyst that reports on the Zeus optimizer), and **Hebe** (a dependency-update
+watcher that opens draft bump PRs against this gitops repo).
 
 Namespace: `hermes`. Deployed by Argo CD (`applications/templates/hermes`,
 sync-wave 30) from this chart, with values layered as:
@@ -30,10 +31,15 @@ cortana ── the single agent (Deployment "hermes")
         │                     toolsets: terminal, file, web, search, memory
         │                     clones the blog repo on the PVC, drafts Markdown,
         │                     commits and pushes to a drafts/<slug> branch
-        └─ delegate_task ─▶ Aetos (ephemeral energy/battery analyst)
-                              toolsets: terminal, web, search, memory
-                              queries the Zeus optimizer read-only (Prometheus +
-                              zeus-metrics) and reports charge/mode/price/savings
+        ├─ delegate_task ─▶ Aetos (ephemeral energy/battery analyst)
+        │                     toolsets: terminal, web, search, memory
+        │                     queries the Zeus optimizer read-only (Prometheus +
+        │                     zeus-metrics) and reports charge/mode/price/savings
+        └─ delegate_task ─▶ Hebe (ephemeral dependency-update watcher)
+                              toolsets: terminal, web, search, memory (+ git)
+                              enumerates pinned versions in this gitops repo,
+                              opens one DRAFT bump PR per update into develop
+                              (arm64-only; never merges)
   nightly CronJob ── sqlite3 .backup ──▶ SMB share (smb-cortana StorageClass)
 ```
 
@@ -101,6 +107,73 @@ It talks to Zeus over read-only HTTP from the pod (no creds, in-cluster):
 controllers fighting it is harmful. Aetos only reads `zeus_*` metrics (SoC, mode,
 prices, savings, forecast) and reports.
 
+## The Hebe subagent
+
+Same delegation pattern as Calliope/Aetos. **Hebe** (Greek goddess of youth and
+renewal) is a **dependency-update watcher** for **this gitops repo**. Persona +
+update knowledge live in `.Values.hebe.soul` → `hermes-hebe-soul` ConfigMap →
+mounted at `.Values.hebe.soulPath` (`/opt/hebe/SOUL.md`); Cortana routes "check
+for updates / bump X" to her (`delegate_task`, toolsets
+`terminal, web, search, memory`).
+
+Hebe enumerates the versions this repo pins — container `image.tag`
+(`landingzones/*`, `platform/*`), Helm chart `dependencies[].version`, and Argo
+`Application.targetRevision`/platform component versions — finds newer eligible
+**stable** versions (registry tag APIs, `helm search repo --versions`, GitHub
+releases), and opens **one draft PR per bump** on an `update-<component>-<ver>`
+branch **into `develop`** (GitFlow; `master` deploys). She **never merges** and
+never pushes to `develop`/`master`. Two hard rules:
+
+- **arm64-or-it-doesn't-ship** — she never proposes a container tag without a
+  confirmed `linux/arm64` manifest (wrong arch = `ImagePullBackOff`), and cites
+  the arch evidence in the PR body.
+- **zeus is two-step** — she never proposes a zeus `image.tag` that has not been
+  built and published as an arm64 image (the image is built from the zeus repo
+  on release, then bumped here).
+
+She is **read-only against the cluster** — her only writes are the git branch and
+draft PR.
+
+### Hebe's git access (second repo + own deploy key)
+
+The writer's `.Values.git` block wires exactly one repo (the blog). Hebe needs a
+**second** repo (this gitops one) with its **own write deploy key**, so her
+wiring lives in a separate `.Values.hebe.git` block:
+
+| Setting | Value |
+|---|---|
+| Repo | `git@github.com:jellebens/gitops.git` |
+| Clone path (on PVC) | `/opt/data/workspace/gitops` |
+| Base/target branch | `develop` |
+| Auth | `ed25519` deploy key, sealed into secret `hermes-hebe-git-ssh` |
+
+The `seed-config` init container installs her key at a **distinct** path
+(`/opt/data/.ssh/id_ed25519_hebe`), merges her host key into `known_hosts`, and
+pins the key to her clone via a per-repo `core.sshCommand` — so it never clashes
+with the writer's global `GIT_SSH_COMMAND`. Setup is best-effort; a git failure
+never blocks Cortana from starting.
+
+`.Values.hebe.git.enabled` defaults to **false**. To turn Hebe on, an owner must
+(1) generate an ed25519 keypair, (2) `kubeseal` the private half into
+`hermes-hebe-git-ssh` and paste it into `.config/lab/hermes.yaml`
+`hebe.git.ssh.sealedSecret.encryptedKey`, (3) **add the public key to
+`jellebens/gitops` as a WRITE deploy key** (owner action — not done by this
+chart), and (4) set `hebe.git.enabled: true`:
+
+```sh
+ssh-keygen -t ed25519 -N "" -C "hermes-hebe deploy key" -f /tmp/hebek
+kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd \
+  --namespace hermes --name hermes-hebe-git-ssh --from-file=/tmp/hebek
+# -> paste into .config/lab/hermes.yaml hebe.git.ssh.sealedSecret.encryptedKey
+# add /tmp/hebek.pub to jellebens/gitops as a WRITE deploy key, then: shred -u /tmp/hebek*
+```
+
+PR creation: Hebe uses the in-pod `gh` CLI (`gh pr create --draft`) if a token is
+present; otherwise she pushes the branch and reports a ready-to-paste PR body.
+(`gh pr edit` is broken in this environment — use `gh api PATCH` for bodies.)
+Trigger is **on-demand** via Cortana `delegate_task`; a nightly CronJob (cf. the
+sqlite backup CronJob) is a possible future alternative.
+
 ## Storage & backups
 
 State (`state.db`, `kanban.db`, memory, profile, MS365 token) is **SQLite in WAL
@@ -120,7 +193,8 @@ Restore: untar/copy a dated dir from the `hermes-backup` PVC back into
 |---|---|
 | `hermes-openai-api-key` | OpenAI API key (model + TTS/STT) |
 | `hermes-cortana-discord-token` | Cortana's Discord bot token |
-| `hermes-writer-git-ssh` | writer's git deploy key |
+| `hermes-writer-git-ssh` | writer's git deploy key (blog repo) |
+| `hermes-hebe-git-ssh` | Hebe's git deploy key (gitops repo, write) — only when `hebe.git.enabled` |
 
 ## Common operations
 
