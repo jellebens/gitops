@@ -549,8 +549,8 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 7,
-        "w": 7,
+        "h": 6,
+        "w": 4,
         "x": 1,
         "y": 6
       },
@@ -671,6 +671,10 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
@@ -728,9 +732,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 8,
+        "h": 6,
+        "w": 4,
+        "x": 5,
         "y": 6
       },
       "fieldConfig": {
@@ -850,6 +854,10 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
@@ -907,9 +915,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 7,
-        "w": 7,
-        "x": 16,
+        "h": 6,
+        "w": 4,
+        "x": 9,
         "y": 6
       },
       "fieldConfig": {
@@ -1029,6 +1037,10 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
@@ -1307,7 +1319,7 @@
       "title": "",
       "transparent": true,
       "gridPos": {
-        "h": 7,
+        "h": 6,
         "w": 1,
         "x": 0,
         "y": 6
