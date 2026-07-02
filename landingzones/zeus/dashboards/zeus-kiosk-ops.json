@@ -179,92 +179,9 @@
       ]
     },
     {
-      "id": 6,
-      "type": "stat",
-      "title": "Solver",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 8,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "OPTIMAL",
-                  "color": "green",
-                  "index": 1
-                },
-                "0": {
-                  "text": "FALLBACK",
-                  "color": "orange",
-                  "index": 0
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "orange",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "noValue": "?"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_solver_optimal)",
-          "instant": true
-        }
-      ]
-    },
-    {
       "id": 9,
       "type": "table",
-      "title": "Battery & Grid",
+      "title": "Battery",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -272,15 +189,15 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 0,
-        "y": 6
+        "x": 4,
+        "y": 0
       },
       "fieldConfig": {
         "defaults": {
           "custom": {
             "align": "left",
             "cellOptions": {
-              "type": "color-text"
+              "type": "color-background"
             },
             "filterable": false
           },
@@ -293,6 +210,14 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
               }
             ]
           }
@@ -319,7 +244,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 160
+                "value": 135
               }
             ]
           },
@@ -335,28 +260,46 @@
               },
               {
                 "id": "decimals",
-                "value": 1
+                "value": 0
               },
               {
                 "id": "custom.align",
                 "value": "center"
               },
               {
-                "id": "color",
+                "id": "custom.cellOptions",
                 "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#FFFFFF"
+                  "type": "color-background"
                 }
               },
               {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-text"
-                }
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "100000": {
+                        "text": "■",
+                        "color": "blue",
+                        "index": 0
+                      },
+                      "100001": {
+                        "text": "▲",
+                        "color": "green",
+                        "index": 1
+                      },
+                      "100002": {
+                        "text": "▼",
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "id": "custom.width",
-                "value": 60
+                "value": 70
               }
             ]
           }
@@ -364,7 +307,10 @@
       },
       "options": {
         "showHeader": false,
-        "cellHeight": "sm"
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
       },
       "targets": [
         {
@@ -373,7 +319,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((max(zeus_grid_power_w)), \"k\", \"Grid power (W)\", \"\", \"\")) or (label_replace((max(zeus_capacity_peak_kw)), \"k\", \"Capacity peak (kW)\", \"\", \"\")) or (label_replace((max(zeus_backup_reserve_pct)), \"k\", \"Backup reserve %\", \"\", \"\"))",
+          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((max(zeus_grid_power_w)), \"k\", \"Grid power (W)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
@@ -408,29 +354,16 @@
       "title": "",
       "transparent": true,
       "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 16,
-        "y": 6
+        "h": 1,
+        "w": 1,
+        "x": 23,
+        "y": 0
       },
       "options": {
         "mode": "html",
         "content": "<style>.rdg-cell,[role='gridcell'],[role='cell']{font-size:12px !important;line-height:1.1 !important;padding-left:4px !important;padding-right:4px !important;}</style>"
       },
       "datasource": null
-    },
-    {
-      "id": 70,
-      "type": "row",
-      "title": "InfluxDB",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 12
-      },
-      "panels": []
     },
     {
       "id": 71,
@@ -442,9 +375,9 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 8,
-        "x": 0,
-        "y": 13
+        "w": 7,
+        "x": 1,
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -688,7 +621,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 13
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -932,7 +865,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 13
+        "y": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1167,7 +1100,7 @@
     {
       "id": 13,
       "type": "table",
-      "title": "Cycle & Mode",
+      "title": "Cycle",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1175,7 +1108,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 4,
+        "x": 8,
         "y": 0
       },
       "fieldConfig": {
@@ -1230,7 +1163,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 160
+                "value": 135
               }
             ]
           },
@@ -1264,20 +1197,15 @@
                   {
                     "type": "value",
                     "options": {
-                      "100000": {
-                        "text": "■",
-                        "color": "blue",
+                      "200000": {
+                        "text": "FALLBACK",
+                        "color": "orange",
                         "index": 0
                       },
-                      "100001": {
-                        "text": "▲",
+                      "200001": {
+                        "text": "OPTIMAL",
                         "color": "green",
                         "index": 1
-                      },
-                      "100002": {
-                        "text": "▼",
-                        "color": "orange",
-                        "index": 2
                       }
                     }
                   }
@@ -1285,7 +1213,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 50
+                "value": 70
               }
             ]
           }
@@ -1293,7 +1221,10 @@
       },
       "options": {
         "showHeader": false,
-        "cellHeight": "sm"
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
       },
       "targets": [
         {
@@ -1302,7 +1233,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\"))",
+          "expr": "(label_replace(((time() - max(zeus_last_cycle_timestamp_seconds))/60), \"k\", \"Last cycle (min)\", \"\", \"\")) or (label_replace((max(zeus_cycle_failures_total)), \"k\", \"Failed cycles\", \"\", \"\")) or (label_replace((200000 + max(zeus_solver_optimal)), \"k\", \"Solver\", \"\", \"\")) or (label_replace((max(zeus_capacity_peak_kw)), \"k\", \"Capacity peak (kW)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
@@ -1330,6 +1261,23 @@
           "options": {}
         }
       ]
+    },
+    {
+      "id": 74,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 7,
+        "w": 1,
+        "x": 0,
+        "y": 6
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;\"><span style=\"writing-mode:vertical-rl;text-orientation:upright;font-weight:700;font-size:16px;letter-spacing:2px;color:#8ab8ff;text-transform:uppercase;\">INFLUXDB</span></div>"
+      },
+      "datasource": null
     }
   ],
   "refresh": "5s",
