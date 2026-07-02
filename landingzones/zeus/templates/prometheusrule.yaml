@@ -39,10 +39,13 @@ spec:
             description: '{{ "{{ $value }}" }} cycle failure(s) in the last hour.'
         - alert: ZeusPriceSourceDegraded
           # zeus is self-healing over a price-feed hiccup: it fell back to the
-          # secondary price entity or the last-good cached curve (>0), or has no
-          # price data at all and is holding a safe idle (==3). The battery is
-          # still commanded (not coasting), but the primary feed needs attention.
-          expr: zeus_price_source > 0
+          # secondary price entity (1) or the last-good cached curve (2). The
+          # battery is still commanded (not coasting), but the primary feed
+          # needs attention. Deliberately EXCLUDES 4 (partial horizon coverage):
+          # with a 36h horizon and day-ahead publication at ~13:00 CET, the tail
+          # of the horizon is uncovered most of the day by design — alerting on
+          # it would page permanently. 3 (no data) has its own critical rule.
+          expr: zeus_price_source == 1 or zeus_price_source == 2
           for: 30m
           labels:
             severity: warning
