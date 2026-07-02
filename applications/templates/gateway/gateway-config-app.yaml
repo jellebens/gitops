@@ -11,7 +11,7 @@ spec:
   project: platform-services
   sources:
     - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+      targetRevision: master
       path: platform/gateway-config
       helm:
         releaseName: gateway-config
@@ -20,7 +20,7 @@ spec:
           - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
           - $values/.config/{{ .Values.environment | default "lab" }}/gateway.yaml
     - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+      targetRevision: master
       ref: values
   destination:
     server: https://kubernetes.default.svc

@@ -9,7 +9,7 @@ spec:
   project: default
   sources:
     - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+      targetRevision: master
       path: applications
       helm:
         valueFiles:

@@ -13,7 +13,7 @@ spec:
   project: platform-services
   sources:
     - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+      targetRevision: master
       path: platform/influxdb-config
       helm:
         releaseName: influxdb-config
@@ -22,7 +22,7 @@ spec:
           - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
           - $values/.config/{{ .Values.environment | default "lab" }}/influxdb-config.yaml
     - repoURL: https://github.com/jellebens/gitops.git
-      targetRevision: main
+      targetRevision: master
       ref: values
   destination:
     server: https://kubernetes.default.svc

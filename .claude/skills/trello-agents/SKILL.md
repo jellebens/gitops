@@ -7,8 +7,8 @@ description: >-
   through the pipeline lists (Investigate → Plan → Doing → Awaiting Validation on
   PR-open → Done on PR-merge; Waiting User Input when blocked). GitFlow: one
   card = one `card-<shortId>` branch cut from `develop` = one PR into `develop`;
-  agents never touch develop or main directly. Releases are user-commanded: all
-  merged card work is bundled into ONE develop→main PR (with the version bump);
+  agents never touch develop or master directly. Releases are user-commanded: all
+  merged card work is bundled into ONE develop→master PR (with the version bump);
   merging that PR is what deploys. Runs cards in parallel (up to 4, each in its
   own git worktree). Use when the user says "work the board", "spawn agents for
   my Trello tasks", "pick up cards from Trello", or names it.
@@ -38,8 +38,8 @@ while this skill keeps the board in sync.
   (cut from `develop`) with an **open PR into `develop`** (summary as the PR
   body), and moves to **Done** once that **PR is merged into `develop`**.
   Merging to develop INTEGRATES the change but does NOT deploy it — deployment
-  happens only at a user-commanded **release** (one bundled develop→main PR;
-  see "Release" below). No agent ever commits/pushes/merges `develop` or `main`
+  happens only at a user-commanded **release** (one bundled develop→master PR;
+  see "Release" below). No agent ever commits/pushes/merges `develop` or `master`
   directly.
 - Agent slot labels (color-code which agent owns a card):
   **🤖 Agent 1** green `6a44d34fa933973397abc7c0` ·
@@ -78,9 +78,9 @@ The agent never touches labels, comments, or the terminal lists.
 **One card = one branch = one PR into `develop`.** Every card is worked on its
 own `card-<shortId>` branch **cut from `develop`**, in its **own git worktree**
 (`isolation: "worktree"`), and lands as a **pull request into `develop`** —
-never a direct commit/merge to `develop` or `main`. GitHub (branch protection +
+never a direct commit/merge to `develop` or `master`. GitHub (branch protection +
 CI) is the gate. Merging a card PR integrates it on develop; **nothing deploys
-until the user commands a release** (develop→main, see "Release"). Because each
+until the user commands a release** (develop→master, see "Release"). Because each
 card is an independent PR, there is **no blast radius and no branch-integration
 step** — you merge exactly the PRs you approve.
 
@@ -140,7 +140,7 @@ For each card (in parallel, do steps 1–3 for all cards in the wave, then handl
    (`6a44d3579c2e6b24172bbc3b`), `add_comment` with what the agent found and
    what's blocking, and report it to the user. Do not move it to Done.
 (There is no branch-integration step — each card is its own PR, merged
-independently on GitHub. The old "merge branches into main one at a time" and
+independently on GitHub. The old "merge branches into master one at a time" and
 "pre-push blast-radius" logic are gone: PRs have no blast radius.)
 
 ### 4-merge. Merging the card PR into develop → then Done
@@ -179,11 +179,11 @@ Nothing deploys from card merges. When the user says **"release"** (or
    a. On a fresh `release-<version>` branch off `develop`: bump `version` in
       `pyproject.toml` (one bump for the whole batch), commit, push, open a PR
       into `develop`, merge it (this is release mechanics, not card work).
-   b. Open **one PR `develop` → `main`** titled `release: v<version>` whose body
+   b. Open **one PR `develop` → `master`** titled `release: v<version>` whose body
       lists every card/commit included. Confirm CI green. Merge with
       `gh pr merge --merge` (**merge commit, NOT squash** — keeps develop and
       main from diverging).
-   c. **Tag the merge commit on `main`** — `git tag v<version> && git push
+   c. **Tag the merge commit on `master`** — `git tag v<version> && git push
       origin v<version>`. Zeus CI builds + pushes the arm64 image
       `jellebens/zeus:<version>` automatically on the `v*` tag (this untagged
       step is exactly what left 0.1.54 unbuilt on 2026-07-02). Wait for the CI
@@ -192,9 +192,9 @@ Nothing deploys from card merges. When the user says **"release"** (or
       is the fallback if CI is unavailable.
 2. **gitops repo**: on `develop`, bump `landingzones/zeus/values.yaml`
    `image.tag` to `<version>` (skip if no zeus release), then open **one PR
-   `develop` → `main`** bundling the tag bump + every merged gitops card.
+   `develop` → `master`** bundling the tag bump + every merged gitops card.
    Confirm CI green, merge with a **merge commit**. **Merging this PR is the
-   deploy** — Argo reconciles from gitops `main` (sync or let auto-sync run).
+   deploy** — Argo reconciles from gitops `master` (sync or let auto-sync run).
 3. Verify the rollout (pod on the new image, first cycle Optimal, no errors)
    and report what shipped: version, cards included, verification output.
 Order matters: zeus first (image must exist before the tag bump deploys), then
@@ -233,13 +233,13 @@ Fill in `{{CARD_NAME}}`, `{{CARD_SHORT_ID}}`, `{{CARD_DESC}}`, `{{CARD_ID}}`:
 > 5. **Commit → push branch → open PR into `develop`.** You are in an isolated
 >    git worktree. Create and commit on a branch named `card-{{CARD_SHORT_ID}}`
 >    **cut from `origin/develop`** (plain `git commit`, signing disabled) —
->    **never commit to `develop` or `main`.** Then
+>    **never commit to `develop` or `master`.** Then
 >    `git push -u origin card-{{CARD_SHORT_ID}}` (SSH remote), and open a PR into
 >    `develop` with `gh pr create --base develop --head card-{{CARD_SHORT_ID}}
 >    --draft --title "#{{CARD_SHORT_ID}} {{CARD_NAME}}" --body "<your full
 >    summary + the Trello card URL>"`. **Do NOT merge the PR** — merging is the
 >    human's gate, and deployment only happens at a user-commanded release
->    (develop→main). Do NOT bump any version — versions are bumped once per
+>    (develop→master). Do NOT bump any version — versions are bumped once per
 >    release, not per card. Report the PR URL.
 >
 > Constraints: Zeus is LIVE and controlling a real battery — be conservative,
@@ -249,8 +249,8 @@ Fill in `{{CARD_NAME}}`, `{{CARD_SHORT_ID}}`, `{{CARD_DESC}}`, `{{CARD_ID}}`:
 >
 > **HARD GUARDRAILS (violating these caused real data loss / unauthorized
 > deploys — do not cross them):**
-> - **Push only your own `card-<shortId>` branch; never `main`.** Do not commit,
->   push, or `gh pr merge` to `main`. Opening a *draft PR* is the finish line.
+> - **Push only your own `card-<shortId>` branch; never `master`.** Do not commit,
+>   push, or `gh pr merge` to `master`. Opening a *draft PR* is the finish line.
 > - **Stay inside your own worktree.** Never run tree-mutating git (`stash`,
 >   `checkout`/`restore`, `reset`, `clean`, `add`/`rm` of paths you didn't
 >   change) against another tree. If you find pre-existing uncommitted changes
@@ -268,7 +268,7 @@ Fill in `{{CARD_NAME}}`, `{{CARD_SHORT_ID}}`, `{{CARD_DESC}}`, `{{CARD_ID}}`:
 > without committing).
 
 (All runs are worktree-isolated on branch `card-<shortId>`; there is no
-commit-to-`main` mode any more.)
+commit-to-`master` mode any more.)
 
 ## Agent profiles & routing
 Specialist agent types live in `.claude/agents/`. Pass the matched one as the
@@ -314,7 +314,7 @@ Keep it readable (headings/bullets), not a wall of text.
   Agent tool's `isolation: "worktree"` creates the worktree under
   `.claude/worktrees/…` with a Windows UNC gitdir WSL git can't resolve, so from
   WSL it is indistinguishable from the **main** tree and edits/commits silently
-  leak onto `main` (real incidents: #61/#65/#66; `git rev-parse --show-toplevel`
+  leak onto `master` (real incidents: #61/#65/#66; `git rev-parse --show-toplevel`
   inside the harness worktree returns the main repo). For a card that edits **this
   gitops repo**, instruct the agent to create a sibling worktree with WSL git and
   work only there — `git -C /home/jelle/repos/gitops worktree add
@@ -329,13 +329,13 @@ Keep it readable (headings/bullets), not a wall of text.
 - **2026-07-02 — GitFlow.** The user switched the flow from GitHub Flow
   (card PR → main, merge = deploy) to **GitFlow**: card PRs target `develop`;
   a user-commanded **release** bundles everything on develop into ONE
-  develop→main PR (with the single version bump); merging THAT deploys. The
-  `develop` branches were cut from main on 2026-07-02. Any pre-existing open
-  card PR that still targets `main` should be retargeted to `develop`
+  develop→master PR (with the single version bump); merging THAT deploys. The
+  `develop` branches were cut from the trunk on 2026-07-02. Any pre-existing open
+  card PR that still targets `master` should be retargeted to `develop`
   (`gh pr edit <pr> --base develop`) before merging.
 - **2026-07-01.** Cards worked before the PR flow (#13, #15, #46) were committed
-  straight onto `main` (unpushed). Finish those under the old model — a **push**
-  comment pushes their `main` commit once — or convert them to PRs.
+  straight onto `master` (unpushed). Finish those under the old model — a **push**
+  comment pushes their `master` commit once — or convert them to PRs.
 
 ### Watching for push/merge comments
 There is no live Trello webhook here, so a **push**/**merge** comment is only acted
@@ -345,6 +345,6 @@ on when the board is actually read. It gets picked up when:
 - a polling loop is running (e.g. `/loop` every few minutes calling this check).
 
 For a card with an open **PR**, a push/merge comment → `gh pr merge` (step
-4-merge). For a legacy card committed on `main` (see Transition note), it → a
+4-merge). For a legacy card committed on `master` (see Transition note), it → a
 one-time `git push`. Scan with `get_cards_by_list_id` → `get_card_comments`,
 matching a *user* comment (no `appCreator`) containing `push`/`merge`.
