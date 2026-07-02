@@ -11,7 +11,7 @@
     {
       "id": 1,
       "type": "table",
-      "title": "zeus",
+      "title": "Zeus",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -19,7 +19,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 0,
+        "x": 1,
         "y": 0
       },
       "fieldConfig": {
@@ -189,7 +189,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 4,
+        "x": 5,
         "y": 0
       },
       "fieldConfig": {
@@ -354,7 +354,7 @@
       "title": "",
       "transparent": true,
       "gridPos": {
-        "h": 1,
+        "h": 6,
         "w": 1,
         "x": 23,
         "y": 0
@@ -925,7 +925,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 8,
+        "x": 9,
         "y": 0
       },
       "fieldConfig": {
@@ -1092,7 +1092,24 @@
       },
       "options": {
         "mode": "html",
-        "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;\"><span style=\"writing-mode:vertical-rl;text-orientation:upright;font-weight:700;font-size:16px;letter-spacing:2px;color:#8ab8ff;text-transform:uppercase;\">INFLUXDB</span></div>"
+        "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;\"><span style=\"writing-mode:vertical-rl;text-orientation:upright;font-weight:bold;font-size:16px;letter-spacing:2px;color:#8ab8ff;text-transform:uppercase;\">INFLUXDB</span></div>"
+      },
+      "datasource": null
+    },
+    {
+      "id": 75,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 6,
+        "w": 1,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;\"><span style=\"writing-mode:vertical-rl;text-orientation:upright;font-weight:bold;font-size:16px;letter-spacing:2px;color:#8ab8ff;text-transform:uppercase;\">ZEUS</span></div>"
       },
       "datasource": null
     }
