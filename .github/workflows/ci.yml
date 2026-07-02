@@ -1,13 +1,14 @@
 name: ci
 
-# PR gate for GitHub Flow (trello-agents). Fast, dependency-free checks that
-# catch the mistakes agents actually make: broken dashboard JSON, malformed
-# YAML, and un-renderable Helm templates in the dependency-free app charts.
+# PR gate for the GitFlow card pipeline (trello-agents). Fast, dependency-free
+# checks that catch the mistakes agents actually make: broken dashboard JSON,
+# malformed YAML, and un-renderable Helm templates in the dependency-free app
+# charts. Runs on card PRs into develop AND release PRs develop -> main.
 # Starting point — extend with kubeconform + external-dep chart rendering later.
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:

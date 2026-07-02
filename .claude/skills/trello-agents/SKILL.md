@@ -5,11 +5,13 @@ description: >-
   board", lets you pick which cards to work, then for each picked card spawns
   an agent that investigates → plans → implements → opens a PR, moving the card
   through the pipeline lists (Investigate → Plan → Doing → Awaiting Validation on
-  PR-open → Done on PR-merge; Waiting User Input when blocked). GitHub Flow: one
-  card = one `card-<shortId>` branch = one PR into main; agents never touch main.
-  Runs cards in parallel (up to 4, each in its own git worktree). Use when the
-  user says "work the board", "spawn agents for my Trello tasks", "pick up cards
-  from Trello", or names it.
+  PR-open → Done on PR-merge; Waiting User Input when blocked). GitFlow: one
+  card = one `card-<shortId>` branch cut from `develop` = one PR into `develop`;
+  agents never touch develop or main directly. Releases are user-commanded: all
+  merged card work is bundled into ONE develop→main PR (with the version bump);
+  merging that PR is what deploys. Runs cards in parallel (up to 4, each in its
+  own git worktree). Use when the user says "work the board", "spawn agents for
+  my Trello tasks", "pick up cards from Trello", or names it.
 ---
 
 # Trello → Agents
@@ -31,11 +33,14 @@ while this skill keeps the board in sync.
   **Done** `698d00d004e1650d4907f897`.
   **Waiting User Input** `6a44d2832dc9eb8158cb056e` is the off-to-the-side home
   for anything blocked or needing a human decision (not a linear step).
-  Terminal flow (**GitHub Flow / PR-per-card**): a card lands in **Awaiting
-  Validation** once its work is on a pushed `card-<shortId>` branch with an **open
-  PR** (summary as the PR body), and only moves to **Done** once that **PR is
-  merged** to `main` (the merge is what triggers the Argo deploy). No agent ever
-  commits/pushes/merges `main` directly.
+  Terminal flow (**GitFlow / PR-per-card into develop**): a card lands in
+  **Awaiting Validation** once its work is on a pushed `card-<shortId>` branch
+  (cut from `develop`) with an **open PR into `develop`** (summary as the PR
+  body), and moves to **Done** once that **PR is merged into `develop`**.
+  Merging to develop INTEGRATES the change but does NOT deploy it — deployment
+  happens only at a user-commanded **release** (one bundled develop→main PR;
+  see "Release" below). No agent ever commits/pushes/merges `develop` or `main`
+  directly.
 - Agent slot labels (color-code which agent owns a card):
   **🤖 Agent 1** green `6a44d34fa933973397abc7c0` ·
   **🤖 Agent 2** purple `6a44d35173d2e14e646e2dca` ·
@@ -70,12 +75,14 @@ visibility. This skill (the orchestrator) owns the *boundaries* — the initial
 pickup, the terminal list (Done or Waiting User Input), labels, and comments.
 The agent never touches labels, comments, or the terminal lists.
 
-**One card = one branch = one PR.** Every card is worked on its own
-`card-<shortId>` branch, in its **own git worktree** (`isolation: "worktree"`),
-and lands as a **pull request into `main`** — never a direct commit/merge to
-`main`. GitHub (branch protection + CI) is the gate; the merge is what deploys.
-Because each card is an independent PR, there is **no blast radius and no
-branch-integration step** — you merge exactly the PRs you approve.
+**One card = one branch = one PR into `develop`.** Every card is worked on its
+own `card-<shortId>` branch **cut from `develop`**, in its **own git worktree**
+(`isolation: "worktree"`), and lands as a **pull request into `develop`** —
+never a direct commit/merge to `develop` or `main`. GitHub (branch protection +
+CI) is the gate. Merging a card PR integrates it on develop; **nothing deploys
+until the user commands a release** (develop→main, see "Release"). Because each
+card is an independent PR, there is **no blast radius and no branch-integration
+step** — you merge exactly the PRs you approve.
 
 **Parallelism.** Independent cards run concurrently, capped at **4** (one per
 agent-slot label 🤖 1–4); >4 picked → run in waves of 4. This is where the
@@ -136,36 +143,58 @@ For each card (in parallel, do steps 1–3 for all cards in the wave, then handl
 independently on GitHub. The old "merge branches into main one at a time" and
 "pre-push blast-radius" logic are gone: PRs have no blast radius.)
 
-### 4-merge. Merging the PR is the gate → then Done
-Agents open a PR but **must NOT merge it** — merging to `main` triggers the live
-Argo deploy. Each worked card sits in **Awaiting Validation** with an open PR.
+### 4-merge. Merging the card PR into develop → then Done
+Agents open a PR into `develop` but **must NOT merge it**. Each worked card sits
+in **Awaiting Validation** with an open PR.
 
-**"push" (or "merge") comment = authorization to merge that card's PR → Done.**
-When the user adds a comment on an Awaiting-Validation card whose text is (or
-contains) **push**/**merge**, that's the go-ahead to merge *that card's* PR. On
-seeing such a comment:
+**"push" (or "merge") comment = authorization to merge that card's PR into
+`develop` → Done.** When the user adds a comment on an Awaiting-Validation card
+whose text is (or contains) **push**/**merge**, that's the go-ahead to merge
+*that card's* PR. On seeing such a comment:
 1. Find the card's PR (from the PR link in its comment, or
    `gh pr list --head card-<shortId>`). Confirm CI is green
    (`gh pr checks <pr>`); if red, **STOP** and surface the failing check.
-2. **Merge it** — `gh pr merge <pr> --squash --delete-branch` (for zeus, see the
-   image-tag note below). Only that one PR merges — no other card is affected.
+2. **Merge it into develop** — `gh pr merge <pr> --squash --delete-branch`.
+   Only that one PR merges — no other card is affected. This does **NOT**
+   deploy anything — the change now waits on `develop` for the next release.
 3. `move_card` the card to **Done** `698d00d004e1650d4907f897` and `add_comment`
-   confirming merged/deployed with the merge commit SHA + PR URL.
+   confirming merged-to-develop (NOT deployed) with the merge commit SHA + PR
+   URL, and that it ships with the next release.
 
 Notes:
 - **Per-PR, so no blast radius** — merging one card's PR never ships another's.
-  This is the whole reason for the PR flow.
-- **zeus is two-step:** merging a zeus PR lands the code on `main` but does **not**
-  redeploy the app — that still needs an image **version tag** (its own card).
-  Say so when merging a zeus PR.
 - If a PR won't merge (conflicts / red CI), leave the card in Awaiting Validation,
   add ⚠ Blocked + a comment, and report — don't force it.
 - No live Trello webhook, so this fires only when the board is read — see
   "Watching for push comments" in Notes.
 
 A card with an unmerged PR stays in **Awaiting Validation** — that list means
-"PR open, reviewable, not yet live." That's exactly the stage for validating a
-change (read the diff, let CI run) before it deploys.
+"PR open, reviewable, not yet integrated." Done means "on develop, ships with
+the next release."
+
+### Release (user-commanded; the ONLY path to deploy)
+Nothing deploys from card merges. When the user says **"release"** (or
+"release zeus", "cut a release"):
+1. **zeus repo** (only if its develop has unreleased commits):
+   a. On a fresh `release-<version>` branch off `develop`: bump `version` in
+      `pyproject.toml` (one bump for the whole batch), commit, push, open a PR
+      into `develop`, merge it (this is release mechanics, not card work).
+   b. Open **one PR `develop` → `main`** titled `release: v<version>` whose body
+      lists every card/commit included. Confirm CI green. Merge with
+      `gh pr merge --merge` (**merge commit, NOT squash** — keeps develop and
+      main from diverging).
+   c. Build + push the image from `main`:
+      `docker buildx build --platform linux/arm64 --provenance=false
+      -t jellebens/zeus:<version> --push .`
+2. **gitops repo**: on `develop`, bump `landingzones/zeus/values.yaml`
+   `image.tag` to `<version>` (skip if no zeus release), then open **one PR
+   `develop` → `main`** bundling the tag bump + every merged gitops card.
+   Confirm CI green, merge with a **merge commit**. **Merging this PR is the
+   deploy** — Argo reconciles from gitops `main` (sync or let auto-sync run).
+3. Verify the rollout (pod on the new image, first cycle Optimal, no errors)
+   and report what shipped: version, cards included, verification output.
+Order matters: zeus first (image must exist before the tag bump deploys), then
+gitops. If only gitops cards are pending, step 2 alone is the release.
 
 ## Agent prompt template
 
@@ -197,14 +226,17 @@ Fill in `{{CARD_NAME}}`, `{{CARD_SHORT_ID}}`, `{{CARD_DESC}}`, `{{CARD_ID}}`:
 >    style. If it involves a container image, build it arm64 as above.
 > 4. **Verify** — lint/`helm template`/`kubectl --dry-run` or whatever proves
 >    the change is valid. Report the output.
-> 5. **Commit → push branch → open PR.** You are in an isolated git worktree.
->    Create and commit on a branch named `card-{{CARD_SHORT_ID}}` (plain
->    `git commit`, signing disabled) — **never commit to `main`.** Then
+> 5. **Commit → push branch → open PR into `develop`.** You are in an isolated
+>    git worktree. Create and commit on a branch named `card-{{CARD_SHORT_ID}}`
+>    **cut from `origin/develop`** (plain `git commit`, signing disabled) —
+>    **never commit to `develop` or `main`.** Then
 >    `git push -u origin card-{{CARD_SHORT_ID}}` (SSH remote), and open a PR into
->    `main` with `gh pr create --base main --head card-{{CARD_SHORT_ID}} --draft
->    --title "#{{CARD_SHORT_ID}} {{CARD_NAME}}" --body "<your full summary + the
->    Trello card URL>"`. **Do NOT merge the PR** — merging deploys and is the
->    human's gate. Report the PR URL.
+>    `develop` with `gh pr create --base develop --head card-{{CARD_SHORT_ID}}
+>    --draft --title "#{{CARD_SHORT_ID}} {{CARD_NAME}}" --body "<your full
+>    summary + the Trello card URL>"`. **Do NOT merge the PR** — merging is the
+>    human's gate, and deployment only happens at a user-commanded release
+>    (develop→main). Do NOT bump any version — versions are bumped once per
+>    release, not per card. Report the PR URL.
 >
 > Constraints: Zeus is LIVE and controlling a real battery — be conservative,
 > never break running behavior. If the task is ambiguous, needs a human
@@ -282,18 +314,24 @@ Keep it readable (headings/bullets), not a wall of text.
   inside the harness worktree returns the main repo). For a card that edits **this
   gitops repo**, instruct the agent to create a sibling worktree with WSL git and
   work only there — `git -C /home/jelle/repos/gitops worktree add
-  /home/jelle/repos/gitops-card-<shortId> -b card-<shortId> origin/main` — and to
+  /home/jelle/repos/gitops-card-<shortId> -b card-<shortId> origin/develop` — and to
   **never** edit under `.claude/worktrees/…`. This mirrors the zeus-repo pattern
   (`/home/jelle/repos/zeus-card-<id>`), which had zero incidents. A trivial
   one-liner (e.g. an `image.tag` bump) may instead be done inline by the
   orchestrator on a throwaway branch in the main tree. See AGENTS.md "Known
   Pitfalls" for the mechanism.
 
-### Transition note (2026-07-01)
-Cards worked **before** the PR flow (#13, #15, #46) were committed straight onto
-`main` (unpushed), not as PRs. Finish those under the old model — a **push**
-comment pushes their `main` commit once — or convert them to PRs. All **new**
-runs use the PR flow above.
+### Transition notes
+- **2026-07-02 — GitFlow.** The user switched the flow from GitHub Flow
+  (card PR → main, merge = deploy) to **GitFlow**: card PRs target `develop`;
+  a user-commanded **release** bundles everything on develop into ONE
+  develop→main PR (with the single version bump); merging THAT deploys. The
+  `develop` branches were cut from main on 2026-07-02. Any pre-existing open
+  card PR that still targets `main` should be retargeted to `develop`
+  (`gh pr edit <pr> --base develop`) before merging.
+- **2026-07-01.** Cards worked before the PR flow (#13, #15, #46) were committed
+  straight onto `main` (unpushed). Finish those under the old model — a **push**
+  comment pushes their `main` commit once — or convert them to PRs.
 
 ### Watching for push/merge comments
 There is no live Trello webhook here, so a **push**/**merge** comment is only acted

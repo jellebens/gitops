@@ -32,8 +32,12 @@ install them. Tooling: `argocd`, `helm`, `kubectl`, `kubeseal`, `jq`, `git`.
 
 - **Push over SSH** (`git@github.com:jellebens/...`). HTTPS remotes here have no
   credential helper and will **hang** — switch a remote to SSH before pushing.
-- Default branch is `main`; this repo commits directly to `main` (Argo deploys
-  from it). Commit/push only when asked.
+- **GitFlow (since 2026-07-02):** work branches off `develop` and merges back
+  into `develop` via PR; a user-commanded **release** groups everything into one
+  `develop` → `main` PR (version bumped once per release) — merging that PR is
+  what deploys (Argo watches `main`). Never commit work directly to `develop`
+  or `main`; see AGENTS.md "Branching & Release Flow". Commit/push only when
+  asked.
 
 ## Secrets
 

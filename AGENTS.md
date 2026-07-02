@@ -26,8 +26,24 @@ This repository manages Argo CD app-of-apps and platform service configuration v
   - `argocd app sync <app> --core`
   - `argocd app wait <app> --core --sync --health --timeout 300`
 
+## Branching & Release Flow (GitFlow — since 2026-07-02)
+- **All card/feature work branches off `develop` and merges back into `develop`
+  via PR** (`card-<shortId>` branches; PR base `develop`). Never commit work
+  directly to `develop` or `main`.
+- **Nothing deploys from develop.** Argo CD deploys from `main`. On the user's
+  **release** command: bump the version once for the batch (zeus
+  `pyproject.toml`), open ONE PR `develop` → `main` grouping every commit since
+  the last release, and merge it (merge commit, not squash). **Merging that PR
+  is the deploy**: for zeus, build+push the arm64 image from `main` first, then
+  bump `landingzones/zeus/values.yaml` `image.tag` on gitops `develop` and
+  include it in the gitops release PR; Argo reconciles when gitops `main`
+  updates. See `.claude/skills/trello-agents/SKILL.md` "Release" for the exact
+  procedure.
+- Emergency hotfix direct-to-main only with the user's explicit go-ahead; port
+  it back to `develop` immediately after.
+
 ## Deployment Requests
-- When the user says "deploy the changes", treat that as: check the worktree, run the relevant Helm render/checks, commit the scoped changes, push the current branch, sync the appropriate Argo CD app with `argocd app sync <app> --core`, then monitor it with `argocd app wait <app> --core --sync --health --timeout 300`.
+- When the user says "deploy the changes", treat that as: check the worktree, run the relevant Helm render/checks, commit the scoped changes, push the current branch, sync the appropriate Argo CD app with `argocd app sync <app> --core`, then monitor it with `argocd app wait <app> --core --sync --health --timeout 300`. (Since 2026-07-02, routine changes reach `main` only via the release PR — see Branching & Release Flow.)
 - Choose the Argo CD app from the changed chart or template path. For example, changes under `landingzones/openclaw/` sync the `openclaw` app, and changes under `applications/` sync the app-of-apps layer.
 - If the change affects a workload, also check the rollout, pods, and recent logs after Argo reports healthy.
 
