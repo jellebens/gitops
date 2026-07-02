@@ -32,6 +32,9 @@ spec:
         {{- if .Values.aetos.soul }}
         checksum/aetos-soul: {{ include (print $.Template.BasePath "/aetos-soul-configmap.yaml") . | sha256sum }}
         {{- end }}
+        {{- if .Values.hebe.soul }}
+        checksum/hebe-soul: {{ include (print $.Template.BasePath "/hebe-soul-configmap.yaml") . | sha256sum }}
+        {{- end }}
         {{- if .Values.openai.enabled }}
         checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
         {{- end }}
@@ -102,6 +105,38 @@ spec:
                 {{- end }}
               ) || echo "[seed] WARN: writer git setup failed; agent starting without it"
               {{- end }}
+              {{- if .Values.hebe.git.enabled }}
+              # Hebe (update watcher) git setup is best-effort: never block the
+              # agent on it. Her key is installed at a distinct path and pinned to
+              # her clone via a per-repo core.sshCommand, so it never clashes with
+              # the writer's global GIT_SSH_COMMAND key.
+              (
+                set -e
+                mkdir -p /opt/data/.ssh {{ .Values.hebe.git.clonePath }}
+                cp /secrets/hebe-git-ssh/{{ .Values.hebe.git.ssh.secretKey }} {{ .Values.hebe.git.ssh.keyPath }}
+                chmod 700 /opt/data/.ssh
+                chmod 600 {{ .Values.hebe.git.ssh.keyPath }}
+                # Merge Hebe's host key into the shared known_hosts (append if absent).
+                touch /opt/data/.ssh/known_hosts
+                printf '%s\n' {{ .Values.hebe.git.ssh.knownHosts | trim | quote }} >> /opt/data/.ssh/known_hosts
+                sort -u /opt/data/.ssh/known_hosts -o /opt/data/.ssh/known_hosts
+                git config --global --add safe.directory {{ .Values.hebe.git.clonePath }}
+                {{- with .Values.hebe.git.repoUrl }}
+                HEBE_SSH="ssh -i {{ $.Values.hebe.git.ssh.keyPath }} -o UserKnownHostsFile=/opt/data/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+                if [ ! -d {{ $.Values.hebe.git.clonePath }}/.git ]; then
+                  GIT_SSH_COMMAND="$HEBE_SSH" git clone {{ . }} {{ $.Values.hebe.git.clonePath }}
+                else
+                  git -C {{ $.Values.hebe.git.clonePath }} remote set-url origin {{ . }}
+                  GIT_SSH_COMMAND="$HEBE_SSH" git -C {{ $.Values.hebe.git.clonePath }} fetch --prune origin || true
+                fi
+                # Pin the key to this clone so Hebe's `git` needs no env var.
+                git -C {{ $.Values.hebe.git.clonePath }} config core.sshCommand "$HEBE_SSH"
+                git -C {{ $.Values.hebe.git.clonePath }} checkout {{ $.Values.hebe.git.baseBranch }} 2>/dev/null || git -C {{ $.Values.hebe.git.clonePath }} checkout -B {{ $.Values.hebe.git.baseBranch }} origin/{{ $.Values.hebe.git.baseBranch }} 2>/dev/null || true
+                git -C {{ $.Values.hebe.git.clonePath }} config user.name {{ $.Values.hebe.git.author.name | quote }}
+                git -C {{ $.Values.hebe.git.clonePath }} config user.email {{ $.Values.hebe.git.author.email | quote }}
+                {{- end }}
+              ) || echo "[seed] WARN: hebe git setup failed; agent starting without it"
+              {{- end }}
               chown -R {{ .Values.runtime.uid }}:{{ .Values.runtime.gid }} /opt/data
           volumeMounts:
             {{- if .Values.persistence.enabled }}
@@ -121,6 +156,11 @@ spec:
             {{- if .Values.git.enabled }}
             - name: git-ssh
               mountPath: /secrets/git-ssh
+              readOnly: true
+            {{- end }}
+            {{- if .Values.hebe.git.enabled }}
+            - name: hebe-git-ssh
+              mountPath: /secrets/hebe-git-ssh
               readOnly: true
             {{- end }}
       containers:
@@ -190,6 +230,12 @@ spec:
               subPath: SOUL.md
               readOnly: true
             {{- end }}
+            {{- if .Values.hebe.soul }}
+            - name: hebe-soul
+              mountPath: {{ .Values.hebe.soulPath }}
+              subPath: SOUL.md
+              readOnly: true
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
@@ -217,6 +263,11 @@ spec:
           configMap:
             name: hermes-aetos-soul
         {{- end }}
+        {{- if .Values.hebe.soul }}
+        - name: hebe-soul
+          configMap:
+            name: hermes-hebe-soul
+        {{- end }}
         {{- if .Values.git.enabled }}
         - name: git-ssh
           secret:
@@ -225,4 +276,13 @@ spec:
             items:
               - key: {{ .Values.git.ssh.secretKey | quote }}
                 path: {{ .Values.git.ssh.secretKey | quote }}
+        {{- end }}
+        {{- if .Values.hebe.git.enabled }}
+        - name: hebe-git-ssh
+          secret:
+            secretName: {{ .Values.hebe.git.ssh.secretName | quote }}
+            defaultMode: 0400
+            items:
+              - key: {{ .Values.hebe.git.ssh.secretKey | quote }}
+                path: {{ .Values.hebe.git.ssh.secretKey | quote }}
         {{- end }}
