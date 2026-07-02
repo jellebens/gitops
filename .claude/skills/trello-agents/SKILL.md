@@ -183,9 +183,13 @@ Nothing deploys from card merges. When the user says **"release"** (or
       lists every card/commit included. Confirm CI green. Merge with
       `gh pr merge --merge` (**merge commit, NOT squash** — keeps develop and
       main from diverging).
-   c. Build + push the image from `main`:
-      `docker buildx build --platform linux/arm64 --provenance=false
-      -t jellebens/zeus:<version> --push .`
+   c. **Tag the merge commit on `main`** — `git tag v<version> && git push
+      origin v<version>`. Zeus CI builds + pushes the arm64 image
+      `jellebens/zeus:<version>` automatically on the `v*` tag (this untagged
+      step is exactly what left 0.1.54 unbuilt on 2026-07-02). Wait for the CI
+      image job to go green (`gh run watch` / `gh run list`) before step 2;
+      local `docker buildx build --platform linux/arm64 --provenance=false`
+      is the fallback if CI is unavailable.
 2. **gitops repo**: on `develop`, bump `landingzones/zeus/values.yaml`
    `image.tag` to `<version>` (skip if no zeus release), then open **one PR
    `develop` → `main`** bundling the tag bump + every merged gitops card.
