@@ -175,6 +175,11 @@ config:
     entsoe:
       api_token: "${ENTSOE_TOKEN}"
       area_code: "10YBE----------2"
+      # Persist the last-good ENTSO-E curve to the PVC (card #50) so it survives
+      # restarts. ABSOLUTE on purpose: zeus config.py defaults this to the
+      # relative 'reports/entsoe_last_good.json', which only lands on the mount
+      # by WORKDIR /app coincidence — pin it like the other /app/reports/* paths.
+      cache_path: /app/reports/entsoe_last_good.json
     price_scale: 1.0 # sensor.average_electricity_price is already EUR/kWh
     import_markup: 0.0
     export_price: 0.0
