@@ -350,7 +350,7 @@
     },
     {
       "id": 80,
-      "type": "stat",
+      "type": "timeseries",
       "title": "Grid power",
       "datasource": {
         "type": "prometheus",
@@ -365,43 +365,127 @@
       "fieldConfig": {
         "defaults": {
           "unit": "kwatt",
-          "decimals": 3,
+          "decimals": 2,
+          "min": 0,
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 18,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "showPoints": "never",
+            "pointSize": 4,
+            "axisPlacement": "auto",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Grid power"
+            },
+            "properties": [
               {
-                "color": "green",
-                "value": null
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
               },
               {
-                "color": "orange",
-                "value": 2.5
+                "id": "custom.fillOpacity",
+                "value": 18
               },
               {
-                "color": "red",
-                "value": 3.98
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Capacity peak"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Min tariff"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    4,
+                    4
+                  ]
+                }
               }
             ]
           }
-        },
-        "overrides": []
+        ]
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
         },
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "orientation": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
       "targets": [
         {
@@ -411,6 +495,29 @@
             "uid": "prometheus"
           },
           "expr": "max(zeus_grid_power_w) / 1000",
+          "legendFormat": "Grid power",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_capacity_peak_kw)",
+          "legendFormat": "Capacity peak",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "vector(2.5)",
+          "legendFormat": "Min tariff",
           "range": true,
           "instant": false
         }
