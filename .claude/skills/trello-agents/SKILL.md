@@ -274,6 +274,20 @@ Keep it readable (headings/bullets), not a wall of text.
 - Every card is worktree-isolated on its own branch — for dependent cards (later
   builds on earlier), branch the later PR off the earlier one or wait for it to
   merge; don't race two PRs editing the same lines.
+- **gitops-repo cards — use a *sibling WSL* worktree, not the harness one.** The
+  Agent tool's `isolation: "worktree"` creates the worktree under
+  `.claude/worktrees/…` with a Windows UNC gitdir WSL git can't resolve, so from
+  WSL it is indistinguishable from the **main** tree and edits/commits silently
+  leak onto `main` (real incidents: #61/#65/#66; `git rev-parse --show-toplevel`
+  inside the harness worktree returns the main repo). For a card that edits **this
+  gitops repo**, instruct the agent to create a sibling worktree with WSL git and
+  work only there — `git -C /home/jelle/repos/gitops worktree add
+  /home/jelle/repos/gitops-card-<shortId> -b card-<shortId> origin/main` — and to
+  **never** edit under `.claude/worktrees/…`. This mirrors the zeus-repo pattern
+  (`/home/jelle/repos/zeus-card-<id>`), which had zero incidents. A trivial
+  one-liner (e.g. an `image.tag` bump) may instead be done inline by the
+  orchestrator on a throwaway branch in the main tree. See AGENTS.md "Known
+  Pitfalls" for the mechanism.
 
 ### Transition note (2026-07-01)
 Cards worked **before** the PR flow (#13, #15, #46) were committed straight onto
