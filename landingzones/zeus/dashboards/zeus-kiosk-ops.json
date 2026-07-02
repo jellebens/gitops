@@ -292,6 +292,21 @@
                         "text": "▼",
                         "color": "orange",
                         "index": 2
+                      },
+                      "100010": {
+                        "text": "OK",
+                        "color": "green",
+                        "index": 3
+                      },
+                      "100011": {
+                        "text": "WARN",
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "100012": {
+                        "text": "CRIT",
+                        "color": "red",
+                        "index": 5
                       }
                     }
                   }
@@ -319,7 +334,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((max(zeus_grid_power_w)), \"k\", \"Grid power (W)\", \"\", \"\"))",
+          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((100010 + ((max(zeus_grid_power_w)) >= bool 2500) + ((max(zeus_grid_power_w)) >= bool 3000)), \"k\", \"Grid power (W)\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
@@ -375,7 +390,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 7,
+        "w": 5,
         "x": 1,
         "y": 6
       },
@@ -558,8 +573,8 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 8,
-        "x": 8,
+        "w": 5,
+        "x": 6,
         "y": 6
       },
       "fieldConfig": {
@@ -741,8 +756,8 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 8,
-        "x": 16,
+        "w": 5,
+        "x": 11,
         "y": 6
       },
       "fieldConfig": {
