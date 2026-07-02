@@ -41,17 +41,51 @@ spec:
           # zeus is self-healing over a price-feed hiccup: it fell back to the
           # secondary price entity (1) or the last-good cached curve (2). The
           # battery is still commanded (not coasting), but the primary feed
-          # needs attention. Deliberately EXCLUDES 4 (partial horizon coverage):
-          # with a 36h horizon and day-ahead publication at ~13:00 CET, the tail
-          # of the horizon is uncovered most of the day by design — alerting on
-          # it would page permanently. 3 (no data) has its own critical rule.
+          # needs attention.
+          #
+          # Codes it deliberately EXCLUDES (zeus v0.1.54 source model,
+          # zeus/zeus/main.py _SRC + zeus/zeus/metrics.py):
+          #   0 = primary AND the cache-first "cache-fresh" serve (#63): a
+          #       full-coverage serve of immutable, already-published day-ahead
+          #       prices is HEALTHY, not degraded — mapping it here would page
+          #       every steady-state cycle where the ENTSO-E call is skipped.
+          #   4 = partial horizon coverage (#58): handled by its own
+          #       ZeusPricePartialCoverage warning below, NOT lumped in with a
+          #       hard degrade. With a 36h horizon and day-ahead publication at
+          #       ~13:00 CET the tail is uncovered most of the day BY DESIGN, so
+          #       a naive == 4 alert would page permanently — hence the long
+          #       `for:` on the dedicated rule rather than inclusion here.
+          #   3 = no data at all: its own ZeusNoPriceData critical rule.
           expr: zeus_price_source == 1 or zeus_price_source == 2
           for: 30m
           labels:
             severity: warning
           annotations:
             summary: Zeus running on a degraded price source
-            description: The primary price feed has been unavailable for 30m; zeus is on the fallback entity / cached curve (or safe-holding if no prices at all). Check the price integration.
+            description: The primary price feed has been unavailable for 30m; zeus is on the fallback entity / cached curve. Check the price integration.
+        - alert: ZeusPricePartialCoverage
+          # #58: code 4 = a "*-partial" serve (primary-partial / fallback-partial
+          # / cache-partial). The served curve covers the horizon START but not
+          # its END, so zeus LOCF-flat-lines the uncovered tail. Distinct from a
+          # plain cache serve (2): the flat tail can silently mis-shape the
+          # optimizer's later slots, so it warrants its own signal.
+          #
+          # LONG `for:` on purpose. The routine end-of-horizon tail is uncovered
+          # most of the day by design and clears each afternoon when the next
+          # day-ahead curve publishes (~13:00 CET). `for: 6h` rides through that
+          # normal daily window so a benign tail self-heals before firing, and
+          # only a STUCK partial (a feed that stays short across a publication
+          # boundary — a genuinely short/broken curve, now rarer given #57
+          # backoff + #63 cache-first) sustains long enough to page.
+          # NOTE FOR REVIEW: 6h is a deliberate conservative pick, not derived
+          # from measured data — tune against real partial-coverage dwell times.
+          expr: zeus_price_source == 4
+          for: 6h
+          labels:
+            severity: warning
+          annotations:
+            summary: Zeus price curve has partial horizon coverage
+            description: The served price curve has covered only the start of the optimization horizon (uncovered tail LOCF-flat-lined) for 6h. A transient end-of-horizon tail is normal and self-clears at day-ahead publication; a sustained partial means the feed is returning a short curve. Check the price integration.
         - alert: ZeusNoPriceData
           # No prices from primary, fallback, or cache -> zeus is holding a SAFE
           # IDLE each cycle (no arbitrage) until a feed returns. More urgent than
