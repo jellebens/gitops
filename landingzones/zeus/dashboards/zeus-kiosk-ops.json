@@ -319,7 +319,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\")) or (label_replace((max(zeus_grid_power_w)), \"k\", \"Grid power (W)\", \"\", \"\"))",
+          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
@@ -345,6 +345,74 @@
         {
           "id": "merge",
           "options": {}
+        }
+      ]
+    },
+    {
+      "id": 80,
+      "type": "stat",
+      "title": "Grid power",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 13,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "decimals": 3,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2.5
+              },
+              {
+                "color": "red",
+                "value": 3.0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_grid_power_w) / 1000",
+          "range": true,
+          "instant": false
         }
       ]
     },
