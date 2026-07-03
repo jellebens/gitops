@@ -1,0 +1,19 @@
+# Headless service for EMQX cluster discovery (DNS SRV) and stable per-pod
+# node names. publishNotReadyAddresses is REQUIRED: nodes must see each other
+# in DNS before any of them is Ready, or initial cluster formation deadlocks.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt-headless
+  namespace: mqtt
+  labels:
+    app.kubernetes.io/name: mqtt
+    app.kubernetes.io/part-of: platform
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: mqtt
+  ports:
+    - { name: ekka, port: 4370, targetPort: 4370, protocol: TCP }
+    - { name: rpc, port: 5370, targetPort: 5370, protocol: TCP }
