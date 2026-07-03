@@ -15,6 +15,5 @@
 secret:
   sealedSecret:
     enabled: true
-    encryptedData: {}
-    # encryptedData:
-    #   ENTSOE_API_TOKEN: "Ag..."
+    encryptedData:
+      ENTSOE_API_TOKEN: "AgC3JzT1vkDy7fYhP9qJs5A4JgWSOcnu6q/SYeCjnE8VmLP5OdrfmM9wwGExOfS4vS4phEuhRI1UcoeGhoMiA7E7RQAq6V7PzCH2ibdJouuilGx5kwhQNS8X9/sjVzo2mpKQEg5E/aVnDI/dVWr6pKIgZ+eb8PM10fJ1euTuxf6Kf+mwLMmT+BHgNQ6Uzizth16gpm9Xqa5InJjcOimM0CQah1sH2RgvbVlyz5B0hlcpZtPNxQOuDzrHP6eFisFNz2ES2uIdS/p8H5bFw9MqNHjv2LBJ+esbEyQNcNAegGuBdjIfzSJsqbptzVhBb7SYLe4UuqbVYRx50l2XtD/7SsMSEg3HivvfSOQ8aucC2H3EB/QaqKn13xmFsSwuXlh+WaqAThYGu2Hb3SC0ck/6ci+Xz22L5WzCJtli4lPIsXZpCmqy31XNWAbWPfhbgeG0CcMhJM9SshmpO4zH1/6xGvKkw5rEVQSJPuG8PExn8+oCZNiTvgKV6E2prB6aunxetHyJQNmjVWaHuPNs9cffY6fQ/OBXZMwC5yFF2GXt4wo2FuoHvWoxNuAMvhhCDwgZhqrLDlGbQTEkGWuvupL7C4bSuybvD/QkNSB580CZdzs9Pay57txEq3YruaD+2lqSAWRcQs7U6dX1e7ptFbau0SFD9o23XGEIu8TkHjcmbhxOxxPfHnLHeozpNhajaihA0zy0BLWLK+x1mAi1ktPOW89Z4JdG6tdiLBnUPWK5v1VC2xHwhEs="
