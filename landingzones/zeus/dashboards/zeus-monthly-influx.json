@@ -228,6 +228,98 @@
         { "refId": "C", "datasource": { "type": "influxdb", "uid": "influxdb" },
           "query": "import \"array\"\narray.from(rows: [{_time: v.timeRangeStart, _value: 2.5}, {_time: v.timeRangeStop, _value: 2.5}])\n  |> rename(columns: {_value: \"Capacity tariff (2.5 kW)\"})" }
       ]
+    },
+    {
+      "id": 20,
+      "type": "heatmap",
+      "title": "Avg consumption heatmap — weekday × hour-of-day (kW)",
+      "description": "Real Grafana heatmap. X = hour of day (00:00–23:00, Brussels), Y = weekday (Mon–Sun), colour = mean whole-home grid power (kW) for that weekday/hour over the last ~30 d (rolling). Recurring peak-hour bands stand out as vertical colour columns; weekday habits as horizontal bands. (A weekday row appears once that day has data in the window.)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "calculate": false,
+        "color": {
+          "mode": "scheme",
+          "scheme": "RdYlGn",
+          "reverse": true,
+          "fill": "dark-orange",
+          "scale": "exponential",
+          "exponent": 0.5,
+          "steps": 128,
+          "min": 0
+        },
+        "cellGap": 1,
+        "cellValues": {
+          "unit": "kwatt",
+          "decimals": 2
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "axisLabel": "Weekday",
+          "reverse": false,
+          "unit": "short",
+          "decimals": 0
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "legend": {
+          "show": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "yHistogram": false,
+          "showColorScale": true
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        }
+      },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "^[0-9] (.*)$",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nbase = time(v: \"2001-01-01T00:00:00Z\")\nfrom(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with\n       wd: (if date.weekDay(t: r._time) == 1 then \"1 Mon\"\n            else if date.weekDay(t: r._time) == 2 then \"2 Tue\"\n            else if date.weekDay(t: r._time) == 3 then \"3 Wed\"\n            else if date.weekDay(t: r._time) == 4 then \"4 Thu\"\n            else if date.weekDay(t: r._time) == 5 then \"5 Fri\"\n            else if date.weekDay(t: r._time) == 6 then \"6 Sat\"\n            else \"7 Sun\"),\n       h: date.hour(t: r._time),\n       _value: r._value / 1000.0 }))\n  |> group(columns: [\"wd\", \"h\"])\n  |> mean()\n  |> map(fn: (r) => ({ r with _time: date.add(d: duration(v: r.h * 3600000000000), to: base) }))\n  |> group()\n  |> sort(columns: [\"wd\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"wd\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n"
+        }
+      ]
     }
   ],
   "refresh": "5m",
