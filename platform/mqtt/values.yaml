@@ -1,0 +1,52 @@
+# Platform MQTT broker — EMQX 3-node HA cluster (jupiter D1, owner signed off
+# 2026-07-03). ONE broker for everything: Home Assistant's MQTT integration,
+# zeus (transition), jupiter cells/services. Single-replica Mosquitto + PVC is
+# the documented fallback if EMQX proves too heavy on the arm64 nodes.
+#
+# Stable address convention: every client connects to mqtt.lab.local:1883 — a
+# Cilium LB-IPAM VIP from the `platform` pool — never a pod/node IP. The
+# mqtt.lab.local A record lives in the zone-in-git (.config/<env>/coredns-lab.yaml).
+#
+# The broker is on telemetry/nudge paths ONLY, never on the battery actuation
+# path (zeus/cell actuates Home Assistant directly on the site LAN).
+mqtt:
+  # Official multi-arch image (arm64 cluster). Pin the exact version.
+  image: emqx/emqx:5.8.9
+  # 3 nodes spread across k3s nodes: a single node loss keeps the broker up
+  # (sessions, retained messages and the auth DB are replicated via mnesia).
+  replicas: 3
+  # LoadBalancer VIP from the Cilium `platform` LB-IPAM pool (.180-.199).
+  # Set per-env in .config/<env>/mqtt.yaml; must match the mqtt.lab.local A record.
+  loadBalancerIP: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  persistence:
+    # Broker state (mnesia: retained messages, sessions, built-in auth DB)
+    # needs POSIX/block semantics -> node-local storage like InfluxDB, NOT the
+    # flaky SMB share. One PVC per replica via volumeClaimTemplates.
+    storageClassName: local-path
+    size: 1Gi
+
+# Auth material — SealedSecret (controller `sealed-secrets`, ns `argocd`).
+# Keys:
+#   node-cookie        : Erlang cluster cookie shared by the 3 nodes
+#   dashboard-password : EMQX dashboard `admin` user password
+#   users.csv          : EMQX authn bootstrap file (header: user_id,password,is_superuser)
+# Sealed values are set per-env in .config/<env>/mqtt.yaml. Until all keys are
+# present the Secret does not exist and the StatefulSet stays Pending (same
+# pattern as influxdb-auth).
+secret:
+  name: mqtt-auth
+  sealedSecret:
+    encryptedData: {}
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (repo convention — see zeus):
+# egress stays fully open; inbound is limited to MQTT 1883 (LAN + cluster),
+# intra-cluster EMQX gossip/RPC, and the dashboard from inside the cluster.
+networkPolicy:
+  enabled: true

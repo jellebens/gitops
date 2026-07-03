@@ -1,0 +1,21 @@
+# LAN-facing MQTT endpoint. The VIP comes from the Cilium `platform` LB-IPAM
+# pool (selected by the lb-pool label) and is pinned with the lbipam annotation
+# so mqtt.lab.local (zone-in-git) always matches. Only 1883 is exposed — the
+# dashboard stays cluster-internal.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt
+  namespace: mqtt
+  labels:
+    app.kubernetes.io/name: mqtt
+    app.kubernetes.io/part-of: platform
+    lb-pool: platform
+  annotations:
+    lbipam.cilium.io/ips: {{ required "mqtt.loadBalancerIP is required" .Values.mqtt.loadBalancerIP | quote }}
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: mqtt
+  ports:
+    - { name: mqtt, port: 1883, targetPort: 1883, protocol: TCP }

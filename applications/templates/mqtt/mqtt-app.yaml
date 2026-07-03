@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mqtt
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Platform MQTT broker (EMQX). After cilium-config (5) so the platform
+    # LB-IPAM pool exists for the VIP, and after sealed-secrets so mqtt-auth
+    # can unseal; before the workloads that will ride it (zeus, wave 30).
+    argocd.argoproj.io/sync-wave: "16"
+spec:
+  project: platform-services
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      path: platform/mqtt
+      helm:
+        releaseName: mqtt
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/mqtt.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mqtt
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
