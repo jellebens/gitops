@@ -1,0 +1,41 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for price-service.
+#
+# Why ingress-only (repo convention, same as zeus): in Cilium, a policy that
+# specifies only `ingress` rules puts the selected endpoint into default-deny
+# for INGRESS only; its EGRESS stays fully open. price-service needs egress to
+# the public ENTSO-E Transparency API (and DNS); an egress lockdown is a
+# separate, human-reviewed step.
+#
+# Inbound allowed:
+#   - the observability namespace (Prometheus scrape once /metrics exists;
+#     harmless before that),
+#   - the consumer namespaces in networkPolicy.allowedClientNamespaces (zeus
+#     consumes /v1/curve from card #107 on).
+# Kubelet /healthz probes come from the node host, which Cilium allows by
+# default when ingress policy is enforced (same as the live zeus pod).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: price-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: price-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: price-service
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+        {{- range .Values.networkPolicy.allowedClientNamespaces }}
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.service.port | quote }}
+              protocol: TCP
+{{- end }}

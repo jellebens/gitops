@@ -1,0 +1,28 @@
+{{- if .Values.serviceMonitor.enabled }}
+# DISABLED by default (values.yaml): price-service 0.1.0 has NO /metrics
+# endpoint (stdlib-only serving layer; prometheus_client arrives with a later
+# jupiter card). Enabling this against /healthz would only pin `up` at 0.
+# When metrics land: flip serviceMonitor.enabled, and if they are served on a
+# separate port, add it to the Service and point `port:` at it.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: price-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: price-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus serviceMonitorSelector.
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: price-service
+  namespaceSelector:
+    matchNames:
+      - jupiter-central
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: price-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: price-service
+  # Recreate: the last-good cache PVC is RWO on local-path (node-pinned), so a
+  # RollingUpdate surge pod could never bind the volume anyway.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: price-service
+        app.kubernetes.io/part-of: jupiter
+      {{- if and .Values.secret.sealedSecret.enabled .Values.secret.sealedSecret.encryptedData }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: price-service
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            # D4 site identity: central singleton.
+            - name: SITE_ID
+              value: {{ .Values.siteId | quote }}
+            {{- if .Values.persistence.enabled }}
+            # Per-zone last-good curve cache on the PVC. Without this the app
+            # defaults to the relative "data" dir on the container filesystem
+            # and the cache dies with the pod.
+            - name: PRICE_CACHE_DIR
+              value: {{ .Values.persistence.mountPath | quote }}
+            {{- end }}
+          # ENTSOE_API_TOKEN. optional: true so the very first sync (before the
+          # sealed secret is provided) still comes up: the service serves
+          # persisted last-good curves without a token and degrades a fetch
+          # exactly like an ENTSO-E outage.
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secret.name }}
+                optional: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          # /healthz is served by the stdlib ThreadingHTTPServer, up before any
+          # ENTSO-E I/O; it only stops answering if the process is wedged/dead.
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: price-cache
+              mountPath: {{ .Values.persistence.mountPath }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: price-cache
+          persistentVolumeClaim:
+            claimName: price-service-cache
+      {{- end }}

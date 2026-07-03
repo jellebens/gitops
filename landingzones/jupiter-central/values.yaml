@@ -1,0 +1,116 @@
+# jupiter-central landing zone — price-service (jupiter P1 card #106).
+#
+# The service is the central ENTSO-E price API (jupiter repo,
+# services/price): GET /healthz + GET /v1/curve?zone=... per
+# zeus:.docs/jupiter/architecture.md. It is a CENTRAL SINGLETON — one
+# instance serves every bidding zone / site. Bidding zones are a PER-REQUEST
+# query parameter, not server config, so there is deliberately no ConfigMap
+# here: the only knobs the app reads are the env vars below (PORT,
+# PRICE_CACHE_DIR, ENTSOE_API_TOKEN, SITE_ID).
+image:
+  repository: jellebens/jupiter-price
+  # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# Central singleton. The last-good cache PVC is RWO (local-path pins it to a
+# node), and one fetch per zone per publication is the whole point — never
+# scale this up without rethinking the cache.
+replicaCount: 1
+
+service:
+  # Container/service port; exported to the app as PORT. Zeus (card #107) will
+  # reach it at http://price-service.jupiter-central.svc.cluster.local:8080.
+  port: 8080
+
+# D4 site identity: central singletons run as site_id "central". Exported as
+# the SITE_ID env var (jupiter_shared.site); shows up in /healthz.
+siteId: central
+
+# Scoped CiliumNetworkPolicy, INGRESS-ONLY by repo convention: a Cilium policy
+# with only `ingress` rules default-denies inbound to the pod while leaving
+# EGRESS fully open (the service needs egress to the public ENTSO-E API; a
+# broader egress lockdown is a separate, human-reviewed step). Inbound allowed:
+# Prometheus scrapes from the observability namespace plus the namespaces
+# listed below (zeus consumes /v1/curve from card #107 on).
+networkPolicy:
+  enabled: true
+  # Namespace Prometheus (kube-prometheus-stack) runs in.
+  metricsScrapeNamespace: observability
+  # In-cluster consumers allowed to reach the service port.
+  allowedClientNamespaces:
+    - zeus
+
+# Prometheus Operator ServiceMonitor. DISABLED by default ON PURPOSE: the
+# 0.1.0 service exposes NO /metrics endpoint yet (stdlib-only serving layer —
+# see jupiter services/price/jupiter_price/app.py docstring). Scraping
+# /healthz would just park `up` at 0 forever. Flip this on (and point it at
+# the metrics port) with the jupiter card that wires prometheus_client in.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
+  releaseLabel: kube-prometheus-stack
+
+# Prometheus alerting rules (kube-prometheus-stack picks these up by label).
+# Until the service exports real price-source metrics there is no true
+# PriceFeedDegraded equivalent (that gap is documented in the README and the
+# rule file); these alert on AVAILABILITY via kube-state-metrics instead.
+prometheusRule:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+
+# Per-zone last-good curve cache (PRICE_CACHE_DIR). local-path (k3s default,
+# same choice as platform/mqtt): the cache is small and re-fetchable from
+# ENTSO-E, so NAS durability (zeus's smb class) is not warranted — losing the
+# node only degrades the first request per zone to a fresh fetch. RWO +
+# local-path pins the pod to the node holding the volume; fine for a
+# single-replica cache.
+persistence:
+  enabled: true
+  storageClassName: "local-path"
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /data
+
+# Small stdlib HTTP server + one requests call per zone per publication.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Probes on GET /healthz (always answers: ThreadingHTTPServer comes up before
+# any fetch; a missing ENTSOE token or a dead ENTSO-E API does NOT fail
+# /healthz — degraded serving is by design, availability alerts catch it).
+probes:
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 4
+
+runtime:
+  uid: 1000
+  gid: 1000
+
+# Secret injected as env via envFrom (optional: true, so the first sync does
+# not block on the seal). Key ENTSOE_API_TOKEN — the exact env var name
+# app.py reads (NOTE: zeus calls its key ENTSOE_TOKEN; this service does not).
+# The app tolerates an absent token: it still serves persisted last-good
+# curves, and a fetch without a token degrades exactly like an ENTSO-E outage.
+# Provide the sealed value in .config/<env>/jupiter-central.yaml (kubeseal —
+# see that file; sealed blobs are namespace-scoped, so zeus's sealed
+# ENTSOE_TOKEN can NOT be reused here).
+secret:
+  name: jupiter-central-secrets
+  sealedSecret:
+    enabled: true
+    encryptedData: {} # { ENTSOE_API_TOKEN: "Ag..." }
