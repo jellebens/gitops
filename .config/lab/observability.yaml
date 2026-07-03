@@ -5,6 +5,14 @@ grafana:
   enabled: true
   defaultDashboardsEnabled: true
 
+  # Business Charts (Apache ECharts) panel — needed for the categorical
+  # weekday × hour heatmap on the zeus monthly dashboard (#96); Grafana's
+  # native heatmap can't do categorical axes. Frontend-only JS plugin
+  # (arm64-safe); the pod downloads it from grafana.com at boot via
+  # GF_INSTALL_PLUGINS.
+  plugins:
+    - volkovlabs-echarts-panel
+
   grafana.ini:
     auth.anonymous:
       enabled: true
