@@ -85,6 +85,21 @@ and is rendered verbatim into `/config/config.yaml`. Key choices:
   battery. Zeus restores only an A/C it switched off itself (won't fight a
   manual/overnight off). The A/C plug's power (`sensor.office_a_c_power`) also
   feeds the forecaster.
+- **Peak shaving (capaciteitstarief) — LIVE since 2026-07-03 (zeus 0.1.56):**
+  `optimizer.capacity: {enabled: true, rate_eur_per_kw_month: 3.3, floor_kw:
+  2.5, peak_reserve_pct: 10, peak_discharge_incentive_eur_per_kwh: 0.05}`.
+  Zeus forecasts the **whole-home** load from the Aeotec HEM
+  (`entities.grid_power_import`), flags recurring high-consumption quarters
+  (`zeus_predicted_peak_slot`), and the LP penalizes grid import above
+  `max(floor, running month peak)` at the capacity rate — so charging steers
+  around the household afternoon peak and the battery discharges through it.
+  ⚠ `peak_reserve_pct: 10` lets predicted-peak discharge drain to the 10%
+  hard floor (outage backup sacrificed during peak windows — deliberate).
+  Judged per month: a peak already set is sunk, so the first fully defended
+  month starts on the 1st after enablement. Kill switch:
+  `optimizer.capacity.enabled: false`. Rationale + real-data analysis: zeus
+  ADR-0012. The kiosk's **consumption heatmap** (days × hours) visualizes the
+  peak windows.
 - **Forecast:** `forecast.model: two_component` — a flat base load plus a
   temperature-driven A/C component, regressed against **Open-Meteo** temperature
   (cooling-degrees over `base_temp_c`). Load + A/C history are persisted on the
