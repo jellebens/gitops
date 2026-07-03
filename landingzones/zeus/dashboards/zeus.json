@@ -1323,7 +1323,8 @@
           "custom": {
             "align": "center",
             "cellOptions": {
-              "type": "color-background"
+              "type": "color-background",
+              "mode": "gradient"
             },
             "filterable": false,
             "width": 44
@@ -1349,7 +1350,19 @@
                 "value": 3.5
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": -1000000,
+                "to": 1000000,
+                "result": {
+                  "text": ""
+                }
+              }
+            }
+          ]
         },
         "overrides": [
           {
