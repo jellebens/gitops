@@ -1,0 +1,531 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "volkovlabs-echarts-panel",
+      "title": "Peak detector — predicted vs realized",
+      "description": "Whole-home grid power (15-min mean, InfluxDB) with the optimizer's predicted capacity-peak slots overlaid as red bands and the predicted peak threshold as a dashed line. Scoreline on top: a past predicted slot counts as a hit when it lands in the realized top-K 15-min draws of the visible window (K = number of predicted slots already past); misses = top-K draws that were not predicted, false alarms = past predicted slots outside the top-K. Peak-slot data since 2026-07-03 (v0.2.0) — until predictions age past their slot time the bands sit in the future and no score can be computed. Grid power history in InfluxDB starts 2026-06-28.",
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "maxDataPoints": 1000,
+      "options": {
+        "renderer": "canvas",
+        "map": "none",
+        "editorMode": "code",
+        "editor": {
+          "format": "auto"
+        },
+        "themeEditor": {
+          "name": "default",
+          "config": "{}"
+        },
+        "getOption": "const frames = context.panel.data.series || [];\nlet grid = null, thr = null;\nconst flags = [];\nfor (const f of frames) {\n  const vf = f.fields.find((x) => x.type === 'number');\n  if (!vf) { continue; }\n  if (vf.name === 'Grid power (kW)') { grid = f; continue; }\n  if (vf.labels && vf.labels.ts) { flags.push(f); continue; }\n  thr = f;\n}\nconst slots = [];\nfor (const f of flags) {\n  const vf = f.fields.find((x) => x.type === 'number');\n  const vals = vf.values;\n  let on = false;\n  for (let i = 0; i < vals.length; i++) { if (Number(vals[i]) >= 1) { on = true; break; } }\n  if (on) { slots.push(Number(vf.labels.ts)); }\n}\nslots.sort((a, b) => a - b);\nconst gridData = [];\nlet gridT = [], gridV = [];\nif (grid) {\n  const tf = grid.fields.find((x) => x.type === 'time');\n  const vf = grid.fields.find((x) => x.type === 'number');\n  gridT = tf.values; gridV = vf.values;\n  for (let i = 0; i < gridT.length; i++) { if (gridV[i] != null) { gridData.push([gridT[i], Number(Number(gridV[i]).toFixed(3))]); } }\n}\nlet thrVal = null;\nif (thr) {\n  const vf = thr.fields.find((x) => x.type === 'number');\n  if (vf && vf.values.length > 0) { thrVal = Number(vf.values[vf.values.length - 1]); }\n}\nconst nowMs = Date.now();\nconst past = slots.filter((ts) => ts + 900000 <= nowMs);\nlet score = 'Predicted peak slots in range: ' + slots.length + ' (' + past.length + ' already past — scoring appears once predictions age past their slot)';\nif (past.length > 0 && gridData.length > 0) {\n  const rs = [];\n  for (let i = 0; i < gridT.length; i++) { if (gridV[i] != null) { rs.push({ start: gridT[i] - 900000, kw: Number(gridV[i]) }); } }\n  const K = Math.min(past.length, rs.length);\n  const top = rs.slice().sort((a, b) => b.kw - a.kw).slice(0, K).map((x) => x.start);\n  const hits = past.filter((ts) => top.indexOf(ts) >= 0).length;\n  score = 'Hits ' + hits + '/' + K + ' (past predicted slots in realized top-' + K + ') · misses ' + (K - hits) + ' · false alarms ' + (past.length - hits);\n}\nconst xMax = slots.length > 0 ? Math.max(nowMs, slots[slots.length - 1] + 900000 + 3600000) : null;\nconst xAxis = { type: 'time' };\nif (xMax) { xAxis.max = xMax; }\nconst mainSeries = {\n  name: 'Grid power (kW)',\n  type: 'line',\n  showSymbol: false,\n  lineStyle: { width: 1.5, color: '#5794f2' },\n  areaStyle: { opacity: 0.12, color: '#5794f2' },\n  data: gridData,\n  markArea: { itemStyle: { color: 'rgba(242, 73, 92, 0.28)' }, data: slots.map((ts) => [{ xAxis: ts }, { xAxis: ts + 900000 }]) }\n};\nif (thrVal != null) {\n  mainSeries.markLine = { symbol: 'none', lineStyle: { type: 'dashed', color: '#ff9830' }, label: { formatter: 'peak threshold ' + thrVal.toFixed(2) + ' kW', position: 'insideEndTop' }, data: [{ yAxis: thrVal }] };\n}\nreturn {\n  backgroundColor: 'transparent',\n  title: { text: score, left: 'center', top: 0, textStyle: { fontSize: 12, fontWeight: 'normal' } },\n  tooltip: { trigger: 'axis' },\n  grid: { left: 55, right: 20, top: 34, bottom: 35 },\n  xAxis: xAxis,\n  yAxis: { type: 'value', name: 'kW' },\n  series: [mainSeries]\n};"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "hist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 1000.0}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Grid power (kW)\"})\n  |> sort(columns: [\"_time\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (ts) (zeus_predicted_peak_slot) == 1",
+          "range": true,
+          "instant": false,
+          "interval": "15m",
+          "legendFormat": "slot {{ts}}"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_predicted_peak_threshold_kw)",
+          "range": false,
+          "instant": true,
+          "legendFormat": "peak threshold (kW)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "volkovlabs-echarts-panel",
+      "title": "Forecast bias — weekday × hour (kWh)",
+      "description": "Signed mean forecast error per Brussels weekday × hour: max(zeus_forecast_load_kwh offset 1h) − max(zeus_realized_load_kwh), attributed to the hour the load actually occurred. Blue = over-forecast, red = under-forecast, white ≈ unbiased. Hover a cell for the signed kWh and the sample count. Prometheus retention is ~10 days, so most cells average only 1–2 samples — expect noise until more history accumulates.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "maxDataPoints": 500,
+      "options": {
+        "renderer": "canvas",
+        "map": "none",
+        "editorMode": "code",
+        "editor": {
+          "format": "auto"
+        },
+        "themeEditor": {
+          "name": "default",
+          "config": "{}"
+        },
+        "getOption": "const s = context.panel.data.series[0];\nif (!s) { return {}; }\nconst tF = s.fields.find((x) => x.type === 'time');\nconst vF = s.fields.find((x) => x.type === 'number');\nif (!tF || !vF) { return {}; }\nconst t = tF.values, v = vF.values;\nconst fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Brussels', weekday: 'short', hour: '2-digit', hour12: false });\nconst days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];\nconst sum = {}, cnt = {};\nfor (let i = 0; i < t.length; i++) {\n  if (v[i] == null) { continue; }\n  const parts = fmt.formatToParts(t[i] - 3600000);\n  const wd = parts.find((p) => p.type === 'weekday').value;\n  let hr = parseInt(parts.find((p) => p.type === 'hour').value, 10);\n  if (hr === 24) { hr = 0; }\n  const key = wd + '|' + hr;\n  sum[key] = (sum[key] || 0) + Number(v[i]);\n  cnt[key] = (cnt[key] || 0) + 1;\n}\nconst data = [];\nObject.keys(sum).forEach((key) => {\n  const p = key.split('|');\n  const d = days.indexOf(p[0]);\n  const h = parseInt(p[1], 10);\n  if (d >= 0 && h >= 0 && h < 24) { data.push([h, d, Number((sum[key] / cnt[key]).toFixed(3)), cnt[key]]); }\n});\nconst hours = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'));\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: { position: 'top', formatter: (p) => days[p.value[1]] + ' ' + hours[p.value[0]] + ':00 — ' + (p.value[2] >= 0 ? '+' : '') + p.value[2] + ' kWh (forecast − realized, n=' + p.value[3] + ')' },\n  grid: { left: 50, right: 70, top: 10, bottom: 40 },\n  xAxis: { type: 'category', data: hours, name: 'hour', splitArea: { show: true } },\n  yAxis: { type: 'category', data: days, inverse: true, splitArea: { show: true } },\n  visualMap: { min: -1, max: 1, calculable: true, orient: 'vertical', right: 0, top: 'center', inRange: { color: ['#c4162a', '#f2495c', '#f7f7f7', '#5794f2', '#1f60c4'] } },\n  series: [{ type: 'heatmap', data: data, emphasis: { itemStyle: { shadowBlur: 6 } } }]\n};"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_forecast_load_kwh offset 1h) - max(zeus_realized_load_kwh)",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "signed error (kWh)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Daily forecast error trend (MAE / MAPE)",
+      "description": "Rolling 1-day window, stepped hourly. MAE = mean |realized − forecast| in kWh per hourly slot (forecast shifted 1h to align with the slot it predicted). MAPE = same error relative to realized load, with realized clamped to ≥ 0.05 kWh to guard against division by zero; right axis. Lower is better.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MAE (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MAPE (%)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)))[1d:1h])",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "MAE (kWh)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg_over_time((abs(max(zeus_realized_load_kwh) - max(zeus_forecast_load_kwh offset 1h)) / clamp_min(max(zeus_realized_load_kwh), 0.05))[1d:1h]) * 100",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "MAPE (%)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Forecast vs actual (7d)",
+      "description": "Hourly load: realized (zeus_realized_load_kwh, reported for the last completed slot) vs the forecast made for that same slot (zeus_forecast_load_kwh offset 1h). The two lines should track each other; gaps between them are forecast error. Fixed 7-day window regardless of the dashboard time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "timeFrom": "7d",
+      "hideTimeOverride": false,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Actual (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 35
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Forecast (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dot",
+                  "dash": [
+                    2,
+                    8
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_realized_load_kwh)",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "Actual (kWh)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_forecast_load_kwh offset 1h)",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "Forecast (kWh)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Predicted savings calibration",
+      "description": "CAVEAT — not apples-to-apples: zeus_predicted_savings_eur is a rolling 36h-horizon prediction, while realized savings accrue per calendar day. The prediction is scaled to a per-day rate (× 24/36) as a defensible approximation; the green curve is zeus_savings_today_eur, which resets at midnight and accumulates through the day. Calibration check: each day's end-of-day green peak should land near the dashed predicted €/day line that preceded it. Systematic gaps mean the optimizer over- or under-promises.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Realized savings today (€, resets midnight)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 30
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Predicted €/day (36h horizon × 24/36)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_savings_today_eur)",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "Realized savings today (€, resets midnight)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_predicted_savings_eur) * 24 / 36",
+          "range": true,
+          "instant": false,
+          "interval": "1h",
+          "legendFormat": "Predicted €/day (36h horizon × 24/36)"
+        }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "zeus",
+    "accuracy",
+    "forecast",
+    "prometheus"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-10d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Zeus — Model Accuracy",
+  "uid": "zeus-accuracy",
+  "version": 1,
+  "weekStart": ""
+}
