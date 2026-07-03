@@ -179,6 +179,11 @@ Nothing deploys from card merges. When the user says **"release"** (or
    a. On a fresh `release-<version>` branch off `develop`: bump `version` in
       `pyproject.toml` (one bump for the whole batch), commit, push, open a PR
       into `develop`, merge it (this is release mechanics, not card work).
+      **Semver rule (owner, 2026-07-03):** if the batch ships a NEW FEATURE,
+      bump the MINOR version by 1 and reset patch to 0 (e.g. peak shaving →
+      0.2.0); fixes/tweaks-only batches bump the patch. When develop's version
+      was already pre-bumped for the feature line, don't bump again — release
+      as-is.
    b. Open **one PR `develop` → `master`** titled `release: v<version>` whose body
       lists every card/commit included. Confirm CI green. Merge with
       `gh pr merge --merge` (**merge commit, NOT squash** — keeps develop and
