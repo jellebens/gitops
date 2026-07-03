@@ -29,16 +29,21 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: mqtt
-  # The API server normalizes volumeClaimTemplates on live StatefulSets
-  # (adds apiVersion/kind/volumeMode/status) in a way ServerSideApply diffing
-  # can't reconcile, leaving the app perpetually OutOfSync (argo-cd#11143).
+  # spec.volumeClaimTemplates is an ATOMIC list that argocd-controller owns
+  # wholly under ServerSideApply, and the API server defaults PVC TypeMeta and
+  # runtime status into each entry (apiVersion/kind/status.phase). Git can
+  # never declare status, so Argo's ServerSideDiff (default with SSA since
+  # v3.x) reports the StatefulSet perpetually OutOfSync with an empty visible
+  # diff (card #114). volumeMode is declared in the chart instead of ignored,
+  # so genuine Filesystem/Block drift still surfaces.
   ignoreDifferences:
     - group: apps
       kind: StatefulSet
+      name: mqtt
+      namespace: mqtt
       jqPathExpressions:
         - .spec.volumeClaimTemplates[]?.apiVersion
         - .spec.volumeClaimTemplates[]?.kind
-        - .spec.volumeClaimTemplates[]?.spec.volumeMode
         - .spec.volumeClaimTemplates[]?.status
   syncPolicy:
     automated:

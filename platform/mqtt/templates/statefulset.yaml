@@ -112,6 +112,10 @@ spec:
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: {{ .Values.mqtt.persistence.storageClassName | quote }}
+        # Declared explicitly: volumeClaimTemplates is atomic under
+        # ServerSideApply, so a server-defaulted volumeMode would keep the
+        # ServerSideDiff comparison OutOfSync forever (card #114).
+        volumeMode: Filesystem
         resources:
           requests:
             storage: {{ .Values.mqtt.persistence.size }}
