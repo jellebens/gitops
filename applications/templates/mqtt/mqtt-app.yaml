@@ -29,6 +29,17 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: mqtt
+  # The API server normalizes volumeClaimTemplates on live StatefulSets
+  # (adds apiVersion/kind/volumeMode/status) in a way ServerSideApply diffing
+  # can't reconcile, leaving the app perpetually OutOfSync (argo-cd#11143).
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - .spec.volumeClaimTemplates[]?.apiVersion
+        - .spec.volumeClaimTemplates[]?.kind
+        - .spec.volumeClaimTemplates[]?.spec.volumeMode
+        - .spec.volumeClaimTemplates[]?.status
   syncPolicy:
     automated:
       prune: true
@@ -36,3 +47,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true
