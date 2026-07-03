@@ -1,0 +1,50 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for the MQTT broker.
+#
+# Why ingress-only: in Cilium, a policy that specifies only `ingress` rules
+# puts the selected endpoint into default-deny for INGRESS only; its EGRESS
+# stays fully open (same deliberate pattern as zeus). A broader egress
+# default-deny is a separate, human-reviewed step.
+#
+# Inbound allowed:
+#   - MQTT 1883 from the LAN (LoadBalancer traffic arrives as `world`) and
+#     from inside the cluster — HA on vesta, zeus, jupiter cells/services.
+#   - Everything between the EMQX peers themselves (Erlang dist 4370,
+#     cluster RPC 5370, and any auxiliary dist ports).
+#   - Dashboard/API 18083 only from inside the cluster (port-forward or
+#     in-cluster tooling); it is NOT reachable from the LAN.
+# `cluster` includes the host entity, so kubelet HTTP probes keep working.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mqtt
+  namespace: mqtt
+  labels:
+    app.kubernetes.io/name: mqtt
+    app.kubernetes.io/part-of: platform
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: mqtt
+  ingress:
+    # MQTT listener: LAN clients (via the Cilium LB VIP) + in-cluster clients.
+    - fromEntities:
+        - world
+        - cluster
+      toPorts:
+        - ports:
+            - port: "1883"
+              protocol: TCP
+    # EMQX node-to-node clustering (all ports between broker peers).
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: mqtt
+    # Dashboard/HTTP API: cluster-internal only (also serves the kubelet
+    # /status probes explicitly).
+    - fromEntities:
+        - cluster
+      toPorts:
+        - ports:
+            - port: "18083"
+              protocol: TCP
+{{- end }}
