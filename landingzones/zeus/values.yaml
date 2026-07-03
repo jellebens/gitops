@@ -192,7 +192,13 @@ config:
     # worked, so we cut straight to ENTSO-E. Token in zeus-secrets/ENTSOE_TOKEN.)
     # Resilience: staleness guard + last-good cache (memory + PVC-persisted) +
     # retry with backoff/jitter — see zeus ADR-0011 and cards #48/#50/#57/#58.
-    source: entsoe
+    # 2026-07-04 (#108 soak): consume the jupiter price-service. On ANY
+    # jupiter failure zeus falls through to the direct ENTSO-E path below,
+    # then the local last-good cache, then safe hold (card #107) — the
+    # entsoe: block stays authoritative for the fallback.
+    source: jupiter
+    jupiter:
+      base_url: http://price-service.jupiter-central.svc.cluster.local:8080
     # DECOMMISSIONED 2026-07-02: the ha_forecast alternative pointed at
     # sensor.average_electricity_price (HA's ENTSO-E integration), which went
     # unavailable for 16h+ on 07-02 (same failure class as the nordpool
