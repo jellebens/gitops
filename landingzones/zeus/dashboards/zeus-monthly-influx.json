@@ -883,9 +883,9 @@
     },
     {
       "id": 20,
-      "type": "heatmap",
-      "title": "Consumption heatmap — day × hour-of-day (kW, 30d)",
-      "description": "Real Grafana heatmap. X = day (last 30 d), Y = hour of day (0–23, Brussels), colour = mean whole-home grid power (kW) that hour. High consumption = red, low = green. Recurring peak-hour bands stand out as vertical colour columns.",
+      "type": "table",
+      "title": "Peak consumption — weekday × hour (avg kW, 30d)",
+      "description": "Peak-spotting grid. Rows = weekday (Mon–Sun), columns = hour of day (00–23, Brussels), cell colour = average whole-home grid power (kW) at that weekday+hour over the last 30 days. Green = low, orange ≥ 2.5 kW, red ≥ 3.5 kW. Numbers are hidden — hover a cell to read the value.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -899,58 +899,132 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
+            "align": "center",
+            "cellOptions": {
+              "type": "color-background",
+              "mode": "gradient"
             },
-            "scaleDistribution": {
-              "type": "linear"
+            "filterable": false,
+            "width": 44
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "kwatt",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2.5
+              },
+              {
+                "color": "red",
+                "value": 3.5
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": -1000000,
+                "to": 1000000,
+                "result": {
+                  "text": ""
+                }
+              }
             }
-          }
+          ]
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weekday"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Weekday"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.width",
+                "value": 132
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1 Mon": {
+                        "text": "Mon",
+                        "index": 0
+                      },
+                      "2 Tue": {
+                        "text": "Tue",
+                        "index": 1
+                      },
+                      "3 Wed": {
+                        "text": "Wed",
+                        "index": 2
+                      },
+                      "4 Thu": {
+                        "text": "Thu",
+                        "index": 3
+                      },
+                      "5 Fri": {
+                        "text": "Fri",
+                        "index": 4
+                      },
+                      "6 Sat": {
+                        "text": "Sat",
+                        "index": 5
+                      },
+                      "7 Sun": {
+                        "text": "Sun",
+                        "index": 6
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "options": {
-        "calculate": false,
-        "color": {
-          "mode": "scheme",
-          "scheme": "RdYlGn",
-          "reverse": true,
-          "fill": "dark-orange",
-          "scale": "exponential",
-          "exponent": 0.5,
-          "steps": 128,
-          "min": 0
-        },
-        "cellGap": 1,
-        "cellValues": {
-          "unit": "kwatt",
-          "decimals": 2
-        },
-        "yAxis": {
-          "axisPlacement": "left",
-          "axisLabel": "Hour of day",
-          "reverse": false,
-          "unit": "short",
-          "decimals": 0
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "legend": {
-          "show": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "yHistogram": false,
-          "showColorScale": true
-        },
-        "exemplars": {
-          "color": "rgba(255,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1E-9
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
         }
       },
       "targets": [
@@ -960,7 +1034,25 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with\n       hourStr: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)),\n       day: date.truncate(t: r._time, unit: 1d),\n       _value: r._value / 1000.0 }))\n  |> group(columns: [\"day\", \"hourStr\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hourStr\"])\n  |> pivot(rowKey: [\"day\"], columnKey: [\"hourStr\"], valueColumn: \"_value\")\n  |> sort(columns: [\"day\"])"
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with\n       wd:   (if date.weekDay(t: r._time) == 1 then \"1 Mon\" else if date.weekDay(t: r._time) == 2 then \"2 Tue\" else if date.weekDay(t: r._time) == 3 then \"3 Wed\" else if date.weekDay(t: r._time) == 4 then \"4 Thu\" else if date.weekDay(t: r._time) == 5 then \"5 Fri\" else if date.weekDay(t: r._time) == 6 then \"6 Sat\" else \"7 Sun\"),\n       hour: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)) }))\n  |> group(columns: [\"wd\", \"hour\"])\n  |> mean()\n  |> map(fn: (r) => ({ weekday: r.wd, hour: r.hour, kW: r._value / 1000.0 }))\n  |> group()\n  |> sort(columns: [\"hour\", \"weekday\"])\n  |> keep(columns: [\"weekday\", \"hour\", \"kW\"])"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "hour",
+            "rowField": "weekday",
+            "valueField": "kW"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "weekday\\hour": "weekday"
+            }
+          }
         }
       ]
     }
