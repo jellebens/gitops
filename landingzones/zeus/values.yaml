@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.1.55"
+  tag: "0.1.56"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -228,6 +228,21 @@ config:
     # a €0.51/kWh peak, ~2.5x less savings); 0.0 captures every profitable spread.
     cycle_penalty: 0.0
     terminal_value_price: null
+    # Capacity-tariff peak shaving (capaciteitstarief). ENABLED 2026-07-03 (#84).
+    # rate_eur_per_kw_month = the Fluvius contract rate; floor_kw 2.5 is the
+    # regulated minimum (no benefit shaving below it). peak_reserve_pct: 10 means
+    # during predicted-peak slots ONLY the optimizer may discharge down to
+    # soc_min_pct (10%) — deliberately dipping into the outage-backup reserve to
+    # shave the billed monthly peak (owner-chosen maximum shaving). The HARD floor
+    # stays soc_min_pct; outside peak slots the normal backup_reserve_pct (30% /
+    # hot-weather 10%) applies. Predicted peaks come from the HEM hour-of-week p90
+    # detector (zeus_predicted_peak_slot).
+    capacity:
+      enabled: true
+      rate_eur_per_kw_month: 3.3
+      floor_kw: 2.5
+      peak_reserve_pct: 10
+      peak_discharge_incentive_eur_per_kwh: 0.05
   forecast:
     # Two-component: flat base load + temperature-driven A/C (from the A/C plug).
     # Falls back to the single temp model until the (forward-only) A/C history
