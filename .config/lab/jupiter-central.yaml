@@ -1,0 +1,20 @@
+# jupiter-central lab overrides (price-service, card #106).
+#
+# ENTSO-E token, sealed for THIS namespace. Sealed blobs are namespace-scoped:
+# the zeus blob in zeus.yaml cannot be pasted here, and the key name differs —
+# price-service reads ENTSOE_API_TOKEN (zeus's config uses ENTSOE_TOKEN).
+# Generate with the same plaintext token zeus uses:
+#
+#   echo -n "$ENTSOE_TOKEN" | kubeseal --raw \
+#     --namespace jupiter-central --name jupiter-central-secrets \
+#     --controller-name sealed-secrets --controller-namespace argocd
+#
+# Then paste the output below. Until then the deployment still comes up
+# (envFrom is optional) and serves persisted last-good curves; live ENTSO-E
+# fetches degrade exactly like an API outage.
+secret:
+  sealedSecret:
+    enabled: true
+    encryptedData: {}
+    # encryptedData:
+    #   ENTSOE_API_TOKEN: "Ag..."
