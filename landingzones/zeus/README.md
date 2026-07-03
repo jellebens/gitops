@@ -79,12 +79,12 @@ and is rendered verbatim into `/config/config.yaml`. Key choices:
   still floors pointless cycling). `backup_reserve_pct: 30` — a **soft** reserve (penalty, not a
   hard floor) so the LP stays feasible. `max_grid_import_kw: 1.54` models the
   **7 A AC input cap** shared by passthrough load + charging.
-- **A/C peak management:** `control.ac_off_while_charging: true` switches the
-  office A/C (`switch.office_a_c`) **off while the battery is charging**, so it
-  doesn't eat the shared 7 A grid input — more cheap energy goes into the
-  battery. Zeus restores only an A/C it switched off itself (won't fight a
-  manual/overnight off). The A/C plug's power (`sensor.office_a_c_power`) also
-  feeds the forecaster.
+- **A/C control: REMOVED in zeus v0.1.31 (2026-06-26).** The old
+  `control.ac_off_while_charging` feature (switch the office A/C off while the
+  battery charges) was deleted after the 10 A input upgrade gave charging enough
+  headroom — zeus no longer touches **any** switch entity; its only actuation is
+  the battery working-mode select. The A/C plug's power
+  (`sensor.office_a_c_power`) still feeds the forecaster (read-only).
 - **Peak shaving (capaciteitstarief) — LIVE since 2026-07-03 (zeus 0.1.56):**
   `optimizer.capacity: {enabled: true, rate_eur_per_kw_month: 3.3, floor_kw:
   2.5, peak_reserve_pct: 10, peak_discharge_incentive_eur_per_kwh: 0.05}`.
@@ -275,9 +275,15 @@ this HA build.
   the true at-the-time series (`zeus_realized_load_kwh` vs
   `zeus_forecast_load_kwh offset 1h`). A frozen at-the-time forecast line would
   need persisting past forecasts.
-- **A/C short-cycling:** zeus toggles `switch.office_a_c` only at slot boundaries
-  (hourly), so the compressor isn't rapidly cycled. If charging windows ever get
-  very fragmented, add a minimum on/off dwell time.
+- ~~**A/C short-cycling:** zeus toggles `switch.office_a_c` only at slot
+  boundaries (hourly), so the compressor isn't rapidly cycled. If charging
+  windows ever get very fragmented, add a minimum on/off dwell time.~~
+  **Closed 2026-07-03 (card #19) — not applicable:** the A/C-off-while-charging
+  feature was removed entirely in zeus v0.1.31 (2026-06-26, before 15-min slots
+  in v0.1.33 and the v0.2.0 re-plan/charge-guard paths); zeus has no code path
+  that toggles any switch entity. HA history confirms `switch.office_a_c` has
+  recorded **zero** on/off transitions since 2026-06-27 — no dwell-time
+  constraint is needed. Re-open only if A/C control is ever reintroduced.
 - **Forecaster revisit** scheduled ~2026-09-26 (after ~3 months of history): see
   whether quantile/probabilistic forecasting or day-type clustering beats the
   current mean/cooling-degree model.
