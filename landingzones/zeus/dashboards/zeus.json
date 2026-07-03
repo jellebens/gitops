@@ -1303,6 +1303,135 @@
           "refId": "B"
         }
       ]
+    },
+    {
+      "id": 85,
+      "type": "table",
+      "title": "Consumption heatmap (kW) — last 7 days by weekday × hour",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "filterable": false,
+            "width": 44
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "kwatt",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2.5
+              },
+              {
+                "color": "red",
+                "value": 3.5
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "day"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Day"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.width",
+                "value": 132
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Day",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({\n       day:  string(v: date.year(t: r._time)) + \"-\" + (if date.month(t: r._time) < 10 then \"0\" else \"\") + string(v: date.month(t: r._time)) + \"-\" + (if date.monthDay(t: r._time) < 10 then \"0\" else \"\") + string(v: date.monthDay(t: r._time)) + \" (\" + (if date.weekDay(t: r._time) == 0 then \"Sun\" else if date.weekDay(t: r._time) == 1 then \"Mon\" else if date.weekDay(t: r._time) == 2 then \"Tue\" else if date.weekDay(t: r._time) == 3 then \"Wed\" else if date.weekDay(t: r._time) == 4 then \"Thu\" else if date.weekDay(t: r._time) == 5 then \"Fri\" else \"Sat\") + \")\",\n       hour: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)),\n       kW:   r._value / 1000.0\n     }))\n  |> keep(columns: [\"day\", \"hour\", \"kW\"])"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "hour",
+            "rowField": "day",
+            "valueField": "kW"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "day\\hour": "day"
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "1m",
