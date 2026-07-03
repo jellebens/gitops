@@ -1307,8 +1307,8 @@
     {
       "id": 85,
       "type": "heatmap",
-      "title": "Avg consumption heatmap — day × hour-of-day (kW)",
-      "description": "Real Grafana heatmap. X = day (last ~28 d), Y = hour of day (0–23, Brussels), colour = mean whole-home grid power (kW) that hour. Recurring peak-hour bands stand out as vertical colour columns.",
+      "title": "Avg consumption heatmap — weekday × hour-of-day (kW)",
+      "description": "Real Grafana heatmap. X = hour of day (00:00–23:00, Brussels), Y = weekday (Mon–Sun), colour = mean whole-home grid power (kW) for that weekday/hour over the last ~28 d. Recurring peak-hour bands stand out as vertical colour columns; weekday habits as horizontal bands. (A weekday row appears once that day has data in the window.)",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -1353,7 +1353,7 @@
         },
         "yAxis": {
           "axisPlacement": "left",
-          "axisLabel": "Hour of day",
+          "axisLabel": "Weekday",
           "reverse": false,
           "unit": "short",
           "decimals": 0
@@ -1376,6 +1376,15 @@
           "le": 1e-9
         }
       },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "^[0-9] (.*)$",
+            "renamePattern": "$1"
+          }
+        }
+      ],
       "targets": [
         {
           "refId": "A",
@@ -1383,7 +1392,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with\n       hourStr: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)),\n       day: date.truncate(t: r._time, unit: 1d),\n       _value: r._value / 1000.0 }))\n  |> group(columns: [\"day\", \"hourStr\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hourStr\"])\n  |> pivot(rowKey: [\"day\"], columnKey: [\"hourStr\"], valueColumn: \"_value\")\n  |> sort(columns: [\"day\"])"
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nbase = time(v: \"2001-01-01T00:00:00Z\")\nfrom(bucket: \"zeus\")\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with\n       wd: (if date.weekDay(t: r._time) == 1 then \"1 Mon\"\n            else if date.weekDay(t: r._time) == 2 then \"2 Tue\"\n            else if date.weekDay(t: r._time) == 3 then \"3 Wed\"\n            else if date.weekDay(t: r._time) == 4 then \"4 Thu\"\n            else if date.weekDay(t: r._time) == 5 then \"5 Fri\"\n            else if date.weekDay(t: r._time) == 6 then \"6 Sat\"\n            else \"7 Sun\"),\n       h: date.hour(t: r._time),\n       _value: r._value / 1000.0 }))\n  |> group(columns: [\"wd\", \"h\"])\n  |> mean()\n  |> map(fn: (r) => ({ r with _time: date.add(d: duration(v: r.h * 3600000000000), to: base) }))\n  |> group()\n  |> sort(columns: [\"wd\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"wd\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n"
         }
       ]
     }
