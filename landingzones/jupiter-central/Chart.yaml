@@ -1,0 +1,9 @@
+apiVersion: v2
+name: jupiter-central
+version: 0.1.0
+type: application
+appVersion: "0.1.0"
+description: >-
+  Jupiter central services landing zone (price-service first; forecast-service
+  and fleet-reporting arrive with later P2/P3 cards). One instance serves the
+  whole fleet — central-only, touches nothing zeus does.

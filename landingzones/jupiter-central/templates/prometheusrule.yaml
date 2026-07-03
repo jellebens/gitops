@@ -1,0 +1,60 @@
+{{- if .Values.prometheusRule.enabled }}
+# Availability alerts via kube-state-metrics (kube-prometheus-stack ships it).
+#
+# KNOWN GAP — no PriceFeedDegraded equivalent yet: price-service 0.1.0 exposes
+# no metrics (no /metrics endpoint at all), so Prometheus cannot see the
+# primary/cache-fresh/cache/-partial source labels the API reports per
+# request. Zeus's own ZeusPriceSourceDegraded / ZeusPricePartialCoverage /
+# ZeusNoPriceData rules stay the degraded-price-feed signal for the live
+# battery (zeus still fetches ENTSO-E directly until card #107, and keeps its
+# fallback chain after it). The jupiter card that wires prometheus_client into
+# price-service must bring a price_source metric + the real feed-degraded
+# rules here, and flip serviceMonitor.enabled.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: price-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: price-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: jupiter-price-service
+      rules:
+        - alert: JupiterPriceServiceDown
+          # No ready replica (or the deployment vanished entirely). severity
+          # warning, not critical, ON PURPOSE: consumers degrade gracefully —
+          # zeus/cells fall back to direct ENTSO-E fetch and their own local
+          # last-good caches (invariant 2), so the battery keeps being
+          # commanded. Revisit the severity once the fleet actually rides this
+          # service as its primary price path.
+          expr: >-
+            kube_deployment_status_replicas_available{namespace="jupiter-central",deployment="price-service"} == 0
+            or
+            absent(kube_deployment_status_replicas_available{namespace="jupiter-central",deployment="price-service"})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter price-service has no available replica
+            description: >-
+              The jupiter-central price-service deployment has had no ready
+              replica for 10m. Cells/zeus fall back to direct ENTSO-E + local
+              caches, but the central price path is down.
+        - alert: JupiterPriceServiceCrashLooping
+          # Restart churn (e.g. a wedged PVC mount or a bad image) that the
+          # Down rule can miss when the pod flaps in and out of Ready.
+          expr: >-
+            increase(kube_pod_container_status_restarts_total{namespace="jupiter-central",container="price-service"}[30m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter price-service is restarting repeatedly
+            description: >-
+              More than 3 container restarts in 30m in jupiter-central/price-service.
+              Check pod events and logs (image pull, PVC bind, crash on boot).
+{{- end }}
