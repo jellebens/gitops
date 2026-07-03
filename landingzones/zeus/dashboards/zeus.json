@@ -1307,7 +1307,7 @@
     {
       "id": 85,
       "type": "table",
-      "title": "Consumption heatmap (kW) — last 7 days by weekday × hour",
+      "title": "Avg consumption — weekday × hour (kW)",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -1355,12 +1355,12 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "day"
+              "options": "weekday"
             },
             "properties": [
               {
                 "id": "displayName",
-                "value": "Day"
+                "value": "Weekday"
               },
               {
                 "id": "custom.cellOptions",
@@ -1399,8 +1399,8 @@
         },
         "sortBy": [
           {
-            "displayName": "Day",
-            "desc": true
+            "displayName": "Weekday",
+            "desc": false
           }
         ]
       },
@@ -1411,7 +1411,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({\n       day:  string(v: date.year(t: r._time)) + \"-\" + (if date.month(t: r._time) < 10 then \"0\" else \"\") + string(v: date.month(t: r._time)) + \"-\" + (if date.monthDay(t: r._time) < 10 then \"0\" else \"\") + string(v: date.monthDay(t: r._time)) + \" (\" + (if date.weekDay(t: r._time) == 0 then \"Sun\" else if date.weekDay(t: r._time) == 1 then \"Mon\" else if date.weekDay(t: r._time) == 2 then \"Tue\" else if date.weekDay(t: r._time) == 3 then \"Wed\" else if date.weekDay(t: r._time) == 4 then \"Thu\" else if date.weekDay(t: r._time) == 5 then \"Fri\" else \"Sat\") + \")\",\n       hour: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)),\n       kW:   r._value / 1000.0\n     }))\n  |> keep(columns: [\"day\", \"hour\", \"kW\"])"
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with\n       wd:   (if date.weekDay(t: r._time) == 1 then \"1 Mon\" else if date.weekDay(t: r._time) == 2 then \"2 Tue\" else if date.weekDay(t: r._time) == 3 then \"3 Wed\" else if date.weekDay(t: r._time) == 4 then \"4 Thu\" else if date.weekDay(t: r._time) == 5 then \"5 Fri\" else if date.weekDay(t: r._time) == 6 then \"6 Sat\" else \"7 Sun\"),\n       hour: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)) }))\n  |> group(columns: [\"wd\", \"hour\"])\n  |> mean()\n  |> map(fn: (r) => ({ weekday: r.wd, hour: r.hour, kW: r._value / 1000.0 }))\n  |> group()\n  |> sort(columns: [\"hour\"])\n  |> keep(columns: [\"weekday\", \"hour\", \"kW\"])"
         }
       ],
       "transformations": [
@@ -1419,7 +1419,7 @@
           "id": "groupingToMatrix",
           "options": {
             "columnField": "hour",
-            "rowField": "day",
+            "rowField": "weekday",
             "valueField": "kW"
           }
         },
@@ -1427,7 +1427,7 @@
           "id": "organize",
           "options": {
             "renameByName": {
-              "day\\hour": "day"
+              "weekday\\hour": "weekday"
             }
           }
         }
