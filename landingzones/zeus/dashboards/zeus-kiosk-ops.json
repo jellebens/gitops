@@ -1346,6 +1346,135 @@
         "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;\"><span style=\"writing-mode:vertical-rl;text-orientation:upright;font-weight:bold;font-size:16px;letter-spacing:2px;color:#8ab8ff;text-transform:uppercase;\">ZEUS</span></div>"
       },
       "datasource": null
+    },
+    {
+      "id": 85,
+      "type": "table",
+      "title": "Consumption heatmap (kW)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "filterable": false,
+            "width": 44
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "kwatt",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2.5
+              },
+              {
+                "color": "red",
+                "value": 3.5
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "day"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Day"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFFFFF"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.width",
+                "value": 96
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Day",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nimport \"strings\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -14d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({\n       day:  strings.substring(v: string(v: r._time), start: 0, end: 10),\n       hour: (if date.hour(t: r._time) < 10 then \"0\" else \"\") + string(v: date.hour(t: r._time)),\n       kW:   r._value / 1000.0\n     }))\n  |> keep(columns: [\"day\", \"hour\", \"kW\"])"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "hour",
+            "rowField": "day",
+            "valueField": "kW"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "day\\hour": "day"
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "5s",
