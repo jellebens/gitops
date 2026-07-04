@@ -1,15 +1,17 @@
 {{- if .Values.prometheusRule.enabled }}
-# Availability alerts via kube-state-metrics (kube-prometheus-stack ships it).
+# Availability alerts via kube-state-metrics (kube-prometheus-stack ships it)
+# plus, since card #115, the PriceFeedDegraded-class rules over the
+# jupiter_price_* series the price-service /metrics endpoint exports
+# (jupiter services/price — the source-label taxonomy mirrors zeus:
+# primary | primary-partial | cache-fresh | cache | cache-partial | none).
 #
-# KNOWN GAP — no PriceFeedDegraded equivalent yet: price-service 0.1.0 exposes
-# no metrics (no /metrics endpoint at all), so Prometheus cannot see the
-# primary/cache-fresh/cache/-partial source labels the API reports per
-# request. Zeus's own ZeusPriceSourceDegraded / ZeusPricePartialCoverage /
-# ZeusNoPriceData rules stay the degraded-price-feed signal for the live
-# battery (zeus still fetches ENTSO-E directly until card #107, and keeps its
-# fallback chain after it). The jupiter card that wires prometheus_client into
-# price-service must bring a price_source metric + the real feed-degraded
-# rules here, and flip serviceMonitor.enabled.
+# The metric-based rules are silently inert until the ServiceMonitor scrape
+# actually succeeds (their vectors are simply absent) — i.e. until the
+# jupiter release that ships /metrics is deployed. Zeus keeps its own
+# ZeusPriceSourceDegraded / ZeusPricePartialCoverage / ZeusNoPriceData rules:
+# those stay the degraded-price-feed signal for the LIVE battery (zeus keeps
+# its full fallback chain even on prices.source=jupiter); the rules here
+# watch the central feed itself.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -25,12 +27,30 @@ spec:
     - name: jupiter-price-service
       rules:
         - alert: JupiterPriceServiceDown
-          # No ready replica (or the deployment vanished entirely). severity
-          # warning, not critical, ON PURPOSE: consumers degrade gracefully —
-          # zeus/cells fall back to direct ENTSO-E fetch and their own local
-          # last-good caches (invariant 2), so the battery keeps being
-          # commanded. Revisit the severity once the fleet actually rides this
-          # service as its primary price path.
+          # `up` from the ServiceMonitor scrape (job = the Service name), the
+          # mirror of ZeusDown. severity warning, not critical, ON PURPOSE:
+          # consumers degrade gracefully — zeus/cells fall back to direct
+          # ENTSO-E fetch and their own local last-good caches (invariant 2),
+          # so the battery keeps being commanded. Revisit the severity once
+          # the fleet actually rides this service as its primary price path.
+          # NOTE: also fires while the deployed image predates /metrics (the
+          # scrape 404s) — expected until the post-#115 jupiter release lands.
+          expr: up{job="price-service",namespace="jupiter-central"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter price-service metrics target is down
+            description: >-
+              Prometheus has not been able to scrape price-service /metrics
+              for 10m (pod down, or the deployed image predates the /metrics
+              endpoint). Cells/zeus fall back to direct ENTSO-E + local
+              caches, but the central price path is unobserved.
+        - alert: JupiterPriceServiceNoReplica
+          # kube-state-metrics view (works even with the ServiceMonitor off or
+          # the Deployment deleted outright, which `up`-based rules miss).
+          # Was named JupiterPriceServiceDown before card #115 gave that name
+          # to the up==0 rule above.
           expr: >-
             kube_deployment_status_replicas_available{namespace="jupiter-central",deployment="price-service"} == 0
             or
@@ -57,4 +77,74 @@ spec:
             description: >-
               More than 3 container restarts in 30m in jupiter-central/price-service.
               Check pod events and logs (image pull, PVC bind, crash on boot).
+        - alert: JupiterPriceFeedDegraded
+          # The ENTSO-E feed behind the service is unhealthy, mirroring
+          # ZeusPriceSourceDegraded (30m of degraded input, warning). Two
+          # signals, either sustained for 30m:
+          #   - jupiter_price_cooldown_active == 1: retries were exhausted
+          #     recently and keep being exhausted (the 120s cooldown only
+          #     stays up across evaluations while fetches keep failing).
+          #   - cache age > 26h: no successful ENTSO-E fetch for a zone
+          #     across a whole day-ahead publication boundary. 26h, NOT
+          #     lower, because a healthy cache-first steady state can
+          #     legitimately go ~23h between real fetches (a ~13:00 CET
+          #     publication covers the 36h horizon until roughly the next
+          #     midday) — a smaller threshold would page on the routine
+          #     daily rhythm. The gauge updates at serve time, so it only
+          #     moves while consumers are actually polling (zeus polls the
+          #     service every cycle).
+          expr: >-
+            jupiter_price_cooldown_active == 1
+            or
+            jupiter_price_cache_age_seconds > 93600
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter price-service ENTSO-E feed is degraded
+            description: >-
+              The price-service has been in ENTSO-E retry cooldown and/or
+              serving curves last fetched more than 26h ago for 30m. Serves
+              ride the last-good cache (consumers still get curves), but the
+              upstream feed needs attention.
+        - alert: JupiterPricePartialCoverage
+          # Mirror of ZeusPricePartialCoverage: serves labelled *-partial
+          # cover the horizon START but not its end, so consumers LOCF-flat-
+          # line the tail. LONG `for:` on purpose (same rationale as zeus):
+          # the end-of-horizon tail is uncovered most of the day BY DESIGN
+          # and self-heals at day-ahead publication (~13:00 CET); only a
+          # STUCK partial — a feed staying short across a publication
+          # boundary — should page. 6h matches the zeus rule's deliberate
+          # conservative pick.
+          expr: >-
+            sum by (zone) (increase(jupiter_price_curve_serves_total{source_label=~".+-partial"}[1h])) > 0
+          for: 6h
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter price-service serving partial-coverage curves
+            description: >-
+              Zone {{ "{{ $labels.zone }}" }} has been served *-partial curves
+              (horizon tail uncovered, LOCF-flat for consumers) continuously
+              for 6h. A transient end-of-horizon tail is normal and clears at
+              day-ahead publication; a sustained partial means ENTSO-E is
+              returning a short curve.
+        - alert: JupiterPriceNoUsableCurve
+          # Mirror of ZeusNoPriceData (critical): serves labelled `none` are
+          # the machine-readable 503 — a consumer asked and got NOTHING
+          # (fetch failed/stale AND the last-good cache elapsed). Consumers
+          # then fall to their own local caches, but the central feed has no
+          # price signal at all.
+          expr: >-
+            sum by (zone) (increase(jupiter_price_curve_serves_total{source_label="none"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: jupiter price-service has no usable curve for a zone
+            description: >-
+              Zone {{ "{{ $labels.zone }}" }} has been answered 503
+              no_usable_curve for 15m (fetch failing and last-good cache
+              elapsed). Consumers are on their own local caches; the central
+              price feed is effectively dark for this zone.
 {{- end }}

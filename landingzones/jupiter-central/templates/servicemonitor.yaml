@@ -1,9 +1,9 @@
 {{- if .Values.serviceMonitor.enabled }}
-# DISABLED by default (values.yaml): price-service 0.1.0 has NO /metrics
-# endpoint (stdlib-only serving layer; prometheus_client arrives with a later
-# jupiter card). Enabling this against /healthz would only pin `up` at 0.
-# When metrics land: flip serviceMonitor.enabled, and if they are served on a
-# separate port, add it to the Service and point `port:` at it.
+# Scrapes GET /metrics on the API port (`http`, 8080) — jupiter card #115
+# wired prometheus_client into the price-service on the same port. Enabled
+# via values.yaml since card #115. NOTE: against a pre-/metrics image
+# (0.1.0) this scrape 404s and `up` reads 0 until the next jupiter release
+# is deployed (see values.yaml sequencing note).
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

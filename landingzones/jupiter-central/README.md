@@ -67,17 +67,28 @@ warranted: losing the node only costs one fresh fetch per zone.
 
 ### Monitoring & alerting
 
-- **No `/metrics` yet** (0.1.0 is a stdlib-only serving layer), so the
-  ServiceMonitor template exists but is **disabled by default** — enabling it
-  now would only pin `up` at 0. The jupiter card that adds prometheus_client
-  flips `serviceMonitor.enabled` and adds real price-source metrics.
-- **PriceFeedDegraded-equivalent gap:** without metrics there is no central
-  view of `primary/cache/-partial` serving. Zeus's own
+- **ServiceMonitor enabled** (card #115): scrapes `GET /metrics` on the API
+  port (`http`, 8080). The jupiter card #115 PR wired prometheus_client into
+  the price-service with a zeus-parity source taxonomy
+  (`jupiter_price_curve_serves_total{zone,source_label}` with
+  `primary|primary-partial|cache-fresh|cache|cache-partial|none`, plus
+  fetch outcomes/retries, `jupiter_price_cooldown_active`,
+  `jupiter_price_cache_age_seconds{zone}`, curve points and build info).
+  **Sequencing:** against a pre-`/metrics` image (0.1.0) the scrape 404s and
+  `up` reads 0 (noisy `JupiterPriceServiceDown`, otherwise harmless) — the
+  flip belongs with/after the first jupiter release that ships `/metrics`.
+- **PriceFeedDegraded class** (mirroring zeus's rules; inert until the
+  scrape succeeds): `JupiterPriceFeedDegraded` (retry cooldown active or
+  cache age > 26h, sustained 30m), `JupiterPricePartialCoverage`
+  (`*-partial` serves sustained 6h — the routine end-of-horizon tail
+  self-heals at day-ahead publication), `JupiterPriceNoUsableCurve`
+  (503 `no_usable_curve` answers for 15m, **critical**). Zeus's own
   `ZeusPriceSourceDegraded`/`ZeusPricePartialCoverage`/`ZeusNoPriceData`
-  rules remain the price-feed-degraded signal for the live battery.
-- Until then the PrometheusRule alerts on **availability** via
-  kube-state-metrics: `JupiterPriceServiceDown` (no ready replica for 10m)
-  and `JupiterPriceServiceCrashLooping` (restart churn).
+  rules remain the price-feed signal for the live battery.
+- Availability: `JupiterPriceServiceDown` (`up==0` for 10m via the
+  ServiceMonitor), `JupiterPriceServiceNoReplica` (kube-state-metrics view,
+  catches a deleted deployment too) and `JupiterPriceServiceCrashLooping`
+  (restart churn).
 
 ### Network policy
 
