@@ -50,3 +50,23 @@ secret:
 # intra-cluster EMQX gossip/RPC, and the dashboard from inside the cluster.
 networkPolicy:
   enabled: true
+
+# Prometheus scrape (kube-prometheus-stack, ns observability). EMQX 5.8 serves
+# Prometheus text at GET /api/v5/prometheus/stats on the dashboard listener
+# (18083); that endpoint is unauthenticated (EMQX default, pinned explicitly in
+# the StatefulSet) and reachable only in-cluster — the existing CNP allows
+# 18083 from the `cluster` entity (which includes the Prometheus pods) and the
+# LB exposes 1883 only. Scraped per pod via the headless service so each of the
+# 3 cluster nodes is its own target.
+serviceMonitor:
+  enabled: true
+  # Broker telemetry, not on the kiosk hot path — the global 30s cadence is fine
+  # (zeus uses 15s for the near-real-time dashboard; this doesn't need it).
+  interval: 30s
+  # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
+  releaseLabel: kube-prometheus-stack
+
+# USE-method alerting rules (kube-prometheus-stack picks these up by label).
+prometheusRule:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
