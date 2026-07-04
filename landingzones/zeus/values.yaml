@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.3.0"
+  tag: "0.4.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -120,6 +120,10 @@ config:
     org: zeus
     bucket: zeus
     token: "${INFLUXDB_TOKEN}"
+    # JUPITER D5 tenancy (#119): tag every Influx point with the site.
+    # Existing untagged history stays readable (dashboards audited); the
+    # historical re-tag backfill is a human-gated P4 step.
+    site_id: "tervuren"
   battery:
     usable_capacity_kwh: 13.0 # Apex 300 + 2x B500K
     # AC input capped at 10 A (~2.2 kW), shared by passthrough load + charging,
