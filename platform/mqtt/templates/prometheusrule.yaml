@@ -1,0 +1,90 @@
+{{- if .Values.prometheusRule.enabled }}
+# USE-method alerts for the EMQX cluster (card #125). Every metric name below
+# was verified against the live /api/v5/prometheus/stats output on 2026-07-05
+# — do not add rules on names that are not actually emitted.
+#
+# The scrape job label is the Service name, `mqtt-headless` (Prometheus
+# operator default when ServiceMonitor.jobLabel is unset).
+#
+# Thresholds are deliberately conservative: the broker is quiet today (zeus,
+# soon Home Assistant) — tune upward only with real traffic data.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mqtt
+  namespace: mqtt
+  labels:
+    app.kubernetes.io/name: mqtt
+    app.kubernetes.io/part-of: platform
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: mqtt-emqx
+      rules:
+        - alert: EMQXNodeDown
+          # Per-pod scrape failing. publishNotReadyAddresses on the headless
+          # service keeps a not-Ready pod listed as a target, so this reads
+          # up==0 rather than the series silently vanishing.
+          expr: up{job="mqtt-headless", namespace="mqtt"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: EMQX broker node is down
+            description: 'Prometheus has not been able to scrape {{ "{{ $labels.pod }}" }} (/api/v5/prometheus/stats) for 5m. One node down is survivable (3-node mnesia cluster) but redundancy is reduced.'
+        - alert: EMQXQuorumLost
+          # Fewer than 2 of the 3 brokers scrapeable -> the cluster can no
+          # longer tolerate another loss, or is already down. `or vector(0)`
+          # keeps the rule alive even if every target disappears (e.g. the
+          # Endpoints object itself is gone), when a plain sum() would return
+          # an empty result and never fire.
+          expr: (count(up{job="mqtt-headless", namespace="mqtt"} == 1) or vector(0)) < 2
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: EMQX cluster quorum lost
+            description: Fewer than 2 of the 3 EMQX brokers are scrapeable for 5m. MQTT service (HA telemetry, zeus nudges) is degraded or down — check pods in ns mqtt.
+        - alert: EMQXQueueSaturation
+          # Saturation: the broker is shedding messages — session mqueues
+          # overflowing (queue_full), or messages/deliveries expiring before
+          # delivery. Any sustained non-zero drop rate on a quiet broker means
+          # a consumer stopped keeping up (HA/zeus/bridge stuck).
+          expr: >-
+            increase(emqx_delivery_dropped_queue_full{namespace="mqtt"}[15m]) > 0
+            or increase(emqx_delivery_dropped_expired{namespace="mqtt"}[15m]) > 0
+            or increase(emqx_messages_dropped_expired{namespace="mqtt"}[15m]) > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: EMQX is dropping messages (queue saturation)
+            description: 'Broker node {{ "{{ $labels.pod }}" }} has been dropping messages (mqueue full or expiry) continuously for 15m. A subscriber is likely stuck or too slow.'
+        - alert: EMQXAuthFailureSpike
+          # Credential canary: the broker denies anonymous, and its only clients
+          # hold long-lived credentials (HA, zeus, bridge). A sustained trickle
+          # of auth failures means a rotated/broken credential in a reconnect
+          # loop, or someone probing the LB VIP from the LAN.
+          expr: increase(emqx_authentication_failure{namespace="mqtt"}[10m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: EMQX authentication failures spiking
+            description: 'More than 5 MQTT authentication failures in 10m on {{ "{{ $labels.pod }}" }} (sustained 5m). Likely a client with a bad/rotated credential stuck in a reconnect loop — check HA/zeus/bridge MQTT credentials.'
+        - alert: EMQXClusterPartition
+          # A running broker sees a peer as stopped (or sees fewer than the 3
+          # expected running nodes) -> mnesia cluster partition or a node that
+          # left the cluster. Overlaps EMQXNodeDown when a pod is simply down;
+          # the extra signal is the case where all pods run but disagree.
+          expr: >-
+            max(emqx_cluster_nodes_stopped{namespace="mqtt"}) > 0
+            or min(emqx_cluster_nodes_running{namespace="mqtt"}) < 3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: EMQX cluster partition / missing member
+            description: An EMQX node has reported a stopped peer or fewer than 3 running cluster members for 10m. Check `emqx ctl cluster status` on the pods in ns mqtt — mnesia may need the partitioned node restarted to rejoin.
+{{- end }}

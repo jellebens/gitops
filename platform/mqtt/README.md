@@ -51,6 +51,28 @@ Note the bootstrap file only seeds the built-in DB **when the authenticator
 is first created**; add/rotate users afterwards via the dashboard or
 `emqx ctl`, or wipe the auth mnesia tables before re-bootstrapping.
 
+## Monitoring (card #125)
+
+- **Scrape**: EMQX 5.8 serves Prometheus text at
+  `GET /api/v5/prometheus/stats` on the dashboard listener (18083). That one
+  endpoint is unauthenticated (`EMQX_PROMETHEUS__ENABLE_BASIC_AUTH=false`,
+  pinning the EMQX default; the rest of the dashboard API still requires
+  login) — acceptable because 18083 is cluster-internal only: the CNP admits
+  it from the `cluster` entity (which includes the Prometheus pods in ns
+  `observability`) and the LB exposes 1883 only.
+- **Targets**: the `mqtt-headless` Service carries a `metrics` port (18083);
+  the ServiceMonitor (label `release: kube-prometheus-stack`) selects it via
+  `app.kubernetes.io/component: headless` and scrapes **each pod
+  individually** every 30s (job label `mqtt-headless`). Per-node stats matter:
+  quorum, VM load, and each node's view of the cluster.
+- **Alerts** (PrometheusRule `mqtt`, USE method): `EMQXNodeDown` /
+  `EMQXQuorumLost` (critical), `EMQXQueueSaturation`, `EMQXAuthFailureSpike`
+  (credential canary) and `EMQXClusterPartition` (warning). Thresholds are
+  conservative for a quiet broker — revisit with real traffic.
+- Gauges are point-in-time per node (no `node` label in the text output; the
+  scrape target's `pod` label identifies the node). `emqx_vm_total_memory` is
+  the **k3s node's** RAM, not the container limit.
+
 ## Post-deploy smoke tests (human-gated, after the release merges)
 
 1. `kubectl -n mqtt get pods` — 3/3 Running on distinct nodes; `kubectl -n

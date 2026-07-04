@@ -1,6 +1,8 @@
-# Headless service for EMQX cluster discovery (DNS SRV) and stable per-pod
-# node names. publishNotReadyAddresses is REQUIRED: nodes must see each other
-# in DNS before any of them is Ready, or initial cluster formation deadlocks.
+# Headless service for EMQX cluster discovery (DNS SRV), stable per-pod node
+# names, and per-pod Prometheus scraping. publishNotReadyAddresses is REQUIRED:
+# nodes must see each other in DNS before any of them is Ready, or initial
+# cluster formation deadlocks. (It also helps alerting: a not-Ready pod stays a
+# scrape target, so its `up` goes 0 instead of the series vanishing.)
 apiVersion: v1
 kind: Service
 metadata:
@@ -9,6 +11,10 @@ metadata:
   labels:
     app.kubernetes.io/name: mqtt
     app.kubernetes.io/part-of: platform
+    # Distinguishes this Service from the `mqtt` LB Service (same name label)
+    # so the ServiceMonitor selects ONLY the headless endpoints — selecting
+    # both would double-scrape every pod.
+    app.kubernetes.io/component: headless
 spec:
   clusterIP: None
   publishNotReadyAddresses: true
@@ -17,3 +23,6 @@ spec:
   ports:
     - { name: ekka, port: 4370, targetPort: 4370, protocol: TCP }
     - { name: rpc, port: 5370, targetPort: 5370, protocol: TCP }
+    # Prometheus scrape target (EMQX dashboard listener; /api/v5/prometheus/stats).
+    # Cluster-internal only — the CNP admits 18083 from the `cluster` entity.
+    - { name: metrics, port: 18083, targetPort: 18083, protocol: TCP }

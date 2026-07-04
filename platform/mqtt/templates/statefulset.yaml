@@ -74,6 +74,14 @@ spec:
               value: "/opt/emqx/auth/users.csv"
             - name: EMQX_AUTHENTICATION__1__BOOTSTRAP_TYPE
               value: "plain"
+            # Prometheus endpoint (/api/v5/prometheus/stats on 18083): pin the
+            # EMQX default (no basic auth on that one endpoint; the rest of the
+            # dashboard API still requires login) explicitly — the ServiceMonitor
+            # scrape and the USE alerts depend on it staying unauthenticated.
+            # Safe because 18083 is cluster-internal only (CNP: no `world`, and
+            # the LB exposes 1883 only).
+            - name: EMQX_PROMETHEUS__ENABLE_BASIC_AUTH
+              value: "false"
             # Dashboard `admin` password. The dashboard is NOT exposed outside
             # the cluster (no LB/HTTPRoute; reach it via kubectl port-forward).
             - name: EMQX_DASHBOARD__DEFAULT_PASSWORD

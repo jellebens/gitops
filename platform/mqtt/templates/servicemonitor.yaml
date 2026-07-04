@@ -1,0 +1,31 @@
+{{- if .Values.serviceMonitor.enabled }}
+# Scrapes each EMQX pod individually through the headless service (per-node
+# stats matter for a 3-node cluster: quorum, per-node VM load, partition view).
+# EMQX 5.8 serves Prometheus text at /api/v5/prometheus/stats on the dashboard
+# listener; the endpoint is unauthenticated by explicit config (see the
+# StatefulSet env pin) and reachable only in-cluster (CNP).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mqtt
+  namespace: mqtt
+  labels:
+    app.kubernetes.io/name: mqtt
+    app.kubernetes.io/part-of: platform
+    # Picked up by the kube-prometheus-stack Prometheus serviceMonitorSelector.
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mqtt
+      # ONLY the headless Service — the `mqtt` LB Service selects the same pods
+      # and matching both would double-scrape every target.
+      app.kubernetes.io/component: headless
+  namespaceSelector:
+    matchNames:
+      - mqtt
+  endpoints:
+    - port: metrics
+      path: /api/v5/prometheus/stats
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
