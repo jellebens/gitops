@@ -37,11 +37,10 @@ secret:
 # by contract) and the suspended CronJob never runs, so nothing crash-loops.
 forecast:
   trainer:
-    # Flip to false in the same commit that adds the sealed INFLUX_TOKEN.
-    suspend: true
+    # Sealed INFLUX_TOKEN added 2026-07-04 (owner-sealed) — trainer live.
+    suspend: false
   secret:
     sealedSecret:
       enabled: true
-      encryptedData: {}
-      # encryptedData:
-      #   INFLUX_TOKEN: "Ag...paste the kubeseal --raw output here..."
+      encryptedData:
+        INFLUX_TOKEN: "AgCqdAIc+tyRjD2KIA0uKqALHlbypP0Cz+FfhdkbjQ25iIquIR/VwwSmGCHyptSlEXKtA4qpGg3FPEA79G8gbNf67zLbiappQ9QEDYuChMUZD86s4I96f96gtQb8VlC36f1vc0qp4urwWqMHbsuexOVcNdmtk0JtGA/Xyw4GMOFqWK7EoeFyRkyoED5JT9IrLDNfnwAhS0X7KbwbB1JfYcHtvQXgARyJ7zNJPJ9EXt4uy/qA6dwb+cFS/2Mp/flmwdiyT31zinEvsqhl1sbrN/+geId+rryi3fSM78hrUayGFf/uYK/R5YTZ+rOOXzcyG8CZ7DvRRfSrxYl1JYS8FG4r3pdGIVOhIupVzAXDNvNd0vMlan2bqLgO965crg0s5WL/WkLzkBX29kT9+myb0x+rsiv0Zi/kdiL49on3a3S40WbjOD6cYO61quhv9yY0fYnkMpnR3xTdThdocw97HJ41j59/Qb6Xq/UgQzrE2xF5snFiiySwEn648qqGJLngoGo+uYG/BqC4sNYWfOatp9dxdW3rRfm4u3BafRTHmb13unjWd6Qp1HO0SPLBuAXCIUrFeXckG1KbvcAVsIwulvMO+U5Wf1H6O0LXK0EM8HI/HfYdRs9xlRE9OWx4QSWup7d2A3ra+LWhp1ZPOghG475ha7arbMsS2gyHspXtiJqJXAZtqtgxznRne4WI/+5k0qgeY9V10TaecTc85RsFG8moHLcdItRkqeEqdmB3mvWNpPW2M2PRr8KDzVleeqjBlTxmnnKTJvo6aNwkC/GfOc7"
