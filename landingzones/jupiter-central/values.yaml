@@ -41,21 +41,24 @@ networkPolicy:
   allowedClientNamespaces:
     - zeus
 
-# Prometheus Operator ServiceMonitor. DISABLED by default ON PURPOSE: the
-# 0.1.0 service exposes NO /metrics endpoint yet (stdlib-only serving layer —
-# see jupiter services/price/jupiter_price/app.py docstring). Scraping
-# /healthz would just park `up` at 0 forever. Flip this on (and point it at
-# the metrics port) with the jupiter card that wires prometheus_client in.
+# Prometheus Operator ServiceMonitor, scraping GET /metrics on the service
+# port (jupiter card #115 wired prometheus_client into the price-service —
+# same port 8080 as the API, no separate metrics port). ENABLED from card
+# #115 on. SEQUENCING: the scrape only succeeds once the price-service image
+# that ships /metrics (the release AFTER 0.1.0) is deployed; against 0.1.0 it
+# scrapes 404s and parks `up` at 0 (harmless but noisy — JupiterPriceService-
+# Down will fire until the image lands).
 serviceMonitor:
-  enabled: false
+  enabled: true
   interval: 30s
   # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
   releaseLabel: kube-prometheus-stack
 
 # Prometheus alerting rules (kube-prometheus-stack picks these up by label).
-# Until the service exports real price-source metrics there is no true
-# PriceFeedDegraded equivalent (that gap is documented in the README and the
-# rule file); these alert on AVAILABILITY via kube-state-metrics instead.
+# Availability via kube-state-metrics plus, since card #115, the
+# PriceFeedDegraded-class rules over the jupiter_price_* series (zeus-parity
+# source taxonomy) — see templates/prometheusrule.yaml for the thresholds
+# and their rationale.
 prometheusRule:
   enabled: true
   releaseLabel: kube-prometheus-stack
