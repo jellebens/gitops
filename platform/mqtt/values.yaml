@@ -70,3 +70,10 @@ serviceMonitor:
 prometheusRule:
   enabled: true
   releaseLabel: kube-prometheus-stack
+
+# Grafana dashboard (USE method) provisioned as a ConfigMap, discovered by the
+# kube-prometheus-stack Grafana dashboard sidecar (watches all namespaces).
+dashboard:
+  enabled: true
+  # Label the sidecar watches for (kube-prometheus-stack default).
+  sidecarLabel: grafana_dashboard
