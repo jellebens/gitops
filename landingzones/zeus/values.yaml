@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.4.0"
+  tag: "0.5.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -254,6 +254,12 @@ config:
       peak_reserve_pct: 10
       peak_discharge_incentive_eur_per_kwh: 0.05
   forecast:
+    # JUPITER P2.5 (#123): consume the central forecast-service; on ANY failure
+    # zeus falls back to in-process fitting for that cycle (the local forecaster
+    # stays warm). site_id defaults to influx.site_id (tervuren).
+    source: jupiter
+    jupiter:
+      base_url: http://forecast-service.jupiter-central.svc.cluster.local:8080
     # Two-component: flat base load + temperature-driven A/C (from the A/C plug).
     # Falls back to the single temp model until the (forward-only) A/C history
     # has enough slots (~a day).
