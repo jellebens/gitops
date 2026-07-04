@@ -1,4 +1,5 @@
-# jupiter-central lab overrides (price-service, card #106).
+# jupiter-central lab overrides (price-service card #106, forecast-service
+# card #126).
 #
 # ENTSO-E token, sealed for THIS namespace. Sealed blobs are namespace-scoped:
 # the zeus blob in zeus.yaml cannot be pasted here, and the key name differs —
@@ -17,3 +18,30 @@ secret:
     enabled: true
     encryptedData:
       ENTSOE_API_TOKEN: "AgC3JzT1vkDy7fYhP9qJs5A4JgWSOcnu6q/SYeCjnE8VmLP5OdrfmM9wwGExOfS4vS4phEuhRI1UcoeGhoMiA7E7RQAq6V7PzCH2ibdJouuilGx5kwhQNS8X9/sjVzo2mpKQEg5E/aVnDI/dVWr6pKIgZ+eb8PM10fJ1euTuxf6Kf+mwLMmT+BHgNQ6Uzizth16gpm9Xqa5InJjcOimM0CQah1sH2RgvbVlyz5B0hlcpZtPNxQOuDzrHP6eFisFNz2ES2uIdS/p8H5bFw9MqNHjv2LBJ+esbEyQNcNAegGuBdjIfzSJsqbptzVhBb7SYLe4UuqbVYRx50l2XtD/7SsMSEg3HivvfSOQ8aucC2H3EB/QaqKn13xmFsSwuXlh+WaqAThYGu2Hb3SC0ck/6ci+Xz22L5WzCJtli4lPIsXZpCmqy31XNWAbWPfhbgeG0CcMhJM9SshmpO4zH1/6xGvKkw5rEVQSJPuG8PExn8+oCZNiTvgKV6E2prB6aunxetHyJQNmjVWaHuPNs9cffY6fQ/OBXZMwC5yFF2GXt4wo2FuoHvWoxNuAMvhhCDwgZhqrLDlGbQTEkGWuvupL7C4bSuybvD/QkNSB580CZdzs9Pay57txEq3YruaD+2lqSAWRcQs7U6dX1e7ptFbau0SFD9o23XGEIu8TkHjcmbhxOxxPfHnLHeozpNhajaihA0zy0BLWLK+x1mAi1ktPOW89Z4JdG6tdiLBnUPWK5v1VC2xHwhEs="
+
+# --- forecast-service (card #126) ------------------------------------------
+#
+# OWNER STEP (one-time, blocks nothing else): the training CronJob needs the
+# InfluxDB token, sealed for THIS namespace. Sealed blobs are namespace-
+# scoped, so the zeus INFLUXDB_TOKEN blob in zeus.yaml cannot be pasted here
+# (and the key name differs — the trainer reads INFLUX_TOKEN). Seal the same
+# plaintext token zeus uses (or a read-scoped token for the zeus bucket):
+#
+#   echo -n "$INFLUX_TOKEN" | kubeseal --raw \
+#     --namespace jupiter-central --name jupiter-influx \
+#     --controller-name sealed-secrets --controller-namespace argocd
+#
+# Then, IN THE SAME COMMIT: paste the output as INFLUX_TOKEN below AND flip
+# trainer.suspend to false. Until then the whole chart deploys cleanly — the
+# serving side answers /healthz (and 503s /v1/forecast with no_usable_forecast,
+# by contract) and the suspended CronJob never runs, so nothing crash-loops.
+forecast:
+  trainer:
+    # Flip to false in the same commit that adds the sealed INFLUX_TOKEN.
+    suspend: true
+  secret:
+    sealedSecret:
+      enabled: true
+      encryptedData: {}
+      # encryptedData:
+      #   INFLUX_TOKEN: "Ag...paste the kubeseal --raw output here..."

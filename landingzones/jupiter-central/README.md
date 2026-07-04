@@ -1,9 +1,9 @@
 # jupiter-central — central jupiter services landing zone
 
 Landing zone for the **central** (one-per-fleet) jupiter services, per
-`zeus:.docs/jupiter/architecture.md` and the P1–P5 card breakdown. First
-tenant (card #106): **price-service**. forecast-service and fleet-reporting
-land here with later P2/P3 cards.
+`zeus:.docs/jupiter/architecture.md` and the P1–P5 card breakdown. Tenants:
+**price-service** (card #106) and **forecast-service** + its training
+CronJob (card #126); fleet-reporting lands with a later P3 card.
 
 **Central-only:** nothing in this namespace touches zeus behavior. Zeus keeps
 fetching ENTSO-E directly until card #107 flips `prices.source: jupiter` —
@@ -96,6 +96,100 @@ Ingress-only CiliumNetworkPolicy (repo convention — egress stays fully open;
 the service needs the public ENTSO-E API): inbound allowed from the
 `observability` namespace (future scrape) and from
 `networkPolicy.allowedClientNamespaces` (`zeus`) to port 8080 only.
+
+## forecast-service (card #126)
+
+Central forecast serving API + training CronJob (source:
+[jupiter repo](https://github.com/jellebens/jupiter), `services/forecast`;
+image `jellebens/jupiter-forecast`, arm64, one image for both — the CronJob
+overrides the entrypoint with the `jupiter-forecast-train` console script).
+
+**The server stays dumb** (jupiter #120 design): the trainer bakes a
+ready-to-serve 168 h hourly kWh horizon per `(site_id, target)` onto the
+shared artifact PVC; serving is a pure local slice — no model evaluation, no
+Open-Meteo fetch, no InfluxDB read on the request path.
+
+- `GET /healthz` — readiness; answers before/without any artifact (a missing
+  artifact 503s `/v1/forecast` with `no_usable_forecast`, never `/healthz`).
+- `GET /v1/forecast/{site_id}?target=critical_load|whole_home&start=<iso>&hours=38`
+  — baked hourly kWh + the 168-slot hour-of-week p90 peak profile.
+- `GET /metrics` — same port.
+
+**In-cluster URL (what zeus/cells configure at the P3 cutover):**
+
+    http://forecast-service.jupiter-central.svc.cluster.local:8080
+
+### Config knobs (env, set by the chart)
+
+| Env var | Workload | Source | Meaning |
+|---|---|---|---|
+| `PORT` | server | `forecast.service.port` (8080) | listen port |
+| `SITE_ID` | server | `siteId` (`central`) | D4 site identity |
+| `FORECAST_ARTIFACT_DIR` | both | `forecast.persistence.mountPath` (`/artifacts`) | artifact PVC (server ro, trainer rw) |
+| `INFLUX_URL` / `INFLUX_ORG` / `INFLUX_BUCKET` | trainer | `forecast.trainer.influx.*` | the fleet's shared bucket (same wiring zeus uses) |
+| `INFLUX_TOKEN` | trainer | `jupiter-influx` (SealedSecret) | InfluxDB read token |
+| `--sites-json /etc/jupiter/sites.json` | trainer | `forecast.sites` via the `forecast-train-sites` ConfigMap | per-site coordinates/params (trainer rejects unknown keys) |
+
+### Training CronJob
+
+`forecast-train`, every 6 h (`17 */6 * * *`), `concurrencyPolicy: Forbid`.
+Per run it reads site-tagged history from InfluxDB, fetches Open-Meteo
+temps, fits the zeus-parity forecaster ladder and atomically writes
+`<site_id>/<target>.json`. A failed target writes NOTHING (the server keeps
+the previous artifact; its age gauge is the alert signal) and the job exits
+non-zero. `include_untagged: true` for tervuren is TRANSITION-ERA ONLY (zeus
+started tagging 2026-07-04) — drop it after the P4 backfill.
+
+**⚠ OWNER STEP — the CronJob ships `suspend: true`** because the InfluxDB
+token cannot ship with the chart (sealed blobs are namespace-scoped; the
+zeus blob cannot be reused, and this trainer reads `INFLUX_TOKEN`, not
+zeus's `INFLUXDB_TOKEN`). Everything else deploys and runs. To activate
+training, in ONE commit to `.config/lab/jupiter-central.yaml`:
+
+```sh
+echo -n "$INFLUX_TOKEN" | kubeseal --raw \
+  --namespace jupiter-central --name jupiter-influx \
+  --controller-name sealed-secrets --controller-namespace argocd
+```
+
+1. paste the output as `forecast.secret.sealedSecret.encryptedData.INFLUX_TOKEN`,
+2. flip `forecast.trainer.suspend` to `false`.
+
+### Storage & scheduling
+
+`forecast-artifacts` PVC, 1Gi `local-path`, RWO — artifacts are fully
+regenerated every trainer run, so NAS durability is not warranted (same
+rationale as the price cache). Both the deployment (read-only) and the
+CronJob (writable) mount it: `local-path` is node-pinned, but its
+`WaitForFirstConsumer` binding gives the PV node affinity that the scheduler
+honors for every pod, so server and trainer co-locate on the volume's node
+automatically (deployment uses `strategy: Recreate` accordingly). Node down
+= pods Pending until it returns; acceptable for v1, `smb` RWX is the later
+escape hatch.
+
+### Monitoring & alerting
+
+- **ServiceMonitor** on `/metrics` (port 8080; the 0.3.0 image ships it from
+  day one — no price-style 404 window).
+- `JupiterForecastServiceDown` — `up==0` 10m (warning; consumers fall back
+  to their last fetch or local baseline forecaster).
+- `JupiterForecastArtifactStale` — `jupiter_forecast_artifact_age_seconds`
+  > 24h sustained 1h (warning): four consecutive missed/failed 6-hourly
+  trainings, or the CronJob left suspended. Gauge updates at serve time, so
+  it only moves while consumers poll.
+- `JupiterForecastTrainingFailing` — kube-state-metrics: a failed
+  `forecast-train` Job with no successful run in the last 6h (the `unless`
+  clause keeps an old failed Job in history from alerting past a later
+  success). Silent while suspended-and-never-run.
+
+### Network policy
+
+`forecast-service` gets the same ingress-only CiliumNetworkPolicy as the
+price-service (same consumer values: `observability` + `zeus`, port 8080
+only). The trainer pods are deliberately NOT selected by any policy — they
+need egress to InfluxDB (`influxdb` namespace) and the public
+`api.open-meteo.com`, both covered by the namespace's open egress
+(ingress-only convention; an egress lockdown stays a human-reviewed step).
 
 ## Argo CD
 
