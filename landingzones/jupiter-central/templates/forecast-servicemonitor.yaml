@@ -1,0 +1,28 @@
+{{- if .Values.forecast.serviceMonitor.enabled }}
+# Scrapes GET /metrics on the API port (`http`, 8080) — the jupiter #120 card
+# wired prometheus_client into the forecast-service on the same port
+# (requests/serves/no_usable counters, jupiter_forecast_artifact_age_seconds,
+# build info). The 0.3.0 image ships /metrics from day one, so there is no
+# price-service-style 404 sequencing window here.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: forecast-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: forecast-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus serviceMonitorSelector.
+    release: {{ .Values.forecast.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forecast-service
+  namespaceSelector:
+    matchNames:
+      - jupiter-central
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.forecast.serviceMonitor.interval }}
+{{- end }}

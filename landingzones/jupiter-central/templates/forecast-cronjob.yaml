@@ -1,0 +1,107 @@
+# Forecast training job (jupiter P2.3, card #121): same image as the serving
+# deployment, entrypoint overridden to the jupiter-forecast-train console
+# script. Per run it reads site-tagged history from InfluxDB, fetches
+# Open-Meteo temps, fits the zeus-parity forecaster ladder and bakes
+# artifacts onto the shared PVC (rw here, read-only in the deployment). A
+# failed (site, target) writes NOTHING — the server keeps serving the
+# previous artifact and jupiter_forecast_artifact_age_seconds grows (the
+# alert signal) — and the job exits non-zero so the run is visibly failed.
+#
+# EGRESS: this pod needs InfluxDB (influxdb namespace) and the public
+# api.open-meteo.com. No CiliumNetworkPolicy selects it, and the namespace's
+# only policies are ingress-only (repo convention) — egress is fully open, so
+# both paths work without extra rules; an egress lockdown remains a separate,
+# human-reviewed step.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forecast-train
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: forecast-train
+    app.kubernetes.io/part-of: jupiter
+spec:
+  # SUSPENDED until the jupiter-influx SealedSecret carries a real sealed
+  # token (owner step in .config/lab/jupiter-central.yaml + README): without
+  # it every run exits 2 (config error). Flip suspend to false in the same
+  # commit as the sealed blob.
+  suspend: {{ .Values.forecast.trainer.suspend }}
+  schedule: {{ .Values.forecast.trainer.schedule | quote }}
+  startingDeadlineSeconds: {{ .Values.forecast.trainer.startingDeadlineSeconds }}
+  concurrencyPolicy: {{ .Values.forecast.trainer.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.forecast.trainer.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.forecast.trainer.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.forecast.trainer.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.forecast.trainer.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: forecast-train
+            app.kubernetes.io/part-of: jupiter
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.runtime.uid }}
+            runAsGroup: {{ .Values.runtime.gid }}
+            fsGroup: {{ .Values.runtime.gid }}
+          containers:
+            - name: forecast-train
+              image: "{{ .Values.forecast.image.repository }}:{{ .Values.forecast.image.tag }}"
+              imagePullPolicy: {{ .Values.forecast.image.pullPolicy }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: false
+                capabilities:
+                  drop: ["ALL"]
+              # Console script from services/forecast/pyproject.toml
+              # ([project.scripts] jupiter-forecast-train =
+              # jupiter_forecast.train:main); overrides the image's
+              # jupiter-forecast serving entrypoint.
+              command: ["jupiter-forecast-train", "--sites-json", "/etc/jupiter/sites.json"]
+              env:
+                # InfluxSettings.from_env contract: INFLUX_URL / INFLUX_ORG /
+                # INFLUX_BUCKET here, INFLUX_TOKEN via the envFrom secret.
+                - name: INFLUX_URL
+                  value: {{ .Values.forecast.trainer.influx.url | quote }}
+                - name: INFLUX_ORG
+                  value: {{ .Values.forecast.trainer.influx.org | quote }}
+                - name: INFLUX_BUCKET
+                  value: {{ .Values.forecast.trainer.influx.bucket | quote }}
+                {{- if .Values.forecast.persistence.enabled }}
+                # --artifact-dir defaults to $FORECAST_ARTIFACT_DIR (the PVC
+                # shared with the serving deployment).
+                - name: FORECAST_ARTIFACT_DIR
+                  value: {{ .Values.forecast.persistence.mountPath | quote }}
+                {{- end }}
+              # INFLUX_TOKEN. optional: true so the chart deploys before the
+              # seal exists (the CronJob is suspended until then anyway; if it
+              # ever runs without the token the trainer exits 2 with a clear
+              # config error rather than wedging).
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.forecast.secret.name }}
+                    optional: true
+              volumeMounts:
+                {{- if .Values.forecast.persistence.enabled }}
+                # WRITABLE: the trainer is the only writer of the artifact
+                # volume (atomic tmp+rename per artifact).
+                - name: forecast-artifacts
+                  mountPath: {{ .Values.forecast.persistence.mountPath }}
+                {{- end }}
+                - name: sites
+                  mountPath: /etc/jupiter
+                  readOnly: true
+              resources:
+                {{- toYaml .Values.forecast.trainer.resources | nindent 16 }}
+          volumes:
+            {{- if .Values.forecast.persistence.enabled }}
+            - name: forecast-artifacts
+              persistentVolumeClaim:
+                claimName: forecast-artifacts
+            {{- end }}
+            - name: sites
+              configMap:
+                name: forecast-train-sites

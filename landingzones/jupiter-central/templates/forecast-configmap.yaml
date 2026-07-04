@@ -1,0 +1,17 @@
+# The trainer's --sites-json document (jupiter_forecast.train), mounted at
+# /etc/jupiter/sites.json in the CronJob pod. Rendered verbatim from
+# .Values.forecast.sites — keys must match the trainer's SiteSpec dataclass
+# EXACTLY (site_id, latitude, longitude, timezone, base_temp_c, min_ac_slots,
+# history_days, weather_past_days, horizon_hours, include_untagged): the
+# trainer rejects unknown keys by design.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forecast-train-sites
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: forecast-train
+    app.kubernetes.io/part-of: jupiter
+data:
+  sites.json: |
+    {{- .Values.forecast.sites | toPrettyJson | nindent 4 }}
