@@ -10,7 +10,7 @@
 image:
   repository: jellebens/jupiter-price
   # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-  tag: "0.2.0"
+  tag: "0.2.1"
   pullPolicy: IfNotPresent
 
 # Central singleton. The last-good cache PVC is RWO (local-path pins it to a
