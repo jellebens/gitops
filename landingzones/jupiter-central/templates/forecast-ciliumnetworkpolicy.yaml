@@ -1,0 +1,43 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for forecast-service — the exact
+# mirror of the price-service policy (same values: the consumer set is the
+# same). Ingress-only by repo convention: only `ingress` rules means
+# default-deny INBOUND for the selected pod while EGRESS stays fully open; an
+# egress lockdown is a separate, human-reviewed step.
+#
+# The forecast-train CronJob pods are deliberately NOT selected by any
+# policy: they accept no inbound traffic worth protecting and need egress to
+# InfluxDB (influxdb namespace) and the public api.open-meteo.com — both
+# covered by the namespace's open egress.
+#
+# Inbound allowed to the serving pod:
+#   - the observability namespace (Prometheus /metrics scrape),
+#   - the consumer namespaces in networkPolicy.allowedClientNamespaces (zeus
+#     consumes /v1/forecast from the P3 cutover card on).
+# Kubelet /healthz probes come from the node host, which Cilium allows by
+# default when ingress policy is enforced.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: forecast-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: forecast-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: forecast-service
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+        {{- range .Values.networkPolicy.allowedClientNamespaces }}
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.forecast.service.port | quote }}
+              protocol: TCP
+{{- end }}

@@ -10,7 +10,7 @@
 image:
   repository: jellebens/jupiter-price
   # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-  tag: "0.2.1"
+  tag: "0.3.0"
   pullPolicy: IfNotPresent
 
 # Central singleton. The last-good cache PVC is RWO (local-path pins it to a
@@ -117,3 +117,159 @@ secret:
   sealedSecret:
     enabled: true
     encryptedData: {} # { ENTSOE_API_TOKEN: "Ag..." }
+
+# ---------------------------------------------------------------------------
+# forecast-service (jupiter P2 cards #120/#121, deployed by gitops card #126).
+#
+# Second tenant of this landing zone: the central forecast SERVING API
+# (jupiter repo, services/forecast) plus its batch training CronJob. The
+# server is deliberately dumb — it serves the last artifact the trainer baked
+# onto the shared PVC and never trains/fetches in-request. Same image for
+# both; the CronJob overrides the entrypoint with the jupiter-forecast-train
+# console script.
+forecast:
+  image:
+    repository: jellebens/jupiter-forecast
+    # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+
+  # Central singleton, same reasoning as the price-service: the artifact PVC
+  # is RWO on local-path (node-pinned) and one instance serves every site.
+  replicaCount: 1
+
+  service:
+    # Container/service port; exported to the app as PORT. Consumers reach it
+    # at http://forecast-service.jupiter-central.svc.cluster.local:8080.
+    port: 8080
+
+  # Shared artifact volume (FORECAST_ARTIFACT_DIR): the trainer WRITES
+  # <site>/<target>.json here, the server READS it (mounted read-only).
+  # local-path (k3s default) is fine for v1: artifacts are fully regenerated
+  # by every trainer run, so losing the node only costs one training run —
+  # NAS durability (zeus's smb class) is not warranted. local-path is RWO and
+  # node-pinned, but its volumeBindingMode is WaitForFirstConsumer: the PV is
+  # created on the first consumer's node and carries node affinity, and the
+  # scheduler honors PV node affinity for every later pod — so the serving
+  # pod and the trainer Jobs co-locate on that node automatically, no
+  # nodeSelector needed. (If that node dies, pods go Pending and the artifact
+  # is rebuilt on the next trainer run once rescheduled — accepted for v1;
+  # RWX via the smb class is the later option if this ever hurts.)
+  persistence:
+    enabled: true
+    storageClassName: "local-path"
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    mountPath: /artifacts
+
+  # Serving is a pure local file slice (no model evaluation on the request
+  # path) — small footprint; pandas import is the memory floor.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Probes on GET /healthz (stdlib HTTP server, answers before/without any
+  # artifact on disk — a missing artifact 503s /v1/forecast, never /healthz).
+  probes:
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 4
+
+  # Training CronJob (same image, entrypoint jupiter-forecast-train).
+  # Reads site-tagged history from InfluxDB + Open-Meteo temps, fits the
+  # zeus-parity forecaster ladder and bakes artifacts onto the PVC (rw).
+  trainer:
+    # SUSPENDED until the jupiter-influx SealedSecret below carries a real
+    # sealed token (see .config/lab/jupiter-central.yaml): without the token
+    # every run exits 2 (config error) and just noise-fails. Flip to false in
+    # the same commit that adds the sealed blob. The serving side deploys and
+    # answers /healthz fine either way (no artifact yet -> documented 503 on
+    # /v1/forecast, no crash-loop anywhere).
+    suspend: true
+    # Every 6h, offset from the top of the hour to dodge the :00/:05 cron
+    # crowd (influxdb backups run at :05/:30). Four bakes/day keeps the
+    # served horizon fresh against the 24h staleness alert with lots of
+    # margin (the bake is 168h deep).
+    schedule: "17 */6 * * *"
+    # If the controller misses the window (node down, suspend flip), still
+    # start up to 15 min late rather than skipping the run.
+    startingDeadlineSeconds: 900
+    concurrencyPolicy: Forbid
+    # One retry after a transient failure (Influx hiccup); a systematic
+    # failure surfaces via JupiterForecastTrainingFailing instead of pod spam.
+    backoffLimit: 1
+    # A run is minutes of work; hard-kill anything wedged well before the
+    # next 6h window.
+    activeDeadlineSeconds: 1800
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+    # Fitting/baking with pandas over 30d of history — modest but real.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    # The fleet's shared bucket — same wiring zeus itself uses (influx.url/
+    # org/bucket in landingzones/zeus values). Token comes from the
+    # jupiter-influx SealedSecret (INFLUX_TOKEN), NOT from here.
+    influx:
+      url: http://influxdb-influxdb2.influxdb
+      org: zeus
+      bucket: zeus
+
+  # --sites-json document, rendered verbatim into the forecast-train-sites
+  # ConfigMap. Keys MUST match jupiter_forecast.train.SiteSpec exactly — the
+  # trainer REJECTS unknown keys by design (a typo must not silently fall
+  # back to a default). tervuren coordinates/base_temp_c mirror the zeus
+  # forecast.weather values. include_untagged: TRANSITION ERA ONLY — zeus
+  # started site-tagging its Influx writes 2026-07-04; drop this once the P4
+  # backfill lands (or the 30d training window rolls past the cutover).
+  sites:
+    - site_id: tervuren
+      latitude: 50.857017
+      longitude: 4.5362013
+      timezone: Europe/Brussels
+      base_temp_c: 21.0
+      include_untagged: true
+
+  # InfluxDB token for the trainer, injected via envFrom (optional: true so
+  # the chart deploys before the seal exists — the trainer is suspended until
+  # then anyway). Key INFLUX_TOKEN — the exact env var the trainer reads
+  # (NOTE: zeus calls its key INFLUXDB_TOKEN; this trainer does not). Sealed
+  # blobs are namespace-scoped: the zeus blob canNOT be reused here. Provide
+  # the sealed value in .config/<env>/jupiter-central.yaml — see the owner
+  # step documented there and in the README.
+  secret:
+    name: jupiter-influx
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { INFLUX_TOKEN: "Ag..." }
+
+  # ServiceMonitor for GET /metrics on the API port (same port 8080 —
+  # jupiter_forecast_requests_total / serves / no_usable / artifact_age /
+  # build_info, wired in the jupiter #120 card).
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    releaseLabel: kube-prometheus-stack
+
+  # Alerting (kube-prometheus-stack ruleSelector picks these up by label).
+  prometheusRule:
+    enabled: true
+    releaseLabel: kube-prometheus-stack
+    # jupiter_forecast_artifact_age_seconds threshold: 24h. The trainer bakes
+    # every 6h, so 24h stale = four consecutive missed/failed trainings.
+    artifactStaleSeconds: 86400

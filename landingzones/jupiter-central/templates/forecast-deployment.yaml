@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forecast-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: forecast-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  replicas: {{ .Values.forecast.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forecast-service
+  # Recreate: the artifact PVC is RWO on local-path (node-pinned), so a
+  # RollingUpdate surge pod could never bind the volume anyway (same as the
+  # price-service).
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forecast-service
+        app.kubernetes.io/part-of: jupiter
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: forecast-service
+          image: "{{ .Values.forecast.image.repository }}:{{ .Values.forecast.image.tag }}"
+          imagePullPolicy: {{ .Values.forecast.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PORT
+              value: {{ .Values.forecast.service.port | quote }}
+            # D4 site identity: central singleton (one instance, all sites).
+            - name: SITE_ID
+              value: {{ .Values.siteId | quote }}
+            {{- if .Values.forecast.persistence.enabled }}
+            # Artifact directory on the shared PVC (trainer writes, server
+            # reads). Without this the app defaults to the relative
+            # "artifacts" dir on the container filesystem — always empty.
+            - name: FORECAST_ARTIFACT_DIR
+              value: {{ .Values.forecast.persistence.mountPath | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.forecast.service.port }}
+              protocol: TCP
+          # /healthz answers before/without any artifact on disk (a missing
+          # artifact 503s /v1/forecast, never /healthz), so the pod is Ready
+          # from first sync even while the trainer is still suspended.
+          {{- with .Values.forecast.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.forecast.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- if .Values.forecast.persistence.enabled }}
+          volumeMounts:
+            # READ-ONLY: the serving side never writes artifacts; only the
+            # training CronJob mounts this volume writable.
+            - name: forecast-artifacts
+              mountPath: {{ .Values.forecast.persistence.mountPath }}
+              readOnly: true
+          {{- end }}
+          resources:
+            {{- toYaml .Values.forecast.resources | nindent 12 }}
+      {{- if .Values.forecast.persistence.enabled }}
+      volumes:
+        - name: forecast-artifacts
+          persistentVolumeClaim:
+            claimName: forecast-artifacts
+      {{- end }}

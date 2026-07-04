@@ -1,0 +1,85 @@
+{{- if .Values.forecast.prometheusRule.enabled }}
+# forecast-service alerting: availability via the ServiceMonitor scrape,
+# artifact freshness via the service's own age gauge, and training health via
+# kube-state-metrics Job/CronJob series (a batch pod cannot be scraped
+# reliably, so the trainer has no ServiceMonitor — its Prometheus signal is
+# kube-state plus the artifact age the serving side exports).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: forecast-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: forecast-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.forecast.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: jupiter-forecast-service
+      rules:
+        - alert: JupiterForecastServiceDown
+          # `up` from the ServiceMonitor scrape (job = the Service name), the
+          # mirror of JupiterPriceServiceDown. severity warning, not critical,
+          # for the same reason: consumers degrade gracefully (last fetched
+          # forecast if it still covers, else the cell's local dependency-free
+          # BaselineForecaster) — the battery keeps being commanded.
+          expr: up{job="forecast-service",namespace="jupiter-central"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter forecast-service metrics target is down
+            description: >-
+              Prometheus has not been able to scrape forecast-service /metrics
+              for 10m. Consumers fall back to their last fetched forecast or
+              their local baseline forecaster, but the central forecast path
+              is unobserved.
+        - alert: JupiterForecastArtifactStale
+          # The serving side's model-age gauge (seconds since the artifact's
+          # trained_at, updated at serve time — it only moves while consumers
+          # actually poll, same caveat as jupiter_price_cache_age_seconds).
+          # Threshold 24h with the trainer baking every 6h = four consecutive
+          # missed/failed trainings; 1h sustain filters scrape blips. Also
+          # the catch-all for a SUSPENDED trainer being forgotten once
+          # consumers are live. The bake is 168h deep, so a stale artifact
+          # still serves correctly for days — warning, not critical.
+          expr: >-
+            max by (site_id, target) (jupiter_forecast_artifact_age_seconds{namespace="jupiter-central"}) > {{ .Values.forecast.prometheusRule.artifactStaleSeconds }}
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter forecast artifact is stale (training not landing)
+            description: >-
+              The served forecast artifact for site
+              {{ "{{ $labels.site_id }}" }} target {{ "{{ $labels.target }}" }}
+              was trained more than 24h ago (trainer runs every 6h — several
+              runs have failed, been missed, or the CronJob is still
+              suspended). Serving continues from the 168h bake, but the model
+              is aging.
+        - alert: JupiterForecastTrainingFailing
+          # kube-state-metrics view of the CronJob's Jobs: a failed
+          # forecast-train Job exists in the (bounded) job history AND there
+          # has been no successful run within the last schedule interval
+          # (6h = 21600s) — the `unless` clause stops a stale failed Job in
+          # history from alerting forever after a later run succeeded. While
+          # the CronJob is suspended and has never run, both vectors are
+          # empty and the rule stays silent (the ArtifactStale rule above is
+          # the backstop signal once consumers poll).
+          expr: >-
+            (sum(kube_job_status_failed{namespace="jupiter-central",job_name=~"forecast-train-.*"}) > 0)
+            unless on ()
+            (max(time() - kube_cronjob_status_last_successful_time{namespace="jupiter-central",cronjob="forecast-train"}) < 21600)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter forecast training job is failing
+            description: >-
+              The forecast-train CronJob has a failed Job and no successful
+              run in the last 6h. The serving side keeps the previous
+              artifacts (age grows — see JupiterForecastArtifactStale); check
+              the job logs (InfluxDB reachability/token, history coverage,
+              Open-Meteo) in jupiter-central.
+{{- end }}
