@@ -126,6 +126,15 @@ siteConfig:
     replan_load_drop_kw: 0.4
     replan_load_rise_kw: 0.4
     input_failure_retry_seconds: 60
+  # Cluster EMQX broker publish creds (#139). host defaults to
+  # mqtt.lab.local:1883; username/password expand (load_site_config ${VAR})
+  # from the envFrom sealed secret jupiter-tervuren-secrets (the minted
+  # cell-tervuren user, ACL allow jupiter/tervuren/#). Publish is best-effort:
+  # a broker/cred failure never blocks a cycle (telemetry only, never actuation).
+  mqtt:
+    username: ${MQTT_USER}
+    password: ${MQTT_PASS}
+    client_id: cell-tervuren
 
 # Where the site-config ConfigMap is mounted. The document lands at
 # {mountPath}/{fileName}; CELL_CONFIG env points the cell at the full path
