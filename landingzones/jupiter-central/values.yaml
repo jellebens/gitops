@@ -37,9 +37,13 @@ networkPolicy:
   enabled: true
   # Namespace Prometheus (kube-prometheus-stack) runs in.
   metricsScrapeNamespace: observability
-  # In-cluster consumers allowed to reach the service port.
+  # In-cluster consumers allowed to reach the service port. Each per-site
+  # jupiter cell namespace (jupiter-<site>) must be listed so its cell can
+  # fetch /v1/curve + /v1/forecast (#139 — without this the cell times out and
+  # safe-holds). zeus = the incumbent; jupiter-tervuren = the P3 shadow cell.
   allowedClientNamespaces:
     - zeus
+    - jupiter-tervuren
 
 # Prometheus Operator ServiceMonitor, scraping GET /metrics on the service
 # port (jupiter card #115 wired prometheus_client into the price-service —
