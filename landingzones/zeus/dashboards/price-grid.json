@@ -153,8 +153,8 @@
     {
       "id": 7,
       "type": "barchart",
-      "title": "Today's day-ahead curve — green = cheapest 20%, red = priciest 20%, blue = now",
-      "description": "Full day-ahead curve for TODAY by 15-min slot (zeus_price_today_eur_per_kwh), including future slots of today. Slots past the feed's coverage end simply have no bar.",
+      "title": "Import-price horizon — today + TOMORROW by 15-min slot (green=cheap · red=priciest · flat tail = LOCF)",
+      "description": "Full optimizer-horizon import price (zeus_price_horizon_eur_per_kwh, 144 slots ≈ 36 h) plotted from the current slot forward — includes TODAY and TOMORROW, unlike the today-only curve zeus previously exported. slot_ts (epoch ms) is converted to a real time field for the X axis (labelsToFields → convertFieldType → organize → sortBy). Bars are colored by price percentile (green=cheapest 20%, orange=mid, red=priciest 20%). REAL price data covers only the first zeus_price_horizon_covered_hours hours this cycle (see the 'Day-ahead curve length' stat above); every slot beyond now + that many hours is a LOCF-flat synthetic tail (the last real value carried forward) — it appears as a dead-flat plateau at the right-hand end of the curve, which is the non-real region. Per-slot programmatic shading of that tail is not possible from these two metrics alone (the slot_ts label can't be compared to now+covered_hours in PromQL, and Grafana filter/calc transforms have no dynamic boundary), so the tail is identified by the flat plateau + this note rather than a colored overlay.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 9, "w": 10, "x": 14, "y": 5 },
       "fieldConfig": {
@@ -168,22 +168,17 @@
           "custom": { "lineWidth": 1, "fillOpacity": 90, "gradientMode": "none", "axisPlacement": "auto", "axisLabel": "" },
           "mappings": []
         },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "now" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } },
-              { "id": "custom.fillOpacity", "value": 100 } ] }
-        ]
+        "overrides": []
       },
-      "options": { "orientation": "vertical", "xField": "slot", "showValue": "never", "stacking": "normal", "barWidth": 0.98, "groupWidth": 1, "fullHighlight": true, "xTickLabelSpacing": 100, "xTickLabelRotation": -45, "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "single", "sort": "none" } },
+      "options": { "orientation": "vertical", "xField": "time", "showValue": "never", "stacking": "none", "barWidth": 0.9, "groupWidth": 1, "fullHighlight": true, "xTickLabelSpacing": 100, "xTickLabelRotation": -45, "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "single", "sort": "none" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (slot) (zeus_price_today_eur_per_kwh unless on (slot) zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (slot) (zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (slot_ts) (zeus_price_horizon_eur_per_kwh)", "format": "table", "instant": true, "legendFormat": "€/kWh" }
       ],
       "transformations": [
-        { "id": "joinByField", "options": { "byField": "slot", "mode": "outer" } },
-        { "id": "organize", "options": { "excludeByName": { "Time": true, "Time 1": true, "Time 2": true }, "indexByName": {}, "renameByName": { "Value #A": "€/kWh", "Value #B": "now" } } },
-        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "slot" } ] } }
+        { "id": "labelsToFields", "options": { "mode": "columns", "keepLabels": [ "slot_ts" ] } },
+        { "id": "convertFieldType", "options": { "conversions": [ { "targetField": "slot_ts", "destinationType": "time", "dateFormat": "x" } ], "fields": {} } },
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "indexByName": {}, "renameByName": { "slot_ts": "time", "Value": "€/kWh" } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "time" } ] } }
       ]
     },
     {
