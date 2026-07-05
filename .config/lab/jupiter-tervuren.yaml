@@ -1,0 +1,39 @@
+# jupiter-tervuren lab overrides — per-site CELL secrets (card #139, P3.4).
+#
+# ===========================================================================
+# MAIN-SESSION OWNER STEP (blocks the cell's MQTT publish, nothing else):
+# ===========================================================================
+# The tervuren cell authenticates to the EMQX broker as a PER-SITE user to
+# publish jupiter/tervuren/plan + jupiter/tervuren/heartbeat. The credentials
+# live in the SealedSecret `jupiter-tervuren-secrets` (namespace
+# jupiter-tervuren), keys MQTT_USER / MQTT_PASS (and HA_TOKEN, optional — see
+# below). Sealed blobs are NAMESPACE-scoped: no other namespace's blob can be
+# pasted here.
+#
+# 1. Mint the EMQX cell user (username e.g. `cell-tervuren`) with an ACL that
+#    allows PUBLISH to `jupiter/tervuren/#` (plan + heartbeat). No subscribe
+#    needed for shadow.
+# 2. Seal each value for THIS namespace/secret, e.g.:
+#
+#      echo -n "$MQTT_USER" | kubeseal --raw \
+#        --namespace jupiter-tervuren --name jupiter-tervuren-secrets \
+#        --controller-name sealed-secrets --controller-namespace argocd
+#      echo -n "$MQTT_PASS" | kubeseal --raw \
+#        --namespace jupiter-tervuren --name jupiter-tervuren-secrets \
+#        --controller-name sealed-secrets --controller-namespace argocd
+#
+# 3. Paste the outputs below as MQTT_USER / MQTT_PASS and remove the empty {}.
+#
+# HA_TOKEN is NOT required by the 0.4.0 SHADOW cell — the live HA reads (SoC,
+# grid power) are deferred to #142 and default to soc_min / None. Seal it too
+# only if you want #142 to be a value-only flip; otherwise leave it out. The
+# whole chart deploys cleanly without any of these (envFrom is optional:true) —
+# the cell runs, plans, serves /metrics + /healthz, and its MQTT publish is a
+# best-effort no-op until the creds land (telemetry only, never actuation).
+#
+# UNTIL the blobs are filled: encryptedData stays empty and the SealedSecret is
+# NOT rendered (templates/sealed-secret.yaml renders only when non-empty).
+secret:
+  sealedSecret:
+    enabled: true
+    encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", HA_TOKEN: "Ag..." }
