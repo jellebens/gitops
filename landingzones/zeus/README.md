@@ -234,12 +234,19 @@ docker buildx build --platform linux/arm64 --provenance=false \
 
 ## MQTT / Home Assistant
 
-Broker (and the HA base URL) is `vesta.local:1883` / `:8123` — `.local`/mDNS
-names don't resolve through CoreDNS by default, so they're made resolvable
-in-cluster by the `vesta.local` forward in
+The **MQTT broker** is the in-cluster EMQX cluster `mqtt.lab.local:1883`
+(jupiter #112, since 2026-07-05; user `zeus-mqtt`). The `mqtt.lab.local` A
+record is served by the authoritative `lab.local` zone in
+[`coredns-lab`](../../platform/coredns-config). zeus's earlier broker was
+vesta's Mosquitto (`vesta.local:1883`), retired in the #110–#113 migration.
+
+The **HA base URL** (REST control path, unrelated to MQTT) stays
+`http://vesta.local:8123` — `.local`/mDNS is made resolvable in-cluster by the
+`vesta.local` forward in
 [`coredns-config`](../../platform/coredns-config) (→ router `.1` → `.18`).
-(`core-mosquitto` only resolves inside HA's docker network.) Discovery sensors published under base
-topic `zeus`: `sensor.zeus_battery_savings_today`, `_baseline_cost_today`,
+
+Discovery sensors are published under base topic `zeus`:
+`sensor.zeus_battery_savings_today`, `_baseline_cost_today`,
 `_actual_cost_today`, `_target_charge_power`, `_target_discharge_power`.
 
 ## Grid metering — note on the Aeotec ZW095 (not a Zeus input)
