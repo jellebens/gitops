@@ -1,0 +1,468 @@
+{
+  "annotations": { "list": [] },
+  "description": "Price feed + grid monitor (card #130). Day-ahead curve with coverage, per-cycle price-source timeline (#108 soak evidence), historical cheap/expensive strip, grid import/export, and quarter-hour capacity-peak tracking (#98/#100).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Consumption analysis (daily peaks, cost)",
+      "type": "link",
+      "icon": "dashboard",
+      "url": "/d/zeus-consumption",
+      "targetBlank": false
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Price feed status (this cycle)",
+      "description": "zeus_price_source: which tier served this cycle's price curve. Partial = the curve covers the horizon start but not its end, so the optimizer sees a LOCF-flat tail.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "Healthy (jupiter / entsoe)", "color": "green" },
+              "1": { "text": "Fallback — direct entsoe", "color": "orange" },
+              "2": { "text": "Last-good cache", "color": "yellow" },
+              "3": { "text": "None — SAFE HOLD", "color": "red" },
+              "4": { "text": "Partial — LOCF flat tail", "color": "light-red" }
+            } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_source)", "instant": true } ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Day-ahead curve length",
+      "description": "jupiter_price_curve_points ÷ 4 (15-min native): hours of raw price data in the served BE curve. ~24 h = today only (tomorrow not yet published, normal before ~13:00 CET); ≥28 h = tomorrow arrived. The optimizer horizon is 36 h — anything shorter is LOCF-flat-lined past the coverage end (the 'covers only Xh of the 36h horizon' warning).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h", "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 20 },
+            { "color": "green", "value": 28 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_price_curve_points) / 4" } ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Degraded cycles (range)",
+      "description": "Cycles served by a degraded price source (fallback / cache / none / partial) over the dashboard time range.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "red", "value": 24 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_price_degraded_total[$__range]))" } ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Import price now",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 15, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 4,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_import_price_eur_per_kwh)" } ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Now: cheap → expensive",
+      "description": "Where the current slot's price sits in today's range (0 = cheapest, 100 = most expensive).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 20 },
+            { "color": "red", "value": 80 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_position_pct)" } ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "All-in import price — realized (€/kWh, InfluxDB long history)",
+      "description": "Per-cycle all-in import price from zeus_state (durable InfluxDB copy, survives Prometheus retention). Colored by position in the visible range: green = cheap, red = expensive. Zeus exposes no per-slot price series for TOMORROW (zeus_price_today_eur_per_kwh is today-only and zeus_forecast carries no price field) — forward coverage is monitored via the curve-length stat and the price-source timeline below.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 9, "w": 14, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 3,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "percentage", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 20 },
+            { "color": "red", "value": 80 } ] },
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 12, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"import_price_eur\")\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Import price (€/kWh)\"})\n  |> sort(columns: [\"_time\"])" } ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Today's day-ahead curve — green = cheapest 20%, red = priciest 20%, blue = now",
+      "description": "Full day-ahead curve for TODAY by 15-min slot (zeus_price_today_eur_per_kwh), including future slots of today. Slots past the feed's coverage end simply have no bar.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 10, "x": 14, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR", "decimals": 3,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "percentage", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 20 },
+            { "color": "red", "value": 80 } ] },
+          "custom": { "lineWidth": 1, "fillOpacity": 90, "gradientMode": "none", "axisPlacement": "auto", "axisLabel": "" },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "now" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } },
+              { "id": "custom.fillOpacity", "value": 100 } ] }
+        ]
+      },
+      "options": { "orientation": "vertical", "xField": "slot", "showValue": "never", "stacking": "normal", "barWidth": 0.98, "groupWidth": 1, "fullHighlight": true, "xTickLabelSpacing": 100, "xTickLabelRotation": -45, "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (slot) (zeus_price_today_eur_per_kwh unless on (slot) zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (slot) (zeus_price_now_marker_eur_per_kwh)", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "slot", "mode": "outer" } },
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "Time 1": true, "Time 2": true }, "indexByName": {}, "renameByName": { "Value #A": "€/kWh", "Value #B": "now" } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "slot" } ] } }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "state-timeline",
+      "title": "Price source per cycle — #108 soak evidence",
+      "description": "zeus_price_source codes: 0 = healthy (jupiter-primary / entsoe primary / immutable cache-fresh), 1 = fallback (jupiter unreachable → direct entsoe, or HA fallback entity), 2 = last-good cache, 3 = none (safe hold), 4 = partial coverage (LOCF flat tail). Codes 0/1/2/4 fold jupiter and direct-entsoe serves together — the per-hour jupiter serve-label panel below tells them apart.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "healthy (jupiter/entsoe)", "color": "green" },
+              "1": { "text": "fallback — direct entsoe", "color": "orange" },
+              "2": { "text": "cache", "color": "yellow" },
+              "3": { "text": "SAFE HOLD", "color": "red" },
+              "4": { "text": "partial — flat tail", "color": "light-red" }
+            } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "mergeValues": true, "rowHeight": 0.9, "showValue": "auto", "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_source)", "legendFormat": "price source" } ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Degraded price cycles per hour",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0, "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "orange" },
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "gradientMode": "none", "showPoints": "never", "spanNulls": false, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_price_degraded_total[1h]))", "legendFormat": "degraded cycles / h" } ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Jupiter price-service serves by source label (per hour)",
+      "description": "jupiter_price_curve_serves_total — the price-service's own zeus-parity source labels. Distinguishes what JUPITER served (primary / cache-fresh / cache / *-partial / none) from how zeus classified its own serve in the timeline above.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0, "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "gradientMode": "none", "showPoints": "never", "spanNulls": false, "axisPlacement": "auto", "stacking": { "mode": "normal", "group": "A" } },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "primary" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "cache-fresh" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "super-light-green" } } ] },
+          { "matcher": { "id": "byName", "options": "primary-partial" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "light-red" } } ] },
+          { "matcher": { "id": "byName", "options": "cache" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } } ] },
+          { "matcher": { "id": "byName", "options": "cache-partial" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+          { "matcher": { "id": "byName", "options": "none" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (source_label) (increase(jupiter_price_curve_serves_total[1h]))", "legendFormat": "{{source_label}}" } ]
+    },
+    {
+      "id": 11,
+      "type": "state-timeline",
+      "title": "Cheap → expensive — historical window strip",
+      "description": "Where each cycle's price sat in that day's range (zeus_price_position_pct, quantized to 20% bands). The historical companion of the kiosk's live 'Cheap → Expensive %' tile.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "cheapest 0-20%", "color": "green" },
+              "1": { "text": "20-40%", "color": "light-green" },
+              "2": { "text": "40-60%", "color": "yellow" },
+              "3": { "text": "60-80%", "color": "orange" },
+              "4": { "text": "priciest 80-100%", "color": "red" },
+              "5": { "text": "priciest 80-100%", "color": "red" }
+            } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "mergeValues": true, "rowHeight": 0.9, "showValue": "never", "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "floor(max(zeus_price_position_pct) / 20)", "legendFormat": "price window" } ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Whole-home grid power — + import / − export",
+      "description": "Live net grid power from the house meter (zeus_grid_power_w, ~10 s poll). For daily peak/cost analysis see the Consumption Analysis dashboard (link in the dashboard header).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt", "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 1, "fillOpacity": 15, "gradientMode": "opacity", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_grid_power_w)", "legendFormat": "grid power" } ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Current quarter mean (kW)",
+      "description": "Running time-weighted mean whole-home grid power of the in-progress clock quarter — what this quarter would bill at.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 41 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt", "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 2.5 },
+            { "color": "red", "value": 5 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_quarter_mean_kw)" } ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Quarter headroom (kW)",
+      "description": "Peak target minus the projected end-of-quarter mean. Negative = this quarter is on course to exceed the target.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 41 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt", "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 0 },
+            { "color": "green", "value": 1 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_quarter_headroom_kw)" } ]
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Billed peak this month (kW)",
+      "description": "Running monthly capacity-tariff peak (zeus_capacity_peak_kw) — the highest clock-quarter mean so far this month.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 41 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt", "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 2.5 },
+            { "color": "red", "value": 5 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_capacity_peak_kw)" } ]
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Charge-guard trips (range)",
+      "description": "CHARGING overridden to PASSTHROUGH because the clock-quarter projection approached the peak target, over the dashboard time range.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 41 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "orange", "value": 10 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_charge_guard_trips_total[$__range]))" } ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Quarter-hour peak tracking (kW)",
+      "description": "Clock-quarter running mean + 15-min average import vs the running monthly billed peak and the forecast horizon peak. Serves #98's verification and #100's billed-peak reconciliation.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 46 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt", "decimals": 2,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 8, "gradientMode": "none", "showPoints": "never", "spanNulls": true, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "15-min avg import" },
+            "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byName", "options": "clock-quarter mean" },
+            "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "billed peak (month)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [ 8, 6 ] } } ] },
+          { "matcher": { "id": "byName", "options": "predicted horizon peak" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [ 3, 4 ] } },
+              { "id": "custom.lineWidth", "value": 1 } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [ "max" ] }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000", "legendFormat": "15-min avg import" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_quarter_mean_kw)", "legendFormat": "clock-quarter mean" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_capacity_peak_kw)", "legendFormat": "billed peak (month)" },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_predicted_peak_kw)", "legendFormat": "predicted horizon peak" }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Charge-guard trips & shaving misses (per hour)",
+      "description": "Guard trips = protective CHARGING→PASSTHROUGH overrides. Shaving misses = a NEW monthly peak set while the battery sat idle/charging.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 46 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0, "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "gradientMode": "none", "showPoints": "never", "spanNulls": false, "axisPlacement": "auto" },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "guard trips / h" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+          { "matcher": { "id": "byName", "options": "shaving misses / h" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_charge_guard_trips_total[1h]))", "legendFormat": "guard trips / h" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_shaving_miss_total[1h]))", "legendFormat": "shaving misses / h" }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [ "zeus", "jupiter", "price", "grid" ],
+  "templating": { "list": [] },
+  "time": { "from": "now-48h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Price & Grid Monitor",
+  "uid": "price-grid",
+  "version": 1,
+  "weekStart": ""
+}
