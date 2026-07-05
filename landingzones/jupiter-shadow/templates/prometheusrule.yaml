@@ -1,0 +1,263 @@
+{{- if .Values.prometheusRule.enabled }}
+# jupiter-shadow — the SHADOW PARITY HARNESS (jupiter P3.6, card #141).
+#
+# Per evaluation, join zeus's ACTUAL dispatch (Prometheus zeus_* from the LIVE
+# battery in ns zeus) against the tervuren cell's SHADOW plan (jupiter_cell_*
+# in ns jupiter-tervuren) and quantify divergence. Recording rules synthesise a
+# family of jupiter_shadow_* series (all site_id-labelled) that the soak
+# dashboard (uid jupiter-shadow-parity) reads. This is what gates the P4
+# cutover: sustained clean parity = safe to flip a site to live.
+#
+# APPROACH: Prometheus recording rules + a Grafana dashboard ONLY — no new
+# service, no cell edit, no MQTT consumer. Chosen because BOTH stacks already
+# expose the needed setpoints + source codes as scraped metrics:
+#   zeus  : zeus_target_charge_kw / zeus_target_discharge_kw (ns zeus, NO
+#           site_id label — the single tervuren battery), zeus_price_source
+#           (0=primary 1=fallback 2=cache 3=none 4=partial), zeus_forecast_source,
+#           zeus_charge_guard_trips_total.
+#   cell  : jupiter_cell_target_charge_kw / _discharge_kw, jupiter_cell_price_source
+#           (0=primary 1=cache 2=none), jupiter_cell_forecast_source — ALL
+#           carry site_id="tervuren".
+#
+# JOIN MECHANICS: zeus_* has no site_id, so every zeus term is label_replace'd
+# with site_id="tervuren" and joined `on(site_id)` against the cell term. The
+# result set is exactly {site_id="<site>"}. If EITHER side stops exporting, the
+# join yields no samples — the jupiter_shadow_* series simply go absent (the
+# dashboard shows "no data", not a false 0). That absence is the both-present
+# gate (jupiter_shadow_both_present).
+#
+# INTENT DERIVATION mirrors the cell's own jupiter_cell.plan._intent exactly:
+#   charge_kw > 0  -> 1 (charging); discharge_kw > 0 -> 2 (discharging);
+#   else 0 (passthrough/idle). Encoded as
+#   (charge>0) + 2*(discharge>0) — an optimizer never sets both in one slot.
+#
+# PARITY COVERAGE (see card #141 / README for the gap analysis):
+#   FULL from metrics : intent-match, setpoint-delta (kW), guard-conflict,
+#                       and inputs source-CLASS parity (primary vs degraded).
+#   PARTIAL from metrics: inputs_equal attribution. The two source enums are
+#                       NOT numerically identical (zeus has 5 codes, the cell
+#                       3), so we compare a derived degrade-CLASS (source==0 =
+#                       primary/healthy vs !=0 = degraded), NOT the raw code.
+#                       The FINE-GRAINED fingerprint (price_curve_etag,
+#                       forecast_trained_at, running_peak_kw, soc equality)
+#                       lives ONLY in the retained MQTT plan doc
+#                       jupiter/<site>/plan and is NOT scraped — so
+#                       jupiter_shadow_logic_divergence attributes on the
+#                       source-class dimension only. A divergence flagged as
+#                       "logic" here is "logic OR a same-class-but-different-
+#                       curve/soc input" — tightening it to full inputs_equal
+#                       needs an MQTT consumer (documented follow-up, NOT a
+#                       cell edit — the cell is owned by #142).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jupiter-shadow
+  namespace: jupiter-shadow
+  labels:
+    app.kubernetes.io/name: jupiter-shadow
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    # ------------------------------------------------------------------ #
+    # 1. Per-side derived series (site_id-labelled). Recorded first so the  #
+    #    parity rules below read clean, named inputs.                       #
+    # ------------------------------------------------------------------ #
+    - name: jupiter-shadow-derived
+      # Evaluate a touch faster than the default so the soak series track the
+      # ~hourly cycles with headroom (cheap vector math, no range selectors
+      # except the guard window).
+      interval: 30s
+      rules:
+        # zeus commanded intent, from its current-slot setpoints. site_id is
+        # injected so everything downstream keys on it. 0=idle 1=charge 2=discharge.
+        - record: jupiter_shadow_zeus_intent_code
+          expr: |
+            label_replace(
+              (zeus_target_charge_kw > bool 0) + 2 * (zeus_target_discharge_kw > bool 0),
+              "site_id", "{{ .Values.site.id }}", "", ""
+            )
+        # cell shadow-plan intent, same encoding (already site_id-labelled).
+        - record: jupiter_shadow_cell_intent_code
+          expr: |
+            (jupiter_cell_target_charge_kw > bool 0) + 2 * (jupiter_cell_target_discharge_kw > bool 0)
+        # Signed net setpoint (kW): + = net discharge, - = net charge. A single
+        # comparable scalar per side (an optimizer never charges AND discharges
+        # in the same slot, so this is lossless for the current slot).
+        - record: jupiter_shadow_zeus_setpoint_kw
+          expr: |
+            label_replace(
+              zeus_target_discharge_kw - zeus_target_charge_kw,
+              "site_id", "{{ .Values.site.id }}", "", ""
+            )
+        - record: jupiter_shadow_cell_setpoint_kw
+          expr: |
+            jupiter_cell_target_discharge_kw - jupiter_cell_target_charge_kw
+        # Degrade CLASS per side (0=primary/healthy, 1=degraded=any non-primary
+        # code). Normalises the two DIFFERENT source enums (zeus 0..4, cell 0..2)
+        # onto a common axis so a class comparison is meaningful.
+        - record: jupiter_shadow_zeus_price_degraded
+          expr: |
+            label_replace(zeus_price_source > bool 0, "site_id", "{{ .Values.site.id }}", "", "")
+        - record: jupiter_shadow_cell_price_degraded
+          expr: |
+            jupiter_cell_price_source > bool 0
+        - record: jupiter_shadow_zeus_forecast_degraded
+          expr: |
+            label_replace(zeus_forecast_source > bool 0, "site_id", "{{ .Values.site.id }}", "", "")
+        - record: jupiter_shadow_cell_forecast_degraded
+          expr: |
+            jupiter_cell_forecast_source > bool 0
+
+    # ------------------------------------------------------------------ #
+    # 2. Parity series — the harness output the dashboard + soak read.     #
+    # ------------------------------------------------------------------ #
+    - name: jupiter-shadow-parity
+      interval: 30s
+      rules:
+        # Both stacks currently exporting (setpoint gauge present each side).
+        # 1 when both present; ABSENT (not 0) when either is missing — so the
+        # dashboard distinguishes "compared and agree" from "nothing to compare".
+        - record: jupiter_shadow_both_present
+          expr: |
+            (jupiter_shadow_zeus_intent_code > bool -1)
+            * on(site_id)
+            (jupiter_shadow_cell_intent_code > bool -1)
+
+        # INTENT-MATCH: 1 iff both chose the same charge/discharge/idle intent.
+        - record: jupiter_shadow_intent_match
+          expr: |
+            jupiter_shadow_zeus_intent_code == bool on(site_id) jupiter_shadow_cell_intent_code
+
+        # DIVERGENCE: the complement, for easy alerting/soak counting.
+        - record: jupiter_shadow_divergence
+          expr: |
+            jupiter_shadow_zeus_intent_code != bool on(site_id) jupiter_shadow_cell_intent_code
+
+        # SETPOINT-DELTA (kW): zeus_net - cell_net. Signed (who is more
+        # discharge-leaning) and absolute (magnitude of disagreement).
+        - record: jupiter_shadow_setpoint_delta_kw
+          expr: |
+            jupiter_shadow_zeus_setpoint_kw - on(site_id) jupiter_shadow_cell_setpoint_kw
+        - record: jupiter_shadow_setpoint_abs_delta_kw
+          expr: |
+            abs(jupiter_shadow_zeus_setpoint_kw - on(site_id) jupiter_shadow_cell_setpoint_kw)
+
+        # INPUTS attribution (source-CLASS dimension, the metric-visible part).
+        # 1 iff both saw the same price degrade-class; likewise forecast.
+        - record: jupiter_shadow_price_source_class_match
+          expr: |
+            jupiter_shadow_zeus_price_degraded == bool on(site_id) jupiter_shadow_cell_price_degraded
+        - record: jupiter_shadow_forecast_source_class_match
+          expr: |
+            jupiter_shadow_zeus_forecast_degraded == bool on(site_id) jupiter_shadow_cell_forecast_degraded
+        # Combined: both price AND forecast source-classes agree. This is the
+        # metric-visible slice of inputs_equal (see the header note: it does NOT
+        # cover curve-etag / trained-at / soc equality — those need the MQTT doc).
+        - record: jupiter_shadow_inputs_source_match
+          expr: |
+            jupiter_shadow_price_source_class_match * on(site_id) jupiter_shadow_forecast_source_class_match
+
+        # LOGIC divergence: intents differ AND the metric-visible inputs agree
+        # (same source-class). i.e. the divergence is NOT explained by one side
+        # running on a degraded feed while the other ran primary — so it points
+        # at the DISPATCH LOGIC (or a same-class-but-different input the metrics
+        # can't see; see header). This is THE gate signal: a soak that keeps
+        # this at 0 means the shadow logic matches the live logic, safe to flip.
+        - record: jupiter_shadow_logic_divergence
+          expr: |
+            jupiter_shadow_divergence * on(site_id) jupiter_shadow_inputs_source_match
+
+        # INPUTS-attributed divergence: intents differ BUT the source-classes
+        # also differ — the divergence is (at least partly) an INPUTS artefact,
+        # expected/benign, not a logic bug.
+        - record: jupiter_shadow_inputs_divergence
+          expr: |
+            jupiter_shadow_divergence
+            * on(site_id) (jupiter_shadow_inputs_source_match == bool 0)
+
+        # GUARD-CONFLICT: zeus tripped its charge-guard in the last 15m (the
+        # live battery actively suppressed a charge) WHILE the cell's shadow
+        # plan wanted to charge. Surfaces divergences the cell would inherit
+        # once live — a guard-shaped disagreement, not a pure logic one.
+        - record: jupiter_shadow_guard_conflict
+          expr: |
+            (
+              label_replace(
+                increase(zeus_charge_guard_trips_total[15m]) > bool 0,
+                "site_id", "{{ .Values.site.id }}", "", ""
+              ) == bool 1
+            )
+            * on(site_id)
+            (jupiter_cell_target_charge_kw > bool 0)
+
+    # ------------------------------------------------------------------ #
+    # 3. Soak alerts. WARNING only — the shadow harness never actuates; a    #
+    #    fire means "not yet clean enough to cut this site over", a P4       #
+    #    readiness signal, not a live-battery incident.                      #
+    # ------------------------------------------------------------------ #
+    - name: jupiter-shadow-alerts
+      rules:
+        - alert: JupiterShadowHarnessNoData
+          # Neither parity series is producing — one stack stopped exporting,
+          # so the soak is blind. (Absent, not 0: nothing to compare.)
+          expr: absent(jupiter_shadow_both_present)
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter shadow parity harness has no data
+            description: >-
+              jupiter_shadow_both_present has been absent for 30m — zeus_* or
+              jupiter_cell_* stopped being scraped, so the shadow parity harness
+              cannot compare the live dispatch against the cell's shadow plan.
+              Check the zeus and jupiter-cell ServiceMonitors / pods.
+        - alert: JupiterShadowLogicDivergence
+          # Sustained LOGIC-attributed intent divergence: the cell's shadow plan
+          # disagrees with the live dispatch on identical (source-class) inputs.
+          # This is the cutover blocker — it must sit at 0 through a clean soak
+          # before P4 flips the site live. LONG for: rides out single-cycle
+          # boundary blips (the two stacks cycle independently).
+          expr: max by (site_id) (jupiter_shadow_logic_divergence) > 0
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter shadow plan diverges from live dispatch (logic)
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the tervuren cell's shadow
+              plan intent has differed from zeus's live dispatch for 2h while
+              both saw the same price/forecast source-class (so it is NOT an
+              inputs artefact). Investigate the dispatch logic parity before any
+              P4 cutover. NOTE: metric-visible inputs only — confirm curve/soc
+              equality via the MQTT plan doc before concluding a pure logic bug.
+        - alert: JupiterShadowSetpointDelta
+          # The setpoint magnitudes disagree materially even when intents may
+          # match — a sizing (not direction) parity gap.
+          expr: max by (site_id) (jupiter_shadow_setpoint_abs_delta_kw) > {{ .Values.prometheusRule.setpointDeltaKw }}
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter shadow setpoint differs materially from live
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — |zeus_net - cell_net| setpoint
+              has exceeded {{ .Values.prometheusRule.setpointDeltaKw }} kW for 2h.
+              The shadow plan and live dispatch disagree on charge/discharge
+              magnitude; review before cutover.
+        - alert: JupiterShadowGuardConflict
+          # zeus's charge-guard actively suppressed a charge the cell's shadow
+          # plan wanted — a guard-shaped divergence the cell would inherit live.
+          expr: max by (site_id) (jupiter_shadow_guard_conflict) > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter shadow plan conflicts with the live charge-guard
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — zeus tripped its charge-guard
+              (suppressed a charge) while the cell's shadow plan wanted to charge,
+              sustained 30m. The cell would inherit this guard conflict once live;
+              confirm the cell honours the same guard before cutover.
+{{- end }}

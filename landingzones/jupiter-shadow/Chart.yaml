@@ -1,0 +1,11 @@
+apiVersion: v2
+name: jupiter-shadow
+version: 0.1.0
+type: application
+appVersion: "0.1.0"
+description: >-
+  Jupiter shadow-parity harness landing zone (P3.6, card #141). Prometheus
+  recording rules that join zeus's LIVE dispatch (zeus_*) against the tervuren
+  cell's SHADOW plan (jupiter_cell_*) into a jupiter_shadow_* parity family,
+  plus a Grafana soak dashboard (uid jupiter-shadow-parity). Monitoring only —
+  no workload, no actuation; this is what gates the P4 cutover.

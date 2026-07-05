@@ -1,0 +1,335 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Parity at a glance",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Harness live  —  both stacks scraped?",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "COMPARING", "index": 0 } } },
+            { "type": "special", "options": { "match": "null", "result": { "text": "NO DATA", "index": 1 } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_both_present)", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Intent match (now)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "MATCH", "index": 0 }, "0": { "text": "DIVERGED", "index": 1 } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "min by (site_id) (jupiter_shadow_intent_match)", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Logic divergence (now)  —  the cutover gate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "CLEAN", "index": 0 }, "1": { "text": "LOGIC DIVERGES", "index": 1 } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_logic_divergence)", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Setpoint |delta| now (kW)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.25 }, { "color": "red", "value": 0.5 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_setpoint_abs_delta_kw)", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Intent over time",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "state-timeline",
+      "title": "zeus (live) intent  —  0 idle · 1 charge · 2 discharge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 80, "lineWidth": 0 },
+          "mappings": [ { "type": "value", "options": { "0": { "text": "idle", "color": "gray", "index": 0 }, "1": { "text": "charge", "color": "green", "index": 1 }, "2": { "text": "discharge", "color": "orange", "index": 2 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "gray", "value": null }, { "color": "green", "value": 1 }, { "color": "orange", "value": 2 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "auto", "alignValue": "center", "rowHeight": 0.9, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_zeus_intent_code)", "legendFormat": "{{site_id}}" } ]
+    },
+    {
+      "id": 12,
+      "type": "state-timeline",
+      "title": "cell (shadow) intent  —  0 idle · 1 charge · 2 discharge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 80, "lineWidth": 0 },
+          "mappings": [ { "type": "value", "options": { "0": { "text": "idle", "color": "gray", "index": 0 }, "1": { "text": "charge", "color": "green", "index": 1 }, "2": { "text": "discharge", "color": "orange", "index": 2 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "gray", "value": null }, { "color": "green", "value": 1 }, { "color": "orange", "value": 2 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "auto", "alignValue": "center", "rowHeight": 0.9, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_cell_intent_code)", "legendFormat": "{{site_id}}" } ]
+    },
+    {
+      "id": 13,
+      "type": "state-timeline",
+      "title": "Divergence attribution  —  match · logic · inputs",
+      "description": "0 = intents match. 1 = diverged & inputs differ (INPUTS artefact, expected). 2 = diverged & inputs agree (LOGIC — the cutover blocker; metric-visible source-class only).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 90, "lineWidth": 0 },
+          "mappings": [ { "type": "value", "options": { "0": { "text": "match", "color": "green", "index": 0 }, "1": { "text": "inputs divergence", "color": "yellow", "index": 1 }, "2": { "text": "LOGIC divergence", "color": "red", "index": 2 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 2 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "auto", "alignValue": "center", "rowHeight": 0.9, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_inputs_divergence + 2 * jupiter_shadow_logic_divergence)", "legendFormat": "{{site_id}}" } ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Setpoints & inputs",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Net setpoint (kW)  —  + discharge · - charge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 10, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } } ] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_zeus_setpoint_kw)", "legendFormat": "zeus (live) {{site_id}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_cell_setpoint_kw)", "legendFormat": "cell (shadow) {{site_id}}" }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Setpoint delta (kW)  —  zeus_net - cell_net",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 15, "spanNulls": false, "showPoints": "never", "thresholdsStyle": { "mode": "line" } },
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_setpoint_delta_kw)", "legendFormat": "{{site_id}}" } ]
+    },
+    {
+      "id": 23,
+      "type": "state-timeline",
+      "title": "Price source-class match  —  1 same class · 0 differ",
+      "description": "Degrade-class parity: primary(0) vs degraded(!=0). The two source enums differ (zeus 0..4, cell 0..2) so only the class is compared, not the raw code.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 80, "lineWidth": 0 },
+          "mappings": [ { "type": "value", "options": { "1": { "text": "same class", "color": "green", "index": 0 }, "0": { "text": "differ", "color": "yellow", "index": 1 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "yellow", "value": null }, { "color": "green", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "auto", "alignValue": "center", "rowHeight": 0.9, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "min by (site_id) (jupiter_shadow_price_source_class_match)", "legendFormat": "{{site_id}}" } ]
+    },
+    {
+      "id": 24,
+      "type": "state-timeline",
+      "title": "Forecast source-class match  —  1 same class · 0 differ",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 80, "lineWidth": 0 },
+          "mappings": [ { "type": "value", "options": { "1": { "text": "same class", "color": "green", "index": 0 }, "0": { "text": "differ", "color": "yellow", "index": 1 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "yellow", "value": null }, { "color": "green", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "auto", "alignValue": "center", "rowHeight": 0.9, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "min by (site_id) (jupiter_shadow_forecast_source_class_match)", "legendFormat": "{{site_id}}" } ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Soak summary (window)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "Intent-match fraction (window)",
+      "description": "Share of the selected window where zeus and cell intents matched. Cutover target: sustained ~1.0.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 0.95 }, { "color": "green", "value": 0.999 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(jupiter_shadow_intent_match[$__range])", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Logic-divergence minutes (window)",
+      "description": "Cumulative time the LOGIC-attributed divergence was active. Cutover target: 0.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.001 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum_over_time(jupiter_shadow_logic_divergence[$__range]) * 30 / 60", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "Max setpoint |delta| (window, kW)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.25 }, { "color": "red", "value": 0.5 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max_over_time(jupiter_shadow_setpoint_abs_delta_kw[$__range])", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 40,
+      "type": "text",
+      "title": "Coverage & gaps",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 39 },
+      "options": {
+        "mode": "markdown",
+        "content": "**What this harness proves (per cycle, from Prometheus only):** intent-match (charge/discharge/idle), setpoint delta (kW), source-class inputs parity (primary vs degraded), and charge-guard conflict — joining zeus's LIVE `zeus_*` against the tervuren cell's SHADOW `jupiter_cell_*`, keyed on `site_id`.\n\n**`jupiter_shadow_logic_divergence` is the P4 cutover gate:** intents differ *while metric-visible inputs agree*. Sustained 0 across a soak = the shadow logic matches the live logic = safe to flip the site live.\n\n**Partial — `inputs_equal` attribution:** only the source *class* is compared here (the zeus enum has 5 codes, the cell 3, so raw-code equality would be wrong). The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`, `running_peak_kw`, and SoC equality — lives ONLY in the retained MQTT plan doc `jupiter/<site>/plan`, which is not scraped. So a \"logic\" flag here means *logic OR a same-class-but-different-curve/SoC input*. Tightening to full inputs-equality needs an MQTT consumer (follow-up).\n\n**One-sided signals:** the cell exposes no guard-trip or SoC metric yet (guard counters land with jupiter #137; SoC is MQTT-only). Guard-conflict is inferred from zeus's guard trips vs the cell's charge intent."
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [ "jupiter", "shadow", "parity", "soak" ],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Jupiter — Shadow Parity (soak)",
+  "uid": "jupiter-shadow-parity",
+  "version": 1,
+  "weekStart": ""
+}
