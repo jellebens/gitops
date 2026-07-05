@@ -36,4 +36,8 @@
 secret:
   sealedSecret:
     enabled: true
-    encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", HA_TOKEN: "Ag..." }
+    # cell-tervuren EMQX user (minted 2026-07-05; ACL allow jupiter/tervuren/#,
+    # deny else). HA_TOKEN omitted — the shadow cell doesn't read HA until #142.
+    encryptedData:
+      MQTT_USER: "AgCAHrbmOK3a5uQIo+uUeJSCR2YN5NYDTI+sDIJFZ8CuIfg+YnNyYIUQylBR670nKNNyIckv9BmLfxyz0Llhw6dJqzBEhaOhs3ujaPweK/+kFJB4ITX10I96Q8JC53Ysnd4V/5noxiL5mbjNdRl5v8xJTgMeNPv1JoeZTEqxIJW/VDArThcCJ3bcPyPw/NmjS1PjMbZntrw7X0sNwGfpux3Y1CzFwo9vN7bEtmJZZ66GlOz1f3oisSYvnrQCHUql5rLS29SFVEUVIisua2ZwbcFQ9Qvm3emyFZ7wRrbJI00fnsUUuacQsZonBxOlACNB9hFEWygWs3aOIn+Sv/wcUxcOu4gULxoHwJahQIK7siKFBwNg9AgwOwKxnnw4NQ7TbAFpo7U0PMlAGEutE+nt30Lx/Br8ljIulRv6plEvrPckfiJLp8ahc7MFIguA1HR2K68Uaa99liKJ5RZzWcuAjSEtsUWKxYgeGjcb0de97AvUj+30fg3sf6ppZriiAauPSuxc116h9kzmxJwcTnXZVDYgnRQSKmu5u/fHCvEVi2zqaix/OxCggVz+9GxREP9PFyph6MEazwiMVL1Cyz7th3lxvIESv6RIFNWrCP+y43toBGEEpW5vEZlBg2WIX5T4Bq6Tzge15XrpgdJpG3N9FuOAdv9ieJ8yAAKGoGr/wZYzbedkihodS0NKoop4qdiZV1zcsJf3Croni9yjgD3V"
+      MQTT_PASS: "AgB+JCjmM89j/P++kyUDDxXD51D4tsafbLzqhBRSy/4ocwbjfwZe590mTU0hRhIutVTiVlDUBIGzJCeg+fhGM1zKdYcz5UV/vrkpWO+XCJm4/Hpl/eBLRf0g5WUZbPdDphK8z6lpdJ7fXNPAW+RNxuuVdx+iV/IvHSlo4leJJG7PE67PtsWK1nOY8zmeCiqXkPm0qIt1v/1mektrrM5zZmWM+g6vH04EMFnZviVVFNzDaLcefVhNZzbkKhyhDnVePLf10PoIl0a9gxGAGjSPwM0k3AH36ySNhEvX+fTFtLea3/qmbmkNUN6GVh5Rs45biB1wWFyr+FB8cNrEhB7dSSpRkxcTV3Id8Hf7bdETPDtdS4XDNZtq2eeR7l6JWqJxIDTBOLxR/xyF9qd3tOCRiLA2vDQFMw2WysDSHsNMMFlkxhZfHXIWG9h41I7rhUlBIFSIs+ZcUJXO8pUlZ/rggIBcDIfyCNmmMqtw/3zgdG2aKL3YMIklhNkwppBEEH/DtbisXmLxLS0eV9lDt73Zt5CE1xGrg+5sK5XADbaVJPED+PAR0TIrr8aZAPieDk7h4Ah5xhW9dJUoss2a+/j4EJgRcj8itPfGNPzwG21GWt92xDQu6zq/QAYzqcpmKVjBH9P03wT5sMbHV24JChaCHPRpXntxthCbg3Ig50DG5WUiI0+UFS9NzXpRt8mNZVMRJGQodFfOKLIKI939oO4L0UfuolU/PACXPKttASjY"

@@ -60,9 +60,10 @@ spec:
             # alone. Do NOT set this to `live` — that is the P4 cutover (#142).
             - name: CELL_CONTROLLER
               value: "shadow"
-            # Path to the mounted site-config document. Read once the config-
-            # wiring card lands (site_config.load_site_config); harmless now.
-            - name: CELL_CONFIG
+            # Path to the mounted site-config document. resolve_config() (#144,
+            # jupiter v0.4.1+) loads it via load_site_config, cross-checked
+            # against SITE_ID — so the cell runs tervuren's real params.
+            - name: SITE_CONFIG_PATH
               value: "{{ .Values.config.mountPath }}/{{ .Values.config.fileName }}"
           # Per-site secret (MQTT_USER/MQTT_PASS required for publish; HA_TOKEN
           # optional until #142). optional: true so the first sync comes up

@@ -51,6 +51,37 @@ Note the bootstrap file only seeds the built-in DB **when the authenticator
 is first created**; add/rotate users afterwards via the dashboard or
 `emqx ctl`, or wipe the auth mnesia tables before re-bootstrapping.
 
+## Per-client user management (runbook)
+
+Each client authenticates as its own least-privilege user (never `mqtt-admin`).
+Provisioned so far: `homeassistant` (allow `homeassistant/#`+`zeus/#`), `zeus-mqtt`
+(same), `cell-tervuren` (allow `jupiter/tervuren/#`) — `bridge-vesta` was removed
+after the migration. Users live in EMQX's **replicated mnesia built-in DB**
+(survive restarts/node loss) — the bootstrap `users.csv` only seeds on first
+authenticator creation, so runtime users are added via the **admin REST API**,
+not gitops. For disaster-recovery reproducibility they *should* also be added to
+the sealed `users.csv`, but that requires re-sealing the whole file.
+
+**`emqx ctl` does NOT manage authn users** (only `admins` = dashboard logins).
+Use the REST API on the dashboard listener (18083), authenticating as the
+dashboard admin (`admin` / `dashboard-password` from the `mqtt-auth` secret).
+All of this runs in-cluster (18083 is CNP-internal): `kubectl exec -n mqtt
+mqtt-0 -- curl ...` (the emqx image ships `curl`).
+
+1. **Login** → bearer token: `POST /api/v5/login {"username":"admin","password":"<dashboard-password>"}`.
+2. **Create user**: `POST /api/v5/authentication/password_based:built_in_database/users {"user_id":"<name>","password":"<pw>","is_superuser":false}` (200/201). Reset a password with `PUT .../users/<name> {"password":"<pw>"}`.
+3. **Scoped ACL**: `POST /api/v5/authorization/sources/built_in_database/rules/users [{"username":"<name>","rules":[{"topic":"<prefix>/#","permission":"allow","action":"all"},{"topic":"#","permission":"deny","action":"all"}]}]` (204). (Default `no_match=allow`, so the explicit `deny #` is what makes the ACL meaningful; deny is a silent drop, not a disconnect.)
+4. **Seal the creds** for the consumer's namespace/secret and paste into that
+   landing zone's `.config/<env>/<app>.yaml` (blobs are namespace-scoped):
+   `printf '%s' "$PW" | kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd --namespace <ns> --name <secret>`.
+5. **Delete** (cleanup): `DELETE .../users/<name>` + `DELETE .../rules/users/<name>` (204 each). A lingering disconnected session is harmless (can't re-auth) and expires.
+
+**Two gotchas that cost real debugging (2026-07-05):** (a) the hyphenated
+`dashboard-password` secret key needs `go-template '{{index .data "dashboard-password" | base64decode}}'`, not `jsonpath .data.dashboard-password` (which silently returns garbage). (b) Do NOT pipe the admin password *and* a new
+password on one stdin to two `read`s — the admin password carries a newline and
+misframes the second read (a wrong password gets set). Pass the admin password
+via stdin (single `read`) and the new password via a `kubectl cp`'d file.
+
 ## Monitoring (card #125)
 
 - **Scrape**: EMQX 5.8 serves Prometheus text at

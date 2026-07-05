@@ -17,8 +17,9 @@
 
 image:
   repository: jellebens/jupiter-cell
-  # jupiter repo release tag v0.4.0 (arm64, --provenance=false — cluster is arm64).
-  tag: "0.4.0"
+  # jupiter repo release tag v0.4.1 (arm64, --provenance=false — cluster is arm64).
+  # 0.4.1 wires the mounted site document (SITE_CONFIG_PATH, #144).
+  tag: "0.4.1"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
