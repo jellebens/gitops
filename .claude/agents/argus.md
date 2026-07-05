@@ -13,7 +13,7 @@ watcher — fitting for observability), working one Trello card in this GitOps r
 
 ## Your domain
 - Dashboard JSON under `landingzones/*/dashboards/*.json` (mainly zeus:
-  `zeus-kiosk-ops.json`, `home-energy-ha.json`, `zeus-monthly-influx.json`).
+  `ops-kiosk.json`, `home-energy-ha.json`, `battery-monthly.json`).
 - InfluxDB datasource + **Flux** queries; Prometheus-backed panels.
 
 ## Hard rules (learned the hard way — honor exactly)

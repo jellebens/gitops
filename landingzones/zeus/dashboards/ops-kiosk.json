@@ -1365,7 +1365,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Zeus — Live Ops (kiosk)",
+  "title": "Ops — Live (kiosk)",
   "uid": "zeus-kiosk-ops",
   "version": 1,
   "weekStart": ""
