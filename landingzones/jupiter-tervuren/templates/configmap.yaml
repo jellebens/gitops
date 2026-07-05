@@ -1,8 +1,26 @@
 # The tervuren cell site-config document (jupiter_cell.site_config), mounted at
 # {config.mountPath}/{config.fileName} (default /config/site.yaml). Rendered
-# verbatim from .Values.siteConfig — a value-for-value reproduction of the
-# jupiter repo services/cell/sites/tervuren.yaml (#138) so the cell dispatches
-# tervuren EXACTLY as zeus does today. controller stays `shadow` (safety).
+# from .Values.siteConfig — a value-for-value reproduction of the jupiter repo
+# services/cell/sites/tervuren.yaml (#138) so the cell dispatches tervuren
+# EXACTLY as zeus does today. controller stays `shadow` (safety).
+#
+# CACHE PATHS (card #146): when `.Values.cache.enabled` the price/forecast
+# last-good cache paths are OVERRIDDEN to absolute files under the writable
+# emptyDir mounted at `.Values.cache.dir` (see deployment.yaml). The cell
+# (jupiter_cell.clients / jupiter_shared.cache) persists last-good curves via
+# `Path(cache_path)` relative to WORKDIR (/app, root-owned, not writable by
+# uid 1000) — an absolute writable path is what stops the recurring
+# "[Errno 13] Permission denied: 'cache'" warning and lets cross-restart cache
+# rehydration work. Single source of truth for BOTH the mount dir and the cell's
+# config paths is `.Values.cache`, so the mounted volume and the paths the cell
+# writes can never drift apart. Reusable: every future site cell that vendors
+# this chart gets a writable cache the same way.
+{{- $site := deepCopy .Values.siteConfig -}}
+{{- if .Values.cache.enabled -}}
+{{-   $dir := .Values.cache.dir | trimSuffix "/" -}}
+{{-   $_ := set (index $site "price") "cache_path" (printf "%s/%s" $dir .Values.cache.priceFileName) -}}
+{{-   $_ := set (index $site "forecast") "cache_path" (printf "%s/%s" $dir .Values.cache.forecastFileName) -}}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,4 +32,4 @@ metadata:
     app.kubernetes.io/part-of: jupiter
 data:
   {{ .Values.config.fileName }}: |-
-    {{- toYaml .Values.siteConfig | nindent 4 }}
+    {{- toYaml $site | nindent 4 }}

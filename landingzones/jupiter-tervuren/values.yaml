@@ -144,6 +144,39 @@ config:
   mountPath: /config
   fileName: site.yaml
 
+# --- Writable last-good cache (card #146) ----------------------------------
+# The cell persists the last-good price + forecast curves to disk so a pod
+# restart during an upstream (price/forecast-service) outage rehydrates the
+# in-memory last-good cache instead of cold-starting (jupiter_shared.cache /
+# jupiter_cell.clients). It writes to price.cache_path / forecast.cache_path
+# from the site-config document. Those default to a RELATIVE `cache/...` path,
+# which resolves against the container WORKDIR (/app) — root-owned and NOT
+# writable by the non-root runtime uid (1000) — so the cell logs, every cycle:
+#   WARNING could not persist last-good curve to cache/price_last_good.json:
+#   [Errno 13] Permission denied: 'cache'   (and the same for forecast)
+# Effect: cross-restart rehydration is degraded (in-memory last-good still holds
+# within a pod lifetime, so the fail-safe is intact — this is hardening).
+#
+# Fix (REUSABLE — every future site cell gets a writable cache the same way):
+# mount a writable emptyDir at `dir` and, in templates/configmap.yaml, override
+# price.cache_path / forecast.cache_path to absolute files under `dir`. `dir` is
+# the SINGLE source of truth for both the mount and the config paths, so they
+# can never drift. An emptyDir (not a PVC) is deliberate: the cache is a
+# warm-start optimization, not durable state, and the Recreate single-writer
+# model wants no shared/persistent volume. fsGroup (runtime.gid) makes the
+# emptyDir group-writable by uid 1000. Set enabled:false to revert to the
+# (broken) relative-path behaviour.
+cache:
+  enabled: true
+  # Absolute, writable mount point for the last-good cache. Anything outside the
+  # root-owned WORKDIR works; /var/cache is the conventional home for regenerable
+  # cache data.
+  dir: /var/cache/jupiter-cell
+  # File names under `dir` (kept identical to the cell's historical relative
+  # names so the on-disk artefacts are unsurprising).
+  priceFileName: price_last_good.json
+  forecastFileName: forecast_last_good.json
+
 # Scoped CiliumNetworkPolicy. INGRESS-ONLY BY DEFAULT (repo convention, same as
 # zeus + jupiter-central): a Cilium policy with only `ingress` rules default-
 # denies inbound while leaving EGRESS FULLY OPEN. The cell needs egress to the
