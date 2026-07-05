@@ -31,6 +31,21 @@ grafana:
     userKey: admin-user
     passwordKey: admin-password
 
+  # Grafana-folder placement for sidecar-provisioned dashboards (#127).
+  # The sidecar reads the `grafana_folder` annotation on a dashboard ConfigMap
+  # and writes its files into /tmp/dashboards/<annotation value>/;
+  # foldersFromFilesStructure makes the provider turn those subdirectories into
+  # Grafana folders. ConfigMaps WITHOUT the annotation (e.g. the built-in
+  # kube-prometheus-stack dashboards) stay at the root -> "General", unchanged.
+  # Folder placement does not touch dashboard UIDs, so kiosk URLs keep working.
+  # (The dashboard sidecar's reload call is admin-authed via REQ_USERNAME/
+  # REQ_PASSWORD — the unauthed-403 gotcha only affects the datasource path.)
+  sidecar:
+    dashboards:
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+
   # InfluxDB admin token (observability/grafana-influxdb-token) injected as env
   # INFLUXDB_TOKEN; the datasource references it as $INFLUXDB_TOKEN so the token
   # is never stored in plaintext in the provisioned datasource.
