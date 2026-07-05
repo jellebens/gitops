@@ -105,9 +105,28 @@ spec:
             - name: config
               mountPath: {{ .Values.config.mountPath }}
               readOnly: true
+            {{- if .Values.cache.enabled }}
+            # WRITABLE last-good cache (card #146). The cell writes
+            # price/forecast last-good curves here; the configmap points
+            # price.cache_path / forecast.cache_path at files under this same
+            # dir. WORKDIR (/app) is root-owned and NOT writable by uid 1000,
+            # so without this mount the cell logs "[Errno 13] Permission
+            # denied: 'cache'". An emptyDir is sufficient: the cache is a
+            # warm-start optimization, not durable state (in-memory last-good
+            # holds within a pod lifetime), and a fresh emptyDir per restart is
+            # acceptable — a PVC would be overkill and complicate the Recreate
+            # single-writer model. fsGroup ({{ .Values.runtime.gid }}) makes the
+            # emptyDir group-writable by the non-root uid.
+            - name: cache
+              mountPath: {{ .Values.cache.dir }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: jupiter-tervuren-config
+        {{- if .Values.cache.enabled }}
+        - name: cache
+          emptyDir: {}
+        {{- end }}
