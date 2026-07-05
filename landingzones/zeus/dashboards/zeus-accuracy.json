@@ -505,6 +505,852 @@
           "legendFormat": "Predicted €/day (36h horizon × 24/36)"
         }
       ]
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "Frozen forecast vs realized — InfluxDB (long history)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Frozen forecast vs realized — critical load (hourly kWh)",
+      "description": "InfluxDB, unlimited retention (unlike the Prometheus panels above, ~10d). Realized = zeus_load_history.kwh (hourly critical-load energy). Frozen forecast = zeus_forecast_frozen.load_kwh — written ONCE per 15-min slot from the cycle one slot before it and never revised, so it is the honest at-the-time forecast (lead ≈ 15 min); per-slot values × 4 = hourly kWh. Plan forecast = zeus_forecast.load_kwh, rewritten over the whole horizon every cycle (its persisted value is the last nearest-term write) — shown for contrast and for the forward horizon. Frozen data starts 2026-07-01; both frozen and realized queries group() across the site_id tag transition (untagged history + site_id=tervuren since 2026-07-04).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Realized (kWh/h)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 35
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Frozen forecast (kWh/h)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Plan forecast (kWh/h)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dot",
+                  "dash": [
+                    2,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Realized (kWh/h)\"})\n  |> sort(columns: [\"_time\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 4.0}))\n  |> rename(columns: {_value: \"Frozen forecast (kWh/h)\"})\n  |> sort(columns: [\"_time\"])"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value * 4.0}))\n  |> rename(columns: {_value: \"Plan forecast (kWh/h)\"})\n  |> sort(columns: [\"_time\"])"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Rolling MAE — frozen forecast vs realized (1d / 7d / 30d)",
+      "description": "InfluxDB, unlimited retention. Hourly |frozen forecast − realized| for the critical load, smoothed with trailing windows of 1d / 7d / 30d. Frozen data starts 2026-07-01, so the 7d and 30d lines only become meaningful as history accrues. Lower is better; the 1d line reacting while 7d/30d stay flat = a transient miss, all three rising = model drift.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 3,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MAE 1d (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MAE 7d (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MAE 30d (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"experimental\"\nlookback = experimental.subDuration(d: 1d, from: v.timeRangeStart)\nfr = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, frozen: r._value * 4.0}))\nre = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, realized: r._value}))\njoin(tables: {f: fr, r: re}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r.frozen - r.realized >= 0.0 then r.frozen - r.realized else r.realized - r.frozen}))\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1h, period: 1d)\n  |> unique(column: \"_time\")\n  |> filter(fn: (r) => r._time >= v.timeRangeStart)\n  |> rename(columns: {_value: \"MAE 1d (kWh)\"})"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"experimental\"\nlookback = experimental.subDuration(d: 7d, from: v.timeRangeStart)\nfr = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, frozen: r._value * 4.0}))\nre = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, realized: r._value}))\njoin(tables: {f: fr, r: re}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r.frozen - r.realized >= 0.0 then r.frozen - r.realized else r.realized - r.frozen}))\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1h, period: 7d)\n  |> unique(column: \"_time\")\n  |> filter(fn: (r) => r._time >= v.timeRangeStart)\n  |> rename(columns: {_value: \"MAE 7d (kWh)\"})"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"experimental\"\nlookback = experimental.subDuration(d: 30d, from: v.timeRangeStart)\nfr = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, frozen: r._value * 4.0}))\nre = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, realized: r._value}))\njoin(tables: {f: fr, r: re}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: if r.frozen - r.realized >= 0.0 then r.frozen - r.realized else r.realized - r.frozen}))\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1h, period: 30d)\n  |> unique(column: \"_time\")\n  |> filter(fn: (r) => r._time >= v.timeRangeStart)\n  |> rename(columns: {_value: \"MAE 30d (kWh)\"})"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Rolling bias — frozen forecast − realized (1d / 7d / 30d)",
+      "description": "InfluxDB, unlimited retention. Signed hourly error (frozen forecast − realized) for the critical load, smoothed with trailing windows of 1d / 7d / 30d. Above zero = the model over-forecasts, below = under-forecasts; a persistent offset in the 7d/30d lines is systematic bias the fit should be absorbing. Frozen data starts 2026-07-01.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 59
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 3,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "axisCenteredZero": true
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bias 1d (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bias 7d (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bias 30d (kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"experimental\"\nlookback = experimental.subDuration(d: 1d, from: v.timeRangeStart)\nfr = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, frozen: r._value * 4.0}))\nre = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, realized: r._value}))\njoin(tables: {f: fr, r: re}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.frozen - r.realized}))\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1h, period: 1d)\n  |> unique(column: \"_time\")\n  |> filter(fn: (r) => r._time >= v.timeRangeStart)\n  |> rename(columns: {_value: \"Bias 1d (kWh)\"})"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"experimental\"\nlookback = experimental.subDuration(d: 7d, from: v.timeRangeStart)\nfr = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, frozen: r._value * 4.0}))\nre = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, realized: r._value}))\njoin(tables: {f: fr, r: re}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.frozen - r.realized}))\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1h, period: 7d)\n  |> unique(column: \"_time\")\n  |> filter(fn: (r) => r._time >= v.timeRangeStart)\n  |> rename(columns: {_value: \"Bias 7d (kWh)\"})"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"experimental\"\nlookback = experimental.subDuration(d: 30d, from: v.timeRangeStart)\nfr = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, frozen: r._value * 4.0}))\nre = from(bucket: \"zeus\")\n  |> range(start: lookback, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, realized: r._value}))\njoin(tables: {f: fr, r: re}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.frozen - r.realized}))\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1h, period: 30d)\n  |> unique(column: \"_time\")\n  |> filter(fn: (r) => r._time >= v.timeRangeStart)\n  |> rename(columns: {_value: \"Bias 30d (kWh)\"})"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Realized load by target — critical / A/C plug / whole-home grid",
+      "description": "The forecaster's training targets side by side (InfluxDB). Critical load = zeus_load_history.kwh (hourly). A/C plug = zeus_load_history.ac_kwh — the two_component forecaster's second target, accruing to InfluxDB only since 2026-07-04 (JUPITER P2.1), so it is sparse. Whole-home grid = mean grid draw per hour (zeus_grid_power_w history ∪ zeus_state.grid_power_w, /1000) ≈ kWh/h; note this is grid IMPORT, i.e. consumption net of battery/PV flows, not true whole-home consumption. Only the critical-load forecast is persisted (zeus_forecast/zeus_forecast_frozen carry load_kwh only), so forecast-vs-realized scoring above is critical-load only — the A/C and whole-home targets have no persisted forecast series yet.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Critical load (kWh/h)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "A/C plug (kWh/h)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Whole-home grid (kWh/h)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Critical load (kWh/h)\"})\n  |> sort(columns: [\"_time\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"ac_kwh\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"A/C plug (kWh/h)\"})\n  |> sort(columns: [\"_time\"])"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "hist = from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 1000.0}))\n  |> rename(columns: {_value: \"Whole-home grid (kWh/h)\"})\n  |> sort(columns: [\"_time\"])"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Model health",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 75
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Training window + forecast source",
+      "description": "zeus_training_window_days = span of the load history the forecaster was fit on this cycle; a sharp drop means InfluxDB returned a partial read and the CSV fallback was unavailable — the forecaster is training on too short a window. Forecast source (right axis, 0 = in-process fit, 1 = jupiter forecast-service) shows which fit served each cycle — context for the #124 parity checkpoint. Prometheus, ~10d retention.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 76
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Training window (days)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Forecast source (0=local, 1=jupiter)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_training_window_days)",
+          "range": true,
+          "instant": false,
+          "legendFormat": "Training window (days)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_forecast_source)",
+          "range": true,
+          "instant": false,
+          "legendFormat": "Forecast source (0=local, 1=jupiter)"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Capacity peak — predicted horizon peak vs billed monthly peak (kW)",
+      "description": "Predicted horizon peak = zeus_predicted_peak_kw (Prometheus, ~10d retention; 0 when peak shaving is off) — the highest whole-home grid-import power the forecaster sees over the coming horizon. Billed monthly peak = zeus_state.capacity_peak_kw (InfluxDB, unlimited retention) — the running peak the capacity tariff bills on; it steps up when a 15-min draw sets a new monthly record and resets each month. The peak-slot hit-rate scoreline (predicted slots vs realized top-K draws) lives in the top panel of this dashboard.",
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 76
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "decimals": 2,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Predicted horizon peak (kW)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Billed monthly peak (kW)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              },
+              {
+                "id": "custom.gradientMode",
+                "value": "opacity"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(zeus_predicted_peak_kw)",
+          "range": true,
+          "instant": false,
+          "legendFormat": "Predicted horizon peak (kW)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"capacity_peak_kw\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: max, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Billed monthly peak (kW)\"})\n  |> sort(columns: [\"_time\"])"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "JUPITER forecast-service parity (#124)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 84
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "text",
+      "title": "Placeholder — JUPITER forecast-service parity (P2 checkpoint, #124)",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 85
+      },
+      "options": {
+        "mode": "markdown",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "### Reserved for the central-vs-in-process parity panels (card #124, P2 checkpoint)\n\nPlanned here once the parity checkpoint lands:\n\n- served-forecast delta: jupiter forecast-service vs in-process fit, same cycle / same slots\n- parity MAE and worst-slot delta over the soak window\n- `zeus_forecast_source` flips and `zeus_forecast_model_age_seconds` during the soak\n- backtest-oracle score, once available\n\n**Known instrumentation gaps** (why some #131 panels are absent from this dashboard):\n\n- **Temp-slope drift** (cooling kWh/°C): `TempAwareForecaster` only *logs* its fitted slope — it is not exported to Prometheus or persisted to InfluxDB, so no drift panel is possible yet. Needs a small zeus change (gauge or `zeus_state` field) first.\n- **Per-forecaster MAE split** (TempAware / TwoComponent / Baseline): persisted forecasts carry no tag or field identifying which fit served, so rolling error cannot be attributed per forecaster.\n- **Whole-home & A/C forecasts are not persisted** — `zeus_forecast` / `zeus_forecast_frozen` carry only the critical-load `load_kwh`, so forecast-vs-realized scoring is critical-load only."
+      }
     }
   ],
   "refresh": "5m",
