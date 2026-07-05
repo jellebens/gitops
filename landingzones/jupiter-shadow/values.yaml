@@ -1,0 +1,35 @@
+# jupiter-shadow landing zone — the shadow parity harness (jupiter P3.6, #141).
+#
+# A MONITORING-ONLY chart: no Deployment, no Service, no Secret, no PVC. It
+# ships only (a) a PrometheusRule of jupiter_shadow_* RECORDING rules that join
+# the already-scraped zeus_* (live dispatch) and jupiter_cell_* (shadow plan)
+# series, and (b) a Grafana dashboard ConfigMap the sidecar discovers. Nothing
+# here reaches the live battery or the cell; it observes both from Prometheus.
+
+# The site under shadow. zeus_* has NO site_id label (the single tervuren
+# battery), so the recording rules inject this value onto every zeus term
+# before joining `on(site_id)` against the site-labelled jupiter_cell_* series.
+# One harness instance = one site today; a second site becomes a second landing
+# zone (or a values-driven loop) once a second cell soaks.
+site:
+  id: tervuren
+
+# Grafana dashboard provisioned as a ConfigMap, discovered by the
+# kube-prometheus-stack Grafana sidecar (watches all namespaces). Same pattern
+# as landingzones/zeus. Adds ONE new dashboard (uid jupiter-shadow-parity);
+# the kiosk and every existing dashboard are untouched.
+dashboard:
+  enabled: true
+  # Label the sidecar watches for (kube-prometheus-stack default).
+  sidecarLabel: grafana_dashboard
+
+# Prometheus recording + alerting rules (kube-prometheus-stack ruleSelector
+# picks these up by label). The recording rules are the harness itself.
+prometheusRule:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+  # JupiterShadowSetpointDelta warning threshold (kW): the absolute net-setpoint
+  # gap |zeus_net - cell_net| that, sustained 2h, means the shadow plan and live
+  # dispatch disagree on magnitude enough to review before cutover. Deliberately
+  # conservative starting pick — tune against observed soak deltas.
+  setpointDeltaKw: 0.5

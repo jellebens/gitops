@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jupiter-shadow
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Shadow-parity harness (jupiter P3.6, card #141). Monitoring only — it
+    # reads zeus_* and jupiter_cell_* from Prometheus, so it must come AFTER the
+    # zeus landing zone (30) and the jupiter-tervuren cell that produce those
+    # series. Nothing depends on it, so it sits at the tail.
+    argocd.argoproj.io/sync-wave: "40"
+spec:
+  project: landing-zones
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jupiter-shadow
+  sources:
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      path: landingzones/jupiter-shadow
+      helm:
+        releaseName: jupiter-shadow
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/jupiter-shadow.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
