@@ -1,0 +1,570 @@
+{
+  "annotations": { "list": [] },
+  "description": "GitOps & data health (#129): the Argo CD application matrix (sync/health per app — the 'would have caught the mqtt OutOfSync at a glance' view), InfluxDB data freshness for the key zeus measurements (staleness matters more than engine internals — ADR-0011), and InfluxDB pod/PVC health. Datasources: prometheus + influxdb (both static-mounted).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Argo CD — application sync & health",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Applications",
+      "description": "Total Argo CD Applications reporting argocd_app_info (application-controller scrape).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "count(argocd_app_info)", "instant": true, "legendFormat": "Applications" } ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Not synced",
+      "description": "Applications whose sync_status is not Synced (OutOfSync or Unknown). Anything non-zero deserves a look at the matrix below.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "count(argocd_app_info{sync_status!=\"Synced\"}) or vector(0)", "instant": true, "legendFormat": "Not synced" } ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Unhealthy",
+      "description": "Applications whose health_status is not Healthy (Progressing/Degraded/Missing/Unknown/Suspended).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "count(argocd_app_info{health_status!=\"Healthy\"}) or vector(0)", "instant": true, "legendFormat": "Unhealthy" } ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Sync operations — last 24h",
+      "description": "sum(increase(argocd_app_sync_total[24h])). Counter series only exist for apps that have synced since the controller started, so 0 here means 'no sync activity', not a scrape gap.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(increase(argocd_app_sync_total[24h])) or vector(0)", "legendFormat": "Syncs (24h)" } ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Application matrix — sync / health / auto-sync",
+      "description": "One row per Argo CD Application (argocd_app_info). Sync: Synced=green, OutOfSync=red, Unknown=orange (Unknown is how e.g. a comparison error or an unreachable repo shows up). Health: Healthy=green, Progressing=blue, Degraded/Missing=red, Suspended/Unknown=orange. A per-app last-reconcile timestamp is not exported by the application-controller, so sync activity (bottom-left panel) is the closest proxy.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Sync" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "Synced": { "color": "green", "index": 0 },
+                  "OutOfSync": { "color": "red", "index": 1 },
+                  "Unknown": { "color": "orange", "index": 2 }
+                } }
+              ] },
+              { "id": "custom.width", "value": 140 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Health" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "Healthy": { "color": "green", "index": 0 },
+                  "Progressing": { "color": "blue", "index": 1 },
+                  "Degraded": { "color": "red", "index": 2 },
+                  "Missing": { "color": "red", "index": 3 },
+                  "Suspended": { "color": "orange", "index": 4 },
+                  "Unknown": { "color": "orange", "index": 5 }
+                } }
+              ] },
+              { "id": "custom.width", "value": 140 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Auto-sync" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "true": { "color": "green", "index": 0, "text": "on" },
+                  "false": { "color": "red", "index": 1, "text": "OFF" }
+                } }
+              ] },
+              { "id": "custom.width", "value": 120 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": [ "sum" ], "show": false },
+        "showHeader": true,
+        "sortBy": [ { "desc": false, "displayName": "Application" } ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Value": true },
+            "includeByName": {},
+            "indexByName": { "name": 0, "project": 1, "sync_status": 2, "health_status": 3, "autosync_enabled": 4 },
+            "renameByName": {
+              "name": "Application",
+              "project": "Project",
+              "sync_status": "Sync",
+              "health_status": "Health",
+              "autosync_enabled": "Auto-sync"
+            }
+          }
+        }
+      ],
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum by (name, project, sync_status, health_status, autosync_enabled) (argocd_app_info)",
+        "format": "table", "instant": true } ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Sync operations by app (per hour)",
+      "description": "sum by (name) of increase(argocd_app_sync_total[1h]). Only apps that have synced since the application-controller last started have a series here — absence means no syncs, not a broken scrape.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "barAlignment": 0, "lineWidth": 1, "fillOpacity": 70, "gradientMode": "none", "spanNulls": false, "showPoints": "never", "stacking": { "mode": "normal", "group": "A" }, "axisPlacement": "auto", "axisLabel": "syncs / h", "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum by (name) (increase(argocd_app_sync_total[1h]))", "legendFormat": "{{name}}" } ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Reconcile activity (controller-wide)",
+      "description": "sum(rate(argocd_app_reconcile_count[10m])) * 60 — application reconciliations per minute across the controller. A flatline at 0 means the application-controller stopped reconciling (or the scrape died); per-app last-reconcile timestamps are not exported.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "opm", "min": 0, "decimals": 1,
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 12, "gradientMode": "none", "spanNulls": true, "showPoints": "never", "axisPlacement": "auto", "axisLabel": "reconciles / min", "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(rate(argocd_app_reconcile_count[10m])) * 60", "legendFormat": "reconciles/min" } ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "InfluxDB — zeus data freshness (age of last point)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "zeus_state — age",
+      "description": "Age of the newest zeus_state point (full operational state, written every 15-min optimizer cycle). Healthy: under ~16 min. Orange = 2 missed cycles (30 min), red = 4 (1 h).",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 1800 }, { "color": "red", "value": 3600 } ] },
+          "noValue": "no points in 48h",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"soc_pct\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "zeus_savings — age",
+      "description": "Age of the newest zeus_savings point (today's realized savings, written each 15-min cycle when the savings report computes). Slightly laxer than zeus_state because it is gated on the report: orange 45 min, red 2 h.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 2700 }, { "color": "red", "value": 7200 } ] },
+          "noValue": "no points in 48h",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"zeus_savings\" and r._field == \"today_eur\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "zeus_load_history — age",
+      "description": "Age of the newest zeus_load_history point (realized hourly load; the point is STAMPED at the last completed hour, so 1–2 h is normal). Orange 3 h, red 6 h — the forecaster trains on this series.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 10800 }, { "color": "red", "value": 21600 } ] },
+          "noValue": "no points in 7d",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "zeus_forecast_frozen — age",
+      "description": "Age of the newest zeus_forecast_frozen point. Written once per cycle, stamped at the NEXT slot start (~+15 min), so a healthy value is NEGATIVE (up to -15 min). It only climbs positive when zeus stops writing: orange 30 min, red 1 h.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 27 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 1800 }, { "color": "red", "value": 3600 } ] },
+          "noValue": "no points in 48h",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h, stop: 2h)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "zeus_forecast — horizon remaining",
+      "description": "How far into the FUTURE the newest zeus_forecast point reaches (the whole 36 h horizon is rewritten every cycle, so healthy is ~35–36 h and it shrinks when zeus stops). Orange under 30 h, red under 24 h.",
+      "datasource": { "type": "influxdb", "uid": "influxdb" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "orange", "value": 86400 }, { "color": "green", "value": 108000 } ] },
+          "noValue": "no future points",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -6h, stop: 48h)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast\" and r._field == \"load_kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: r._time) - int(v: now())) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Horizon remaining\"})" } ]
+    },
+    {
+      "id": 15,
+      "type": "text",
+      "title": "Freshness thresholds — why these numbers",
+      "gridPos": { "h": 5, "w": 18, "x": 6, "y": 32 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "mode": "markdown",
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "Thresholds derive from each series' write cadence in `zeus/main.py` (all writes happen in the 15-min optimizer cycle):\n\n| measurement | cadence / stamping | orange | red |\n|---|---|---|---|\n| `zeus_state` | every cycle, stamped *now* | 30 min (2 missed cycles) | 1 h |\n| `zeus_savings` | every cycle, gated on the savings report | 45 min | 2 h |\n| `zeus_load_history` | hourly series, stamped at the last **completed** hour (1–2 h age is normal) | 3 h | 6 h |\n| `zeus_forecast_frozen` | once per cycle, stamped at the **next** slot (healthy age is negative) | 30 min | 1 h |\n| `zeus_forecast` | whole 36 h horizon rewritten every cycle → tracked as *horizon remaining*, not age | < 30 h | < 24 h |\n\nAll queries `group()` across tags, so the `site_id=tervuren` tagging (JUPITER D5) and older untagged points are both covered."
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "InfluxDB — pod & storage health (namespace influxdb)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Scrape up",
+      "description": "up{job=\"influxdb-influxdb2\"} — Prometheus scrape of InfluxDB's built-in /metrics (ServiceMonitor in platform/influxdb-config).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "DOWN", "index": 0 },
+              "1": { "text": "UP", "index": 1 }
+            } }
+          ],
+          "noValue": "no scrape"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "min(up{job=\"influxdb-influxdb2\", namespace=\"influxdb\"})", "instant": true, "legendFormat": "up" } ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Container restarts",
+      "description": "sum(kube_pod_container_status_restarts_total{namespace=\"influxdb\"}) — lifetime restarts of the InfluxDB pod's containers (resets when the pod is recreated).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 3 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"influxdb\"})", "instant": true, "legendFormat": "restarts" } ]
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Data PVC used",
+      "description": "Data PVC usage % (kubelet volume stats; the SMB backup PVCs are excluded — SMB reports share-wide numbers, not PVC-scoped ones).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 1, "min": 0, "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 75 }, { "color": "red", "value": 90 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "100 * sum(kubelet_volume_stats_used_bytes{namespace=\"influxdb\", persistentvolumeclaim!~\".*backup.*\"}) / sum(kubelet_volume_stats_capacity_bytes{namespace=\"influxdb\", persistentvolumeclaim!~\".*backup.*\"})", "instant": true, "legendFormat": "used %" } ]
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Data PVC free",
+      "description": "Free space on the data PVC (backup PVCs excluded). Orange under 20 GiB, red under 10 GiB.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes", "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "orange", "value": 10737418240 }, { "color": "green", "value": 21474836480 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"influxdb\", persistentvolumeclaim!~\".*backup.*\"})", "instant": true, "legendFormat": "free" } ]
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Memory (working set)",
+      "description": "container_memory_working_set_bytes of the influxdb2 container. The pod limit is 1 GiB — orange at 768 MiB, red at 950 MiB (OOM-kill territory).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes", "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 805306368 }, { "color": "red", "value": 996147200 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(container_memory_working_set_bytes{namespace=\"influxdb\", container=\"influxdb2\"})", "instant": true, "legendFormat": "working set" } ]
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "CPU",
+      "description": "CPU usage of the influxdb2 container (% of one core, 5m rate). This instance idles well under 1%; sustained double digits would be unusual.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 2, "min": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 50 }, { "color": "red", "value": 85 } ] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"influxdb\", container=\"influxdb2\"}[5m]))", "legendFormat": "cpu %" } ]
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "Memory — working set vs 1 GiB limit",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 43 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes", "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 10, "gradientMode": "none", "spanNulls": true, "showPoints": "never", "axisPlacement": "auto", "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "memory limit" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [ 10, 6 ] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": { "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"influxdb\", container=\"influxdb2\"})", "legendFormat": "working set" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(kube_pod_container_resource_limits{namespace=\"influxdb\", container=\"influxdb2\", resource=\"memory\"})", "legendFormat": "memory limit" }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Data PVC usage %",
+      "description": "kubelet volume stats for the data PVC (backup PVCs excluded). InfluxDB compactions need headroom well before 100%.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 43 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100, "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 75 }, { "color": "red", "value": 90 } ] },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 15, "gradientMode": "none", "spanNulls": true, "showPoints": "never", "axisPlacement": "auto", "thresholdsStyle": { "mode": "line" } },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "100 * sum(kubelet_volume_stats_used_bytes{namespace=\"influxdb\", persistentvolumeclaim!~\".*backup.*\"}) / sum(kubelet_volume_stats_capacity_bytes{namespace=\"influxdb\", persistentvolumeclaim!~\".*backup.*\"})", "legendFormat": "used %" } ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [ "gitops", "argocd", "influxdb", "freshness", "ops" ],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "GitOps & Data Health",
+  "uid": "gitops-data-health",
+  "version": 1,
+  "weekStart": ""
+}
