@@ -1,0 +1,88 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped CiliumNetworkPolicy for the tervuren jupiter cell.
+#
+# DEFAULT: INGRESS-ONLY (repo convention, same as zeus + jupiter-central + the
+# MQTT broker). A Cilium policy that specifies only `ingress` rules puts the
+# selected endpoint into default-deny for INGRESS only; its EGRESS stays FULLY
+# OPEN. That is deliberate: the cell must egress to the in-cluster price/forecast
+# services AND to the EMQX broker at mqtt.lab.local (a LoadBalancer VIP,
+# 192.168.50.181, reached OFF-cluster as a `world`/CIDR entity) plus cluster
+# DNS. A broad egress default-deny that missed any of those would SEVER the cell
+# (no plans, no telemetry), so it is left as a deliberate, human-reviewed
+# OPT-IN (networkPolicy.egress.enabled, default false) — never shipped on by an
+# agent. Even so the cell NEVER commands the battery in shadow, but severing its
+# feeds is still an availability regression we refuse to ship blind.
+#
+# Inbound allowed (always):
+#   - the observability namespace: Prometheus scrapes /metrics and the kubelet
+#     /healthz probes come from the node host, which Cilium's `cluster` entity
+#     covers when ingress policy is enforced (same as the live zeus pod).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: jupiter-cell
+  namespace: jupiter-tervuren
+  labels:
+    app.kubernetes.io/name: jupiter-cell
+    app.kubernetes.io/instance: jupiter-tervuren
+    app.kubernetes.io/part-of: jupiter
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: jupiter-cell
+  ingress:
+    # Prometheus scrape of /metrics + kubelet /healthz probes (node host is part
+    # of the `cluster` entity). Scoped to the metrics/health port.
+    - fromEntities:
+        - cluster
+      fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.service.port | quote }}
+              protocol: TCP
+  {{- if .Values.networkPolicy.egress.enabled }}
+  # OPT-IN egress lockdown (human-reviewed). Enabling this flips the cell into
+  # egress default-deny — ONLY the destinations below are then reachable. Every
+  # one of these MUST be present or the cell loses a feed:
+  egress:
+    # DNS to cluster CoreDNS/kube-dns — REQUIRED so the cell can resolve the
+    # in-cluster service names AND mqtt.lab.local (forwarded by coredns-lab).
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # Central price + forecast services in jupiter-central (8080).
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.egress.centralNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.networkPolicy.egress.centralPort | quote }}
+              protocol: TCP
+    # EMQX broker VIP on the LAN (mqtt.lab.local). LoadBalancer traffic leaves
+    # the cluster to a LAN address, so this is a toCIDR rule (off-cluster),
+    # not toEndpoints.
+    - toCIDR:
+        - {{ .Values.networkPolicy.egress.mqttCIDR | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.networkPolicy.egress.mqttPort | quote }}
+              protocol: TCP
+    # Home Assistant (vesta) REST — for #142 readiness; harmless now (the
+    # shadow loop does not read HA yet).
+    - toCIDR:
+        - {{ .Values.networkPolicy.egress.haCIDR | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.networkPolicy.egress.haPort | quote }}
+              protocol: TCP
+  {{- end }}
+{{- end }}

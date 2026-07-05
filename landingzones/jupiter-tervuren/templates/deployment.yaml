@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupiter-cell
+  namespace: jupiter-tervuren
+  labels:
+    app.kubernetes.io/name: jupiter-cell
+    app.kubernetes.io/instance: jupiter-tervuren
+    app.kubernetes.io/part-of: jupiter
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jupiter-cell
+      app.kubernetes.io/instance: jupiter-tervuren
+  # Single control loop per site. Recreate: never run two cells for one site
+  # side by side — they would publish conflicting plans (and, post-cutover,
+  # conflicting battery commands). Same discipline as zeus.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jupiter-cell
+        app.kubernetes.io/instance: jupiter-tervuren
+        app.kubernetes.io/part-of: jupiter
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.secret.sealedSecret.enabled .Values.secret.sealedSecret.encryptedData }}
+        checksum/secret: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: cell
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            # D4 site identity. app.py config_from_env() reads SITE_ID; it keys
+            # the metric labels, cache paths and MQTT topics (jupiter/tervuren/*).
+            - name: SITE_ID
+              value: {{ .Values.siteId | quote }}
+            # SAFETY: hard-default the controller to shadow. The 0.4.0 entrypoint
+            # builds config from config_from_env() (which defaults controller to
+            # shadow via DEFAULT_CONTROLLER); this env makes shadow EXPLICIT and
+            # visible on the pod, and is honored the moment the config-wiring card
+            # reads the mounted document. The image additionally REFUSES to run
+            # `live` in 0.4.0, so this is belt-and-braces, never load-bearing
+            # alone. Do NOT set this to `live` — that is the P4 cutover (#142).
+            - name: CELL_CONTROLLER
+              value: "shadow"
+            # Path to the mounted site-config document. resolve_config() (#144,
+            # jupiter v0.4.1+) loads it via load_site_config, cross-checked
+            # against SITE_ID — so the cell runs tervuren's real params.
+            - name: SITE_CONFIG_PATH
+              value: "{{ .Values.config.mountPath }}/{{ .Values.config.fileName }}"
+          # Per-site secret (MQTT_USER/MQTT_PASS required for publish; HA_TOKEN
+          # optional until #142). optional: true so the first sync comes up
+          # before the seal is provided — a missing MQTT cred just makes the
+          # best-effort publish a no-op (telemetry only, never actuation).
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secret.name }}
+                optional: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          # /healthz is served by the stdlib ThreadingHTTPServer on a daemon
+          # thread — up before any price/forecast I/O and returns 200 even
+          # before the first cycle. A degraded cycle (no price/forecast) is NOT
+          # unhealthy; only a wedged process fails the probe.
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: {{ .Values.config.mountPath }}
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: jupiter-tervuren-config

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jupiter-tervuren
+  labels:
+    app.kubernetes.io/name: jupiter-tervuren
+    app.kubernetes.io/part-of: jupiter

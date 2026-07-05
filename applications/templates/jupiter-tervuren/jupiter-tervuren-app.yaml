@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jupiter-tervuren
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Per-site jupiter CELL (tervuren), SHADOW mode. After jupiter-central (20)
+    # — the cell consumes the central price/forecast services — and after the
+    # MQTT broker (16). Placed at 35 (zeus is 30): the shadow cell only reads
+    # from those and publishes telemetry; it commands nothing, so ordering vs
+    # zeus is not safety-critical, but keeping it after its dependencies avoids
+    # noisy first-sync degrade cycles.
+    argocd.argoproj.io/sync-wave: "35"
+spec:
+  project: landing-zones
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jupiter-tervuren
+  sources:
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      path: landingzones/jupiter-tervuren
+      helm:
+        releaseName: jupiter-tervuren
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/jupiter-tervuren.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
