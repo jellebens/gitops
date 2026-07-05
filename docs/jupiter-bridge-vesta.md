@@ -15,8 +15,8 @@ happens automatically on merge.
 
 ## How Mosquitto runs on vesta (investigated 2026-07-04)
 
-- vesta (`vesta.local` = 192.168.50.18) runs **Home Assistant OS** — the
-  Supervisor observer answers on `http://vesta.local:4357` (verified). SSH
+- vesta (`vesta.lab.local` = 192.168.50.18, A record in the lab.local zone) runs **Home Assistant OS** — the
+  Supervisor observer answers on `http://vesta.lab.local:4357` (verified). SSH
   key auth is not set up for automation (probe: publickey/password denied),
   so everything below is owner-run.
 - Mosquitto is therefore the official **Mosquitto broker add-on**
@@ -189,8 +189,8 @@ own vesta-broker credentials (any existing HA mosquitto user).
 5. Count retained discovery state on **vesta** (owner credentials):
 
    ```sh
-   mosquitto_sub -h vesta.local -u <user> -P <pw> -t 'homeassistant/#' -v -W 10 | wc -l
-   mosquitto_sub -h vesta.local -u <user> -P <pw> -t 'zeus/#' -v -W 10 | wc -l
+   mosquitto_sub -h vesta.lab.local -u <user> -P <pw> -t 'homeassistant/#' -v -W 10 | wc -l
+   mosquitto_sub -h vesta.lab.local -u <user> -P <pw> -t 'zeus/#' -v -W 10 | wc -l
    ```
 
    Note both numbers. (This baseline could not be taken by the agent: no SSH
@@ -243,7 +243,7 @@ own vesta-broker credentials (any existing HA mosquitto user).
     the cluster broker and see it arrive on vesta:
 
     ```sh
-    mosquitto_sub -h vesta.local -u <user> -P <pw> -t zeus/bridge_test &
+    mosquitto_sub -h vesta.lab.local -u <user> -P <pw> -t zeus/bridge_test &
     mosquitto_pub -h mqtt.lab.local -u bridge-vesta -P "$BRIDGE_PW" -t zeus/bridge_test -m hello-from-cluster -q 1
     ```
 
