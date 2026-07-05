@@ -38,6 +38,11 @@ dashboard:
   enabled: true
   # Label the sidecar watches for (kube-prometheus-stack default).
   sidecarLabel: grafana_dashboard
+  # Grafana folder the dashboards are provisioned into, via the sidecar's
+  # folder annotation (FOLDER_ANNOTATION=grafana_folder, set in
+  # .config/lab/observability.yaml). Program-level "Jupiter" grouping (#127).
+  folderAnnotation: grafana_folder
+  folder: Jupiter
 
 # Persist generated savings reports + history on NAS001 (SMB) so data survives
 # node loss. Backed by the csi-driver-smb 'smb' StorageClass.

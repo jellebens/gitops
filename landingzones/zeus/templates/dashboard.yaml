@@ -9,6 +9,12 @@ metadata:
     app.kubernetes.io/part-of: zeus
     # Picked up by the kube-prometheus-stack Grafana dashboard sidecar (NAMESPACE=ALL).
     {{ .Values.dashboard.sidecarLabel }}: "1"
+  {{- if .Values.dashboard.folder }}
+  annotations:
+    # Grafana folder placement: the sidecar (FOLDER_ANNOTATION=grafana_folder)
+    # files every dashboard in this ConfigMap under this Grafana folder (#127).
+    {{ .Values.dashboard.folderAnnotation }}: {{ .Values.dashboard.folder | quote }}
+  {{- end }}
 data:
 {{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
   {{ base $path }}: |
