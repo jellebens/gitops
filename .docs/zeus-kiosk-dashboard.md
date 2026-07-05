@@ -1,15 +1,16 @@
-# Zeus — Live (kiosk) dashboard
+# Battery — Live (kiosk) dashboard
 
 A compact, glanceable Grafana dashboard for the Zeus battery optimizer, sized for
 the **Rackmate T1 GeeekPi 1280×400 TFT** (ultra-wide, ~13 grid rows tall, no
 scroll). It answers "what is the battery doing **right now**, how did today go,
 and is the service healthy?"
 
-- **Grafana UID:** `zeus-kiosk` — title "Zeus — Live (kiosk)"
+- **Grafana UID:** `zeus-kiosk` (unchanged by the JUPITER rebrand) — title "Battery — Live (kiosk)"
 - **Open full-screen (no chrome):** `http://<grafana>/d/zeus-kiosk/zeus-live-kiosk?kiosk`
+  (the slug after the UID is cosmetic — Grafana resolves by UID, so old links keep working)
 - **Data source:** Prometheus (`zeus_*` metrics scraped from the zeus pod every
   60 s via the `ServiceMonitor`). The dashboard auto-refreshes every 30 s.
-- **Source of truth:** [`landingzones/zeus/dashboards/zeus-kiosk.json`](../landingzones/zeus/dashboards/zeus-kiosk.json).
+- **Source of truth:** [`landingzones/zeus/dashboards/battery-kiosk.json`](../landingzones/zeus/dashboards/battery-kiosk.json).
   Edits made in the Grafana UI are **not** persisted — change the JSON and let
   Argo CD sync it.
 

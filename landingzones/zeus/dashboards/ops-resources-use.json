@@ -1439,7 +1439,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Ops — Resources (USE): zeus & InfluxDB",
+  "title": "Ops — Resources (USE)",
   "uid": "ops-resources-use",
   "version": 1,
   "weekStart": ""

@@ -129,7 +129,7 @@
   "time": { "from": "now-24h", "to": "now+40h" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Zeus — Savings Forecast",
+  "title": "Savings Forecast (history)",
   "uid": "zeus-forecast-influx",
   "version": 1,
   "weekStart": ""
