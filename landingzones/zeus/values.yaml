@@ -1,6 +1,6 @@
 image:
   repository: jellebens/zeus
-  tag: "0.6.0"
+  tag: "0.7.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -227,6 +227,17 @@ config:
       cache_path: /app/reports/entsoe_last_good.json
     price_scale: 1.0 # ENTSO-E parser already yields EUR/kWh
     import_markup: 0.0
+    # VAT on the effective IMPORT price (card #118). Composition (zeus.prices):
+    #   import_price = (raw_price + import_markup) * (1 + vat_rate)
+    # 0.06 = Belgium's reduced residential energy VAT (permanent since 2023),
+    # confirmed against the owner's Bolt invoice (every energy line at 6%).
+    # IMPORT-only: injection/export compensation is ex-VAT, so export_price is
+    # NOT VAT-adjusted. NOTE: takes effect only once a zeus image that supports
+    # prices.vat_rate ships (older images ignore this key); before that image
+    # the value is inert. Bumps zeus_battery_savings_today going forward from the
+    # deploy date — annotate the dashboard at the change date, do NOT rewrite
+    # history.
+    vat_rate: 0.06
     export_price: 0.0
   optimizer:
     horizon_hours: 36
