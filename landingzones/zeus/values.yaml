@@ -111,7 +111,7 @@ config:
     token: "${HA_TOKEN}"
     verify_ssl: true
   mqtt:
-    host: vesta.local  # resolved in-cluster via coredns-config (forwards vesta.local -> router)
+    host: mqtt.lab.local  # in-cluster EMQX broker VIP (jupiter #112; was vesta.local Mosquitto)
     port: 1883
     username: "${MQTT_USER}"
     password: "${MQTT_PASS}"
