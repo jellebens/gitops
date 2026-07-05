@@ -1,0 +1,28 @@
+{{- if .Values.serviceMonitor.enabled }}
+# Scrapes GET /metrics on the cell's http port (8080). The cell emits ONLY
+# jupiter_cell_* series, each carrying a site_id="tervuren" label — no zeus_*
+# names, so there is NO collision with the live zeus_* series. Picked up by the
+# kube-prometheus-stack Prometheus via the `release` label.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: jupiter-cell
+  namespace: jupiter-tervuren
+  labels:
+    app.kubernetes.io/name: jupiter-cell
+    app.kubernetes.io/instance: jupiter-tervuren
+    app.kubernetes.io/part-of: jupiter
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jupiter-cell
+      app.kubernetes.io/instance: jupiter-tervuren
+  namespaceSelector:
+    matchNames:
+      - jupiter-tervuren
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

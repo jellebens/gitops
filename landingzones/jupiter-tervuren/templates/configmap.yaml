@@ -1,0 +1,17 @@
+# The tervuren cell site-config document (jupiter_cell.site_config), mounted at
+# {config.mountPath}/{config.fileName} (default /config/site.yaml). Rendered
+# verbatim from .Values.siteConfig — a value-for-value reproduction of the
+# jupiter repo services/cell/sites/tervuren.yaml (#138) so the cell dispatches
+# tervuren EXACTLY as zeus does today. controller stays `shadow` (safety).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jupiter-tervuren-config
+  namespace: jupiter-tervuren
+  labels:
+    app.kubernetes.io/name: jupiter-cell
+    app.kubernetes.io/instance: jupiter-tervuren
+    app.kubernetes.io/part-of: jupiter
+data:
+  {{ .Values.config.fileName }}: |-
+    {{- toYaml .Values.siteConfig | nindent 4 }}

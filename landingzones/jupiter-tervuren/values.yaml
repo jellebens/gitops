@@ -1,0 +1,235 @@
+# jupiter-tervuren landing zone — the per-site CELL for the tervuren site,
+# deployed in SHADOW mode (jupiter P3.4, card #139).
+#
+# THE LOAD-BEARING SAFETY PROPERTY (do not weaken):
+#   controller: shadow  (hard default, see siteConfig.controller below and the
+#   SITE_ID/config wiring). In shadow the cell computes a full plan every cycle
+#   and publishes it to MQTT, but ACTUATES NOTHING. zeus remains the SOLE live
+#   battery controller until the P4 cutover (#142 wires the live HA reads + the
+#   `live` controller; this chart only ships shadow). The image itself refuses
+#   to run `live` in 0.4.0 (config.py CONTROLLER_MODES stub), so shadow is
+#   belt-and-braces.
+#
+# METRIC ISOLATION: the cell emits ONLY jupiter_cell_* series (all carrying a
+# site_id="tervuren" label) — it never re-emits any zeus_* name, so there is no
+# collision with the LIVE zeus_* Prometheus series (verified #137/#140). Nothing
+# in this chart enables any zeus_* dual-emit.
+
+image:
+  repository: jellebens/jupiter-cell
+  # jupiter repo release tag v0.4.1 (arm64, --provenance=false — cluster is arm64).
+  # 0.4.1 wires the mounted site document (SITE_CONFIG_PATH, #144).
+  tag: "0.4.1"
+  pullPolicy: IfNotPresent
+
+# Single control loop per site. NEVER run two side by side — two cells for one
+# site would publish conflicting plans (and, post-cutover, conflicting commands).
+# Recreate for the same reason as zeus.
+replicaCount: 1
+
+# D4 site identity. Exported as the SITE_ID env var (jupiter_shared.site): the
+# cell's app.py reads it via config_from_env(), stamps it on every metric label,
+# cache path and MQTT topic (jupiter/tervuren/...), and derives the per-site
+# secret name jupiter-tervuren-secrets from it.
+siteId: tervuren
+
+service:
+  # Container/service port; exported to the app as PORT. The cell serves
+  # GET /metrics + GET /healthz on this one port (services/cell/app.py).
+  port: 8080
+
+# --- The mounted site-config document -------------------------------------
+# Vendored value-for-value from the jupiter repo
+# services/cell/sites/tervuren.yaml (origin/develop, #138) so the cell
+# dispatches tervuren EXACTLY as zeus does today. Rendered verbatim into the
+# jupiter-tervuren-config ConfigMap (templates/configmap.yaml) and mounted at
+# CELL_CONFIG_DIR (/config/site.yaml).
+#
+# NOTE ON 0.4.0 RUNTIME: the shipping 0.4.0 entrypoint (app.py:main) builds its
+# config from config_from_env() — it reads SITE_ID + env, and does NOT yet parse
+# this mounted document (site_config.load_site_config is present but not wired
+# into main() until the config-wiring card). The ConfigMap is mounted now so the
+# document is in place and ready the moment that wiring lands; shipping it now is
+# harmless (an unused read-only mount) and keeps the deploy a no-op change then.
+# controller stays `shadow` in BOTH paths regardless.
+siteConfig:
+  site:
+    id: tervuren
+  # SAFETY: hard-defaulted to shadow. Do not change without the P4 cutover.
+  controller: shadow
+  battery:
+    usable_capacity_kwh: 13.0
+    max_charge_kw: 2.2
+    max_discharge_kw: 3.84
+    max_grid_import_kw: 2.2
+    soc_min_pct: 10
+    soc_max_pct: 100
+    charge_efficiency: 0.95
+    discharge_efficiency: 0.95
+    backup_reserve_pct: 30
+    hot_weather_temp_c: 25
+    hot_weather_reserve_pct: 10
+  optimizer:
+    horizon_hours: 36
+    slot_minutes: 15
+    cycle_penalty: 0.0
+    terminal_value_price: null
+    capacity:
+      enabled: true
+      rate_eur_per_kw_month: 3.3
+      floor_kw: 2.5
+      peak_reserve_pct: 10
+      peak_discharge_incentive_eur_per_kwh: 0.05
+      charge_guard_enabled: true
+      guard_margin_kw: 0.2
+      detector_use_fluvius: true
+      detector_fluvius_days: 365
+  # Central price-service client (in-cluster). On an outage the loop degrades to
+  # the local last-good cache (cell invariant).
+  price:
+    base_url: http://price-service.jupiter-central.svc.cluster.local:8080
+    zone: "10YBE----------2"
+    timeout_seconds: 5.0
+    cache_path: cache/price_last_good.json
+    import_markup: 0.0
+    export_price: 0.0
+    price_scale: 1.0
+  # Central forecast-service client (in-cluster).
+  forecast:
+    base_url: http://forecast-service.jupiter-central.svc.cluster.local:8080
+    target: critical_load
+    timeout_seconds: 5.0
+    max_artifact_age_hours: 48.0
+    cache_path: cache/forecast_last_good.json
+  # HA entity ids — carried for reproduction; NOT read by the shadow loop yet
+  # (the live HA read is #142). Present so #142 is a value-only change.
+  entities:
+    soc: sensor.ap3002532000565690_battery_level
+    grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
+    ac_output_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
+    house_load_power: sensor.buzzbrick_ap3002532000565690_alternating_current_out_power
+    house_load_is_counter: false
+    ac_power: sensor.office_a_c_power
+    solar_power: sensor.buzzbrick_ap3002532000565690_photovoltaics_input_power
+    current_price: ""
+    capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
+    grid_power_import: sensor.utility_room_home_energy_meter_electric_consumption_w
+  weather:
+    latitude: 50.857017
+    longitude: 4.5362013
+    base_temp_c: 21.0
+    past_days: 14
+    forecast_days: 2
+  run:
+    interval_minutes: 15
+    poll_seconds: 10
+    replan_load_drop_kw: 0.4
+    replan_load_rise_kw: 0.4
+    input_failure_retry_seconds: 60
+
+# Where the site-config ConfigMap is mounted. The document lands at
+# {mountPath}/{fileName}; CELL_CONFIG env points the cell at the full path
+# (read once the config-wiring card lands — see the siteConfig note above).
+config:
+  mountPath: /config
+  fileName: site.yaml
+
+# Scoped CiliumNetworkPolicy. INGRESS-ONLY BY DEFAULT (repo convention, same as
+# zeus + jupiter-central): a Cilium policy with only `ingress` rules default-
+# denies inbound while leaving EGRESS FULLY OPEN. The cell needs egress to the
+# in-cluster price/forecast services AND — critically — to the EMQX broker at
+# mqtt.lab.local (a LoadBalancer VIP 192.168.50.181 on the LAN, reached as a
+# `world`/CIDR entity, not a cluster endpoint) plus cluster DNS. A broad egress
+# default-deny that missed any of those would SEVER the cell, so it is left as a
+# deliberate, human-reviewed opt-in (egress.enabled, default false).
+networkPolicy:
+  enabled: true
+  # Namespace Prometheus (kube-prometheus-stack) runs in — allowed to scrape
+  # /metrics + /healthz on the service port.
+  metricsScrapeNamespace: observability
+  # OPT-IN egress lockdown. Default false = ingress-only (egress stays open),
+  # matching zeus/jupiter-central and the "never sever live connectivity" rule.
+  # Flip to true only as a reviewed step once every destination below is
+  # confirmed. When true the cell is put into egress default-deny and ONLY the
+  # destinations below are reachable.
+  egress:
+    enabled: false
+    # In-cluster central services (price + forecast) in jupiter-central:8080.
+    centralNamespace: jupiter-central
+    centralPort: 8080
+    # EMQX broker VIP on the LAN (mqtt.lab.local). /32 CIDR — LoadBalancer
+    # traffic leaves the cluster to a LAN address, so this is a toCIDR rule,
+    # not toEndpoints.
+    mqttCIDR: 192.168.50.181/32
+    mqttPort: 1883
+    # Home Assistant (vesta) REST — present for #142 readiness. Harmless now
+    # (the shadow loop does not read HA yet).
+    haCIDR: 192.168.50.18/32
+    haPort: 8123
+
+# Prometheus Operator ServiceMonitor, scraping GET /metrics on the service port
+# (jupiter_cell_* series with a site_id label — see services/cell/metrics.py).
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  # Prometheus selects ServiceMonitors carrying this release label.
+  releaseLabel: kube-prometheus-stack
+
+# Small stdlib HTTP server + a control loop that talks to two in-cluster
+# services and one broker. Modest footprint (mirrors zeus/price-service).
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Probes on GET /healthz — served by the stdlib ThreadingHTTPServer on a daemon
+# thread, up before any price/forecast I/O, and returns 200 with status "ok"
+# even before the first cycle (it is a liveness target). Generous thresholds:
+# a shadow cell restart-loop is noise, and a degraded cycle (no price/forecast)
+# is NOT unhealthy — it self-heals. See the cell app.py health contract.
+probes:
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 4
+
+runtime:
+  uid: 1000
+  gid: 1000
+
+# Per-site secret injected as env via envFrom. SealedSecret name derived from
+# the site id: jupiter-tervuren-secrets (site_config.SECRET_NAME_TEMPLATE, #138).
+# optional: true so the FIRST sync comes up before the seal is provided.
+#
+# Keys (site_config.REQUIRED_SECRET_ENV):
+#   MQTT_USER / MQTT_PASS  — REQUIRED for the cell's MQTT publish (#140). The
+#                            EMQX per-site cell user must be minted by the main
+#                            session before publishing works; until then MQTT
+#                            connect fails best-effort (telemetry only, never the
+#                            actuation path — the loop keeps running).
+#   HA_TOKEN               — NOT required by the 0.4.0 shadow cell (live HA reads
+#                            are deferred to #142; the loop defaults SoC to
+#                            soc_min and grid power to None). Sealed here anyway
+#                            so #142 is a value-only change, but the cell starts
+#                            fine without it.
+#
+# PLACEHOLDER: encryptedData is EMPTY so the SealedSecret is NOT rendered yet
+# (see templates/sealed-secret.yaml — it only renders when encryptedData is
+# non-empty). The main session mints the EMQX cell user, runs kubeseal for THIS
+# namespace, and pastes the sealed blobs into
+# .config/lab/jupiter-tervuren.yaml. envFrom optional:true keeps the pod up in
+# the meantime. Do NOT put plaintext secrets here or invent fake sealed data.
+secret:
+  name: jupiter-tervuren-secrets
+  sealedSecret:
+    enabled: true
+    encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", HA_TOKEN: "Ag..." } — main session fills via kubeseal

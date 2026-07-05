@@ -1,0 +1,12 @@
+apiVersion: v2
+name: jupiter-tervuren
+version: 0.1.0
+type: application
+appVersion: "0.4.0"
+description: >-
+  Jupiter per-site CELL landing zone for the tervuren site, deployed in
+  SHADOW mode (jupiter P3.4, card #139). The cell computes a full dispatch
+  plan every cycle and publishes it to MQTT, but COMMANDS NOTHING — zeus
+  remains the sole live battery controller until the P4 cutover. The
+  `controller: shadow` default is hard-wired here as the load-bearing safety
+  property.
