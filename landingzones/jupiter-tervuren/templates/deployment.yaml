@@ -65,10 +65,18 @@ spec:
             # against SITE_ID — so the cell runs tervuren's real params.
             - name: SITE_CONFIG_PATH
               value: "{{ .Values.config.mountPath }}/{{ .Values.config.fileName }}"
-          # Per-site secret (MQTT_USER/MQTT_PASS required for publish; HA_TOKEN
-          # optional until #142). optional: true so the first sync comes up
-          # before the seal is provided — a missing MQTT cred just makes the
-          # best-effort publish a no-op (telemetry only, never actuation).
+          # Per-site secret injected as env. envFrom brings in EVERY key of
+          # jupiter-tervuren-secrets, so ${HA_TOKEN} in the mounted site doc's
+          # `ha.token` (and ${MQTT_USER}/${MQTT_PASS}) expand at config load
+          # (site_config.py reads os.environ). This is exactly how HA_TOKEN is
+          # wired for the HA READ path (card #152) — no separate explicit env is
+          # needed, and envFrom's optional:true is the SAFE mechanism: a missing
+          # HA_TOKEN (before the main session seals the real one) just leaves
+          # ha.token empty rather than blocking pod start. The cell stays SHADOW,
+          # so an empty/placeholder token cannot mis-actuate anything.
+          #   MQTT_USER/MQTT_PASS — required for the best-effort MQTT publish.
+          #   HA_TOKEN            — the HA long-lived token for the live reads;
+          #                         placeholder until sealed in the main session.
           envFrom:
             - secretRef:
                 name: {{ .Values.secret.name }}

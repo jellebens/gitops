@@ -102,8 +102,29 @@ siteConfig:
     timeout_seconds: 5.0
     max_artifact_age_hours: 48.0
     cache_path: cache/forecast_last_good.json
-  # HA entity ids — carried for reproduction; NOT read by the shadow loop yet
-  # (the live HA read is #142). Present so #142 is a value-only change.
+  # Home Assistant REST connection (card #152 — the READ wiring). Value-for-value
+  # from the LIVE zeus config (landingzones/zeus/values.yaml `home_assistant:`) so
+  # the cell talks to the SAME HA instance zeus does today. base_url is
+  # vesta.local (NOT homeassistant.local — the jupiter repo tervuren.yaml carries
+  # homeassistant.local, which does NOT match the live zeus value; zeus's
+  # vesta.local is authoritative — flagged on the card). vesta.local resolves
+  # in-cluster via coredns-config (forwards vesta.local -> router 192.168.50.1,
+  # which serves the DHCP-reserved HA host 192.168.50.18). The long-lived token is
+  # NEVER stored here — it is ${HA_TOKEN}, expanded from the per-site sealed secret
+  # jupiter-tervuren-secrets at load time (site_config.py _expand_env reads env,
+  # injected via the Deployment envFrom). An empty base_url would disable the live
+  # read path; this is set so the READ ability is wired. NOTE: the cell still stays
+  # SHADOW (controller: shadow + control.enabled: false below), so it READS HA but
+  # actuates NOTHING — the live flip is the supervised cutover (#153).
+  ha:
+    base_url: http://vesta.local:8123
+    token: ${HA_TOKEN}
+    verify_ssl: true
+    timeout_seconds: 10.0
+  # HA entity ids — value-for-value from the LIVE zeus config
+  # (landingzones/zeus/values.yaml `entities:`). Consumed by the cell's live HA
+  # read path once the cell reads them; carried here so the read wiring is
+  # complete. Field names match zeus/EntitiesConfig exactly.
   entities:
     soc: sensor.ap3002532000565690_battery_level
     grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
@@ -115,6 +136,24 @@ siteConfig:
     current_price: ""
     capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
     grid_power_import: sensor.utility_room_home_energy_meter_electric_consumption_w
+  # Live actuation control (card #152 wires it; the COMMAND path stays inert).
+  # Value-for-value from the LIVE zeus config (landingzones/zeus/values.yaml
+  # `control:`) — the SAME working-mode SELECT entity with the SAME options zeus
+  # drives today. SAFETY: `enabled: false` keeps the cell shadow-only regardless
+  # of `controller` (zeus's live config has enabled: true; the cell deliberately
+  # does NOT). The supervised cutover (#153) is what flips BOTH `controller: live`
+  # AND `control.enabled: true`; even then the single-controller interlock still
+  # gates every command on zeus's commander signal. This card only lands the
+  # values so #153 is a clean flip — it does NOT command the battery.
+  control:
+    enabled: false
+    mode: working_mode
+    working_mode:
+      entity: select.apex300_working_mode
+      charge_option: "CHARGING"
+      discharge_option: "DISCHARGING"
+      idle_option: "PASSTHROUGH"
+      intent_threshold_kw: 0.1
   weather:
     latitude: 50.857017
     longitude: 4.5362013
@@ -127,6 +166,12 @@ siteConfig:
     replan_load_drop_kw: 0.4
     replan_load_rise_kw: 0.4
     input_failure_retry_seconds: 60
+    # Actively poke the whole-home Aeotec HEM (via zwave_js.refresh_value) before
+    # reading it, so the live capacity-peak grid register isn't stale. Ported
+    # value-for-value from the LIVE zeus config (landingzones/zeus/values.yaml
+    # run.grid_power_poll_seconds: 60). Part of the #152 HA READ wiring — the read
+    # path is inert until the cell reads it; harmless in shadow.
+    grid_power_poll_seconds: 60
   # Cluster EMQX broker publish creds (#139). host defaults to
   # mqtt.lab.local:1883; username/password expand (load_site_config ${VAR})
   # from the envFrom sealed secret jupiter-tervuren-secrets (the minted
@@ -205,8 +250,18 @@ networkPolicy:
     # not toEndpoints.
     mqttCIDR: 192.168.50.181/32
     mqttPort: 1883
-    # Home Assistant (vesta) REST — present for #142 readiness. Harmless now
-    # (the shadow loop does not read HA yet).
+    # Home Assistant (vesta) REST egress — the HA READ target (card #152).
+    # CONFIRMED against the LIVE zeus config: zeus reaches HA at
+    # http://vesta.local:8123, and vesta.local is the DHCP-reserved HA host
+    # 192.168.50.18 (coredns-config forwards vesta.local -> router, which serves
+    # .18; the zone file pins `vesta IN A 192.168.50.18`). Egress leaves the
+    # cluster to that LAN address, so this is a /32 toCIDR rule on 8123, mirroring
+    # how zeus reaches HA. NOTE: this rule is only ENFORCED when
+    # networkPolicy.egress.enabled is true. It stays FALSE (ingress-only default),
+    # so the cell's egress is fully open and its HA reads are NOT gated today — no
+    # broad egress default-deny is shipped by this card (that is a separate,
+    # human-reviewed step). This entry is here so that if/when egress lockdown is
+    # enabled, the HA read path is already whitelisted and won't be severed.
     haCIDR: 192.168.50.18/32
     haPort: 8123
 
