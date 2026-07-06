@@ -45,6 +45,20 @@ secret:
   sealedSecret:
     encryptedData: {}
 
+# Git-managed ACL (authz) — DR durability for the per-user rules (card #156).
+# The per-user ACLs are created at runtime via the admin REST API and live only
+# in replicated mnesia (the built_in_database authz source). This ships a
+# declarative fallback: platform/mqtt/files/acl.conf is rendered into a
+# ConfigMap and subPath-mounted over the stock ${EMQX_ETC_DIR}/acl.conf, which
+# is exactly where the live `file` authz source already points. It is
+# NON-DISRUPTIVE on the running cluster: built_in_database is first in the authz
+# chain and every live user's mnesia ruleset ends in `deny #`, so the file
+# source is never consulted for connected clients — it only takes effect on a
+# fresh cluster (empty mnesia), i.e. disaster recovery. Keep the rules in sync
+# with the mnesia rules documented in README.md.
+acl:
+  enabled: true
+
 # Scoped, INGRESS-ONLY CiliumNetworkPolicy (repo convention — see zeus):
 # egress stays fully open; inbound is limited to MQTT 1883 (LAN + cluster),
 # intra-cluster EMQX gossip/RPC, and the dashboard from inside the cluster.
