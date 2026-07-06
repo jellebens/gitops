@@ -17,10 +17,12 @@
 
 image:
   repository: jellebens/jupiter-cell
-  # jupiter repo release tag v0.4.2 (arm64, --provenance=false — cluster is arm64).
-  # 0.4.2 = load_site_config parses the mqtt section (#139 publish); 0.4.1 wired
-  # SITE_CONFIG_PATH (#144).
-  tag: "0.4.2"
+  # jupiter repo release tag v0.5.0 (arm64, --provenance=false — cluster is arm64).
+  # 0.5.0 = live HA reads (#148) + live actuation (#149) + commander-keyed
+  # interlock (#151). REQUIRED with the ha:/entities:/control: siteConfig below —
+  # older images' load_site_config raises on the unknown ha: key. Cell stays
+  # controller: shadow + control.enabled: false; it READS HA, actuates nothing.
+  tag: "0.5.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
