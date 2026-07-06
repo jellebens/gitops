@@ -418,3 +418,52 @@ reporting:
     enabled: true
     interval: 30s
     releaseLabel: kube-prometheus-stack
+
+  # ---------------------------------------------------------------------------
+  # reporting VALIDATION dashboard (gitops card #161-G). A NEW Grafana dashboard
+  # (uid jupiter-reporting-validation) that confirms the reporting-service series
+  # track reality: jupiter_savings_* vs zeus_savings_* (savings parity),
+  # jupiter_reporting_* vs the lar's jupiter_lar_* / zeus state (state parity),
+  # and scrape + plan freshness (health). ADDITIVE — its own uid, does NOT touch
+  # the kiosk or any existing dashboard. Provisioned as a ConfigMap the
+  # kube-prometheus-stack Grafana sidecar discovers, same pattern as the zeus +
+  # jupiter-shadow dashboards, filed under the program-level "Jupiter" folder.
+  dashboard:
+    enabled: true
+    # Label the sidecar watches for (kube-prometheus-stack default).
+    sidecarLabel: grafana_dashboard
+    # Grafana folder placement via the sidecar folder annotation
+    # (FOLDER_ANNOTATION=grafana_folder, set in .config/lab/observability.yaml).
+    # Program-level "Jupiter" grouping (#127), same folder as the zeus/jupiter
+    # dashboards.
+    folderAnnotation: grafana_folder
+    folder: Jupiter
+
+  # ---------------------------------------------------------------------------
+  # SAVINGS PARITY monitor (gitops card #161-H). NEW recording rules + alert
+  # diffing jupiter vs zeus savings. This is the ADR-0022 "savings history must
+  # read unbroken" gate that must be green before any kiosk savings-panel
+  # migration.
+  #
+  # INDEPENDENCE-PENDING CAVEAT (baked into the rule comments + the dashboard
+  # text): during the soak jupiter_savings_* currently RE-READS zeus's banked
+  # result, so the parity is ~trivially exact RIGHT NOW. The meaningful
+  # divergence test only begins once the savings-independence refinement lands
+  # (jupiter computing from its own jupiter_state history). Hence the alert is
+  # deliberately CONSERVATIVE (loose tolerance + long `for:`) and the panels/rule
+  # are labelled "cross-check (independence pending)" so a green result now is
+  # not over-interpreted.
+  savingsParity:
+    enabled: true
+    releaseLabel: kube-prometheus-stack
+    # SavingsParityDiverged warning threshold (EUR): the absolute daily-savings
+    # gap |jupiter_savings_today_eur - zeus_savings_today_eur| that, sustained,
+    # means the two savings figures have drifted enough to review before the
+    # kiosk migration. Deliberately conservative (a re-read should be ~0; this
+    # only really bites once savings-independence lands) — tune against observed
+    # soak deltas once jupiter computes savings independently.
+    absToleranceEur: 0.25
+    # Sustained window before the alert fires. Long on purpose: the two stacks
+    # bank/refresh their daily figures independently, so a short window would
+    # page on benign end-of-cycle boundary blips.
+    for: 2h
