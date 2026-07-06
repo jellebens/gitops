@@ -186,14 +186,10 @@ config:
     # Fluvius injection always 0), so export is left unset and zeus_grid_power_w =
     # consumption — this also dodges the meter's stale-register residue.
     grid_power_import: sensor.utility_room_home_energy_meter_electric_consumption_w
-  # CUTOVER 2026-07-06 (#153): zeus DEMOTED to a check. enabled=false stops zeus
-  # actuating and makes it emit zeus_commander=0 (#150); zeus keeps forecasting,
-  # optimizing and reporting savings as the live CROSS-CHECK. The jupiter tervuren
-  # cell is now the sole battery controller (controller: live). ROLLBACK: set this
-  # true again (zeus reclaims the battery, commander=1, and the cell's interlock
-  # stands it down). The previous price automations must stay disabled.
+  # LIVE: zeus drives this select. The previous price automations must stay
+  # disabled to avoid two controllers fighting the battery.
   control:
-    enabled: false
+    enabled: true
     mode: working_mode
     working_mode:
       entity: select.apex300_working_mode

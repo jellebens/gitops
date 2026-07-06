@@ -58,11 +58,8 @@ service:
 siteConfig:
   site:
     id: tervuren
-  # CUTOVER 2026-07-06 (#153): the tervuren cell is now the LIVE battery
-  # controller. zeus is demoted to a check (zeus_commander=0); the single-
-  # controller interlock gates EVERY command on that signal (refuses unless it
-  # sees a fresh commander==0). ROLLBACK: set back to shadow (+ re-arm zeus).
-  controller: live
+  # SAFETY: hard-defaulted to shadow. Do not change without the P4 cutover.
+  controller: shadow
   battery:
     usable_capacity_kwh: 13.0
     max_charge_kw: 2.2
@@ -151,10 +148,7 @@ siteConfig:
   # gates every command on zeus's commander signal. This card only lands the
   # values so #153 is a clean flip — it does NOT command the battery.
   control:
-    # CUTOVER 2026-07-06 (#153): arm the command gate. With controller: live
-    # above, the cell now actuates — but ONLY when the interlock sees zeus's
-    # fresh commander==0 AND the charge guard does not veto. ROLLBACK: false.
-    enabled: true
+    enabled: false
     mode: working_mode
     working_mode:
       entity: select.apex300_working_mode
