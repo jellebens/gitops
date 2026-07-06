@@ -1,8 +1,11 @@
 {{- if .Values.serviceMonitor.enabled }}
-# Scrapes GET /metrics on the cell's http port (8080). The cell emits ONLY
-# jupiter_cell_* series, each carrying a site_id="tervuren" label — no zeus_*
+# Scrapes GET /metrics on the lar's http port (8080). The lar emits ONLY
+# jupiter_lar_* series, each carrying a site_id="tervuren" label — no zeus_*
 # names, so there is NO collision with the live zeus_* series. Picked up by the
-# kube-prometheus-stack Prometheus via the `release` label.
+# kube-prometheus-stack Prometheus via the `release` label. NOTE: this scrape has
+# NO metricRelabelings/keep filter — it ingests whatever the target emits — so the
+# cell→lar metric rename (jupiter_cell_* → jupiter_lar_*) needs no change here;
+# Prometheus keeps scraping the renamed series automatically after the image swap.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
