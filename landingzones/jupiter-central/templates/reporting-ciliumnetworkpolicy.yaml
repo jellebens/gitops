@@ -1,0 +1,78 @@
+{{- if .Values.reporting.networkPolicy.enabled }}
+# Scoped CiliumNetworkPolicy for reporting-service.
+#
+# DEFAULT: INGRESS-ONLY (repo convention, same as price/forecast/cell/MQTT). A
+# Cilium policy with only `ingress` rules puts the selected pod into default-deny
+# for INBOUND while EGRESS stays FULLY OPEN. That matters here because reporting
+# EGRESSES to two places, and severing either would break it:
+#   - the EMQX broker at mqtt.lab.local:1883 (an off-cluster LoadBalancer VIP on
+#     the LAN) — to subscribe jupiter/<site>/plan + /heartbeat;
+#   - the in-cluster InfluxDB (influxdb-influxdb2.influxdb, Service port 80 ->
+#     targetPort 8086) — to read zeus_state/zeus_savings and write
+#     jupiter_state/jupiter_daily_savings.
+# A broad egress default-deny that missed either would sever reporting, so it is
+# left as a deliberate, human-reviewed OPT-IN (networkPolicy.egress.enabled,
+# default false) — never shipped on by an agent. Reporting actuates NOTHING (a
+# pure consumer), so even severed it cannot mis-command anything; but losing its
+# feeds is an availability regression we refuse to ship blind.
+#
+# Inbound allowed (always): the observability namespace (Prometheus /metrics
+# scrape) + the node host (kubelet /healthz probes, part of the `cluster`
+# entity), scoped to the metrics/health port.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: reporting-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: reporting-service
+  ingress:
+    - fromEntities:
+        - cluster
+      fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.reporting.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.reporting.service.port | quote }}
+              protocol: TCP
+  {{- if .Values.reporting.networkPolicy.egress.enabled }}
+  # OPT-IN egress lockdown (human-reviewed). Enabling this flips reporting into
+  # egress default-deny — ONLY the destinations below are then reachable. Every
+  # one MUST be present or reporting loses a feed:
+  egress:
+    # DNS to cluster CoreDNS/kube-dns — REQUIRED to resolve the in-cluster
+    # InfluxDB service AND mqtt.lab.local (forwarded by coredns-lab).
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # In-cluster InfluxDB (influxdb namespace) — read zeus_* / write jupiter_*.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.reporting.networkPolicy.egress.influxNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.reporting.networkPolicy.egress.influxPort | quote }}
+              protocol: TCP
+    # EMQX broker VIP on the LAN (mqtt.lab.local). LoadBalancer traffic leaves
+    # the cluster to a LAN address, so this is a toCIDR rule (off-cluster).
+    - toCIDR:
+        - {{ .Values.reporting.networkPolicy.egress.mqttCIDR | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.reporting.networkPolicy.egress.mqttPort | quote }}
+              protocol: TCP
+  {{- end }}
+{{- end }}

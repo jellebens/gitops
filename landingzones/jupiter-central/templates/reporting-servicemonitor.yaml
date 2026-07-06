@@ -1,0 +1,29 @@
+{{- if .Values.reporting.serviceMonitor.enabled }}
+# Scrapes GET /metrics on the API port (`http`, 8080) so Prometheus ingests the
+# reporting-service series: jupiter_reporting_* (re-exposed lar plan/heartbeat
+# state), jupiter_savings_* (realized savings from InfluxDB) and build_info. The
+# 0.7.0 image ships /metrics from day one, so there is no price-service-style
+# 404 sequencing window. No metricRelabelings/keep filter — Prometheus ingests
+# whatever the target emits.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: reporting-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus serviceMonitorSelector.
+    release: {{ .Values.reporting.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reporting-service
+  namespaceSelector:
+    matchNames:
+      - jupiter-central
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.reporting.serviceMonitor.interval }}
+{{- end }}
