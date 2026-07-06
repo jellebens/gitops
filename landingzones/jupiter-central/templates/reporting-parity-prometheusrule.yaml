@@ -1,0 +1,151 @@
+{{- if .Values.reporting.savingsParity.enabled }}
+# reporting-service SAVINGS PARITY monitor (jupiter reporting, gitops card
+# #161-H). A NEW, SEPARATE PrometheusRule (name reporting-savings-parity) that
+# diffs the jupiter reporting-service's savings figure against zeus's live
+# banked savings. This is the ADR-0022 "savings history must read unbroken"
+# gate: it must stay green (near-zero divergence) through the soak before any
+# kiosk savings-panel is migrated off zeus onto jupiter.
+#
+# JOIN: both jupiter_savings_today_eur (reporting-service, jupiter-central) and
+# zeus_savings_today_eur (the live battery, ns zeus) carry site_id="tervuren"
+# today, so the diff joins cleanly `on(site_id)`. (zeus started site-tagging its
+# writes 2026-07-04; if a legacy zeus sample without site_id appears, the join
+# simply yields no sample for that scrape — the parity series goes absent, the
+# dashboard shows "no data", not a false 0.)
+#
+# ***INDEPENDENCE-PENDING CAVEAT — READ BEFORE TRUSTING A GREEN RESULT***
+# During the soak jupiter_savings_* currently RE-READS zeus's banked savings
+# result out of the shared InfluxDB bucket. So jupiter_savings_today_eur is, by
+# construction, ~identical to zeus_savings_today_eur RIGHT NOW and this parity
+# is trivially exact. The MEANINGFUL divergence test only begins once the
+# "savings independence" refinement lands (jupiter computing savings from its
+# OWN jupiter_state history instead of re-reading zeus). Until then:
+#   * treat a green parity as "the pipeline is wired", NOT "the logic is
+#     validated";
+#   * the alert threshold is deliberately CONSERVATIVE (a loose EUR tolerance +
+#     a long `for:`) so it does not imply precision the current setup can't
+#     deliver.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: reporting-savings-parity
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.reporting.savingsParity.releaseLabel | quote }}
+spec:
+  groups:
+    # ------------------------------------------------------------------ #
+    # 1. Parity recording rules — the diff series the dashboard reads.     #
+    #    Recorded on (site_id).                                            #
+    # ------------------------------------------------------------------ #
+    - name: jupiter-reporting-savings-parity
+      interval: 30s
+      rules:
+        # ABSOLUTE daily-savings divergence (EUR): |jupiter - zeus|. THE gate
+        # signal. ~0 by construction during the re-read soak; becomes meaningful
+        # once jupiter computes savings independently (see header caveat).
+        - record: jupiter_savings_parity_abs_eur
+          expr: |
+            abs(
+              max by (site_id) (jupiter_savings_today_eur)
+              - on(site_id)
+              max by (site_id) (zeus_savings_today_eur)
+            )
+        # SIGNED divergence (EUR): + = jupiter over-reports vs zeus, - = under.
+        # Same magnitude as the abs series but keeps the direction for triage.
+        - record: jupiter_savings_parity_signed_eur
+          expr: |
+            max by (site_id) (jupiter_savings_today_eur)
+            - on(site_id)
+            max by (site_id) (zeus_savings_today_eur)
+        # RELATIVE divergence (fraction of the zeus figure): |jupiter - zeus| /
+        # |zeus|, clamped so a near-zero zeus denominator does not blow up. Useful
+        # as a scale-free companion to the abs series once savings are non-trivial.
+        - record: jupiter_savings_parity_rel_ratio
+          expr: |
+            jupiter_savings_parity_abs_eur
+            / on(site_id)
+            clamp_min(abs(max by (site_id) (zeus_savings_today_eur)), 0.01)
+        # COMPONENT diffs — baseline and actual — so a top-level savings gap can
+        # be attributed to a baseline-model difference vs an actual-cost read
+        # difference (savings = baseline - actual on each side).
+        - record: jupiter_savings_parity_baseline_abs_eur
+          expr: |
+            abs(
+              max by (site_id) (jupiter_savings_baseline_eur)
+              - on(site_id)
+              max by (site_id) (zeus_savings_baseline_eur)
+            )
+        - record: jupiter_savings_parity_actual_abs_eur
+          expr: |
+            abs(
+              max by (site_id) (jupiter_savings_actual_eur)
+              - on(site_id)
+              max by (site_id) (zeus_savings_actual_eur)
+            )
+        # BOTH-PRESENT gate: 1 when both savings series are exporting for the
+        # site; ABSENT (not 0) when either is missing — so the dashboard/alert
+        # distinguishes "compared and agree" from "nothing to compare".
+        - record: jupiter_savings_parity_both_present
+          expr: |
+            (max by (site_id) (jupiter_savings_today_eur) > bool -1e12)
+            * on(site_id)
+            (max by (site_id) (zeus_savings_today_eur) > bool -1e12)
+
+    # ------------------------------------------------------------------ #
+    # 2. Alerts. WARNING only — reporting never actuates; a fire means      #
+    #    "not yet a clean cross-check", a kiosk-migration readiness signal,  #
+    #    NOT a live-battery incident.                                        #
+    # ------------------------------------------------------------------ #
+    - name: jupiter-reporting-savings-parity-alerts
+      rules:
+        - alert: JupiterReportingSavingsParityNoData
+          # Neither side is producing the joined parity series — one of
+          # jupiter_savings_today_eur / zeus_savings_today_eur stopped exporting,
+          # so the cross-check is blind. (Absent, not 0: nothing to compare.)
+          expr: absent(jupiter_savings_parity_both_present)
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter reporting savings parity has no data
+            description: >-
+              jupiter_savings_parity_both_present has been absent for 30m —
+              jupiter_savings_today_eur (reporting-service) or
+              zeus_savings_today_eur (live battery) stopped being scraped, so the
+              savings cross-check cannot run. Check the reporting-service
+              ServiceMonitor / pod and the zeus metrics endpoint.
+        - alert: JupiterReportingSavingsParityDiverged
+          # Sustained absolute daily-savings divergence beyond tolerance. This is
+          # the ADR-0022 gate — it must sit near 0 through a clean soak before any
+          # kiosk savings-panel migration.
+          #
+          # ***INDEPENDENCE PENDING***: during the soak jupiter re-reads zeus's
+          # banked figure, so this is ~0 by construction and a fire here would
+          # more likely indicate a plumbing bug (bad InfluxDB read, wrong bucket,
+          # stale re-read) than a genuine logic divergence. The REAL divergence
+          # test only begins once jupiter computes savings from its own
+          # jupiter_state history. Threshold + `for:` are deliberately loose so a
+          # green result now is not over-interpreted as precision parity.
+          expr: max by (site_id) (jupiter_savings_parity_abs_eur) > {{ .Values.reporting.savingsParity.absToleranceEur }}
+          for: {{ .Values.reporting.savingsParity.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter reporting savings diverges from zeus (cross-check, independence pending)
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — |jupiter_savings_today_eur -
+              zeus_savings_today_eur| has exceeded
+              {{ .Values.reporting.savingsParity.absToleranceEur }} EUR for
+              {{ .Values.reporting.savingsParity.for }}. CAVEAT: during the soak
+              jupiter RE-READS zeus's banked savings, so this parity is exact by
+              construction — a fire most likely means a reporting-service
+              plumbing bug (InfluxDB read / bucket / stale re-read), NOT a genuine
+              savings-logic divergence. Investigate the reporting-service before
+              concluding a logic gap. The meaningful divergence test begins once
+              jupiter computes savings independently (savings-independence
+              refinement).
+{{- end }}
