@@ -93,4 +93,8 @@ reporting:
   secret:
     sealedSecret:
       enabled: true
-      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+      # MQTT creds for the subscribe-only EMQX user `reporting` (minted + sealed
+      # 2026-07-06 for ns jupiter-central / secret jupiter-reporting-secrets, --raw).
+      encryptedData:
+        MQTT_USER: "AgB74CTiPa8tX16pD7b/8mVn4mlVQJLmazYtHJObtAVlGdFNhQd0WBUERJL8frptdJeYG+6z96yI3EyqikcLqyvyBJL/Vgq9UnGnA67kzBbBCSV27zyTvxFM/Sq8k/P9NEwR3rBYgSrNF+IhuPdTr+FBUo9tdoZ/x21DZf8VjluOUCnAvxnViuGUWLWhoXrxikleI1gl1oKaejGKsMNFa8NtKusLJsEmylRhFjhBg7w0dhNfB6LHPsBwow+LjwkczN+6pBjLxQXKlPJH7QkLgQm9VtYMBZTpkvHEJH7q0d0hb0IGE9BTzeAOYLOqumvtvMWYh1XgDo5UgpUnqIBXHNwMc5n8uiilvHTwOntppECek8C+BQIKhF/Z+ixJUnCsULrk0ymPdyMP3D8Lg5u+FA4rHCQUEBRu3vyC+rj4oTCxPTj+yYFN/JQVOtsV8kZwRtXFiQ7AOZPfI+/IqSjibjwO7fAbxquk6mhoaJINbrfHTrmLAY6eqGX8DfwvOzye/0bgZZHBnJ4MyqBjkdKX7nZIyKkalABjOboEp1KJEPSfVrlF5MQfq0rSezLVIYVeDr36+aVgvlspElkL9Z7RMhy1DlWbENIgAAKulnjjA+SdK+sGv/iXiMXNm5UbjNK7AUXdJbX2pBwvz7b/wU2UfYqTHc/SDxAK0ALTDSQeKiO0rg0uj6Bu+L60FuRC9n2EUwM1HBkcMyZVD68="
+        MQTT_PASS: "AgAX6l1pg2Yi0KA8EE/oSicKpyeopmzyDs+bes/5RMiEUkTxZiab9xYKneQMegDwxbvOHFMz7wHyShM+s4KxAHkcTE4fwKTsWOoBiPsjuRWc+PX5VJ4UPb8U8ikbLraeLd7yMvfKUWPKInT+6/P3nypV9zzY0DfD9w/TKQFwsJs8aw5yf2CBcj4UySmtDLc8WTGBE/TzX827L1s+M1ue+5+UcKAt+cysUpV8Bl0ex+75DIXfBRA2rego7rUs/qeDJJM8e8To+BGArsyeOgnASb+4osaqG8KysYHIGaLRSezrYZuPqdK9rZNlbO4InQUfcszv4PLjTsMgczWuQVFgYRRIdye4Hzynk6/ZEaaLZVojZKuSnRKnHk6D6RVZ2A8oQ3247qlaxrLOSx9LAKA+3F1LGlHGSvspyBOpgJttOYBp8Gb8fekNcrggHCznH5lvP7jjJAwqW5Yq6/NIxVTRN2cm50ZvCd2y2VDvcm+C11baDgB4z71WMjeRrxKyDnK3ky1HDufZ9HSUKC3qrAHEj2vI2Z7JweaNqmpwqHrjBs9R5LzqNwL+GEZWtIwxPrb34i2lTs1KTXjkgaBCGB0kylWOFbGkgjlVQrnqEf9WSLUH255tHOGp7enLrb6nUSkGVUDwWI0Sm4Tfxhc8FfydslrpkRiezkWRIanpKM6uchL+T5xJR5ztmcveUxBMTMUhHf+x4qYpANXWXfPasKnr+6AFHZQ0dd/ilxu/W3YKYL3gXgTZOmwB+m6p2fO6caahswg="
