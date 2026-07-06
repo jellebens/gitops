@@ -1,0 +1,38 @@
+{{- if .Values.repoServer.tuning.enabled }}
+# Strategic-merge patch for the argocd-repo-server Deployment.
+#
+# The Deployment is owned by the stock "argocd" argo-cd Helm release (applied
+# out-of-band at bootstrap, not GitOps-managed). Argo CD applies this object
+# with ServerSideApply and reconciles it by resource-tracking annotation
+# (application.resourceTrackingMethod: annotation, set in cm.yaml), so this is
+# a partial patch layered on top of the Helm-owned Deployment -- only the
+# fields listed here are managed by the argocd-config app. The container
+# `name: repo-server` is the strategic-merge key that targets the right
+# container without replacing the full pod spec.
+#
+# See card #159: fixes the liveness-probe flap (/healthz?full=true timing out
+# under the 1s probe timeout while the repo-server renders charts on arm64,
+# causing 477+ kubelet kills) and moves the pod off BestEffort QoS.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: repo-server
+          resources:
+            {{- toYaml .Values.repoServer.tuning.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.repoServer.tuning.livenessProbe.path | quote }}
+              port: metrics
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.repoServer.tuning.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.repoServer.tuning.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.repoServer.tuning.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.repoServer.tuning.livenessProbe.failureThreshold }}
+            successThreshold: 1
+{{- end }}
