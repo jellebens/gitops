@@ -64,12 +64,21 @@ see "ACL disaster recovery" below):
 | `homeassistant` | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
+| `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
 `cell-tervuren`'s **`subscribe zeus/tervuren/commander`** grant is load-bearing:
 the single-controller interlock reads zeus's commander heartbeat from that topic
 (added live in #139, the missing rule that blocked the #153 go-live). `bridge-vesta`
 was removed after the migration.
+
+`reporting` (gitops card #161-F) is the central fleet-reporting/savings service.
+It is **subscribe-only across all sites** — it consumes every lar's retained
+`jupiter/<site>/plan` + `jupiter/<site>/heartbeat` to re-expose `jupiter_reporting_*`
+gauges, and PUBLISHES nothing (a pure consumer, never on any actuation path). The
+`+` wildcard covers all present + future sites without an ACL change. Rules for the
+REST-API call: `[{"topic":"jupiter/+/plan","permission":"allow","action":"subscribe"},{"topic":"jupiter/+/heartbeat","permission":"allow","action":"subscribe"},{"topic":"#","permission":"deny","action":"all"}]`.
+Seal the creds for ns `jupiter-central` / secret `jupiter-reporting-secrets`.
 
 Users and their ACLs live in EMQX's **replicated mnesia built-in DB** (survive
 restarts / single-node loss) — the bootstrap `users.csv` only seeds authn on

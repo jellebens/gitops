@@ -277,3 +277,142 @@ forecast:
     # jupiter_forecast_artifact_age_seconds threshold: 24h. The trainer bakes
     # every 6h, so 24h stale = four consecutive missed/failed trainings.
     artifactStaleSeconds: 86400
+
+# ---------------------------------------------------------------------------
+# reporting-service (jupiter reporting card #161, deployed by gitops card
+# #161-F).
+#
+# Third tenant of this landing zone: the central fleet-reporting / savings
+# service (jupiter repo services/reporting, image jellebens/jupiter-reporting,
+# package jupiter_reporting — ADR-0013). OWNER NAMING DECISION: the k8s
+# workload/Service is `reporting-service` (NO jupiter- prefix; it is already in
+# the jupiter-central namespace), matching price-service / forecast-service; the
+# Docker IMAGE keeps the registry-convention jupiter-reporting name.
+#
+# A PURE CONSUMER (never on any actuation path): it subscribes to the lars'
+# retained MQTT plan/heartbeat and re-exposes jupiter_reporting_* gauges; reads
+# the site-tagged realized zeus_state/zeus_savings series from InfluxDB to emit
+# jupiter_savings_*; and writes durable jupiter_state/jupiter_daily_savings back
+# to the same shared bucket. Central singleton (site_id=central). No PVC and no
+# CronJob (unlike forecast) — all state is in InfluxDB/Prometheus.
+reporting:
+  image:
+    repository: jellebens/jupiter-reporting
+    # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
+    # v0.7.0 == jupiter tag 99a1cfb (the release that introduced this service).
+    tag: "0.7.0"
+    pullPolicy: IfNotPresent
+
+  # Central singleton, single writer of the durable jupiter_* series (see the
+  # Deployment's Recreate note). Never scale up.
+  replicaCount: 1
+
+  service:
+    # Container/service port; exported to the app as PORT. Exposes /healthz +
+    # /metrics only (no consumer API); the Service exists for the ServiceMonitor.
+    port: 8080
+
+  # Fleet sites the consumer subscribes to + the realized refresh runs for
+  # (REPORTING_SITES, comma-separated). One today: tervuren. Add sites here as
+  # the fleet grows — the EMQX `reporting` user's wildcard subscribe
+  # (jupiter/+/plan + jupiter/+/heartbeat) already covers future sites.
+  sites: "tervuren"
+  # Site timezone for the InfluxDB reads / daily savings bucketing (REPORTING_TZ).
+  tz: "Europe/Brussels"
+  # Realized-refresh + MQTT staleness-sweep cadence in seconds
+  # (REPORTING_REFRESH_SECONDS).
+  refreshSeconds: 60
+
+  # InfluxDB read+write against the fleet's ONE shared bucket — SAME url/org/
+  # bucket the forecast trainer and zeus itself use. INFLUX_URL has an implicit
+  # :80 (the influxdb-influxdb2 Service listens on 80 -> targetPort 8086).
+  influx:
+    url: http://influxdb-influxdb2.influxdb
+    org: zeus
+    bucket: zeus
+    # REUSE the forecast trainer's InfluxDB token: the `jupiter-influx` secret
+    # already exists in THIS namespace (jupiter-central) with key INFLUX_TOKEN,
+    # and it holds the InfluxDB ADMIN ALL-ACCESS token — the ONLY token with
+    # read+write on the `zeus` bucket (verified 2026-07-06: InfluxDB has exactly
+    # two tokens — the admin all-access one and a homeassistant write-only-to-
+    # homeassistant-bucket one). reporting needs READ (zeus_state/zeus_savings)
+    # + WRITE (jupiter_state/jupiter_daily_savings) on `zeus`, which the admin
+    # token grants. So NO new InfluxDB SealedSecret is minted — the Deployment
+    # just envFroms this existing secret. (SealedSecrets are namespace+name
+    # scoped; reuse works precisely because reporting shares the namespace and
+    # references the same secret name.)
+    secretName: jupiter-influx
+
+  # MQTT consumer connection (consumer.py). Host/port/keepalive/client-id are
+  # non-secret; MQTT_USER/MQTT_PASS come from the SealedSecret below.
+  mqtt:
+    enabled: true
+    # Stable broker address (Cilium LB-IPAM VIP; A record in coredns-lab).
+    host: mqtt.lab.local
+    port: 1883
+    keepaliveSeconds: 60
+    clientId: reporting-central
+
+  # MQTT credentials — the NEW subscribe-only EMQX user `reporting`
+  # (keys MQTT_USER / MQTT_PASS). SEPARATE from jupiter-influx. Injected via
+  # envFrom (optional: true so the first sync does not block on the seal — the
+  # subscribe is a best-effort no-op until the creds land). Provide the sealed
+  # values in .config/<env>/jupiter-central.yaml (owner step — see that file +
+  # the README + the PR notes for the exact EMQX user + ACL). Sealed blobs are
+  # namespace+name scoped, so they must be sealed for
+  # jupiter-central / jupiter-reporting-secrets.
+  secret:
+    name: jupiter-reporting-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+
+  # Scoped CiliumNetworkPolicy, INGRESS-ONLY by repo convention (egress fully
+  # open). Inbound: Prometheus /metrics scrape + kubelet /healthz. Egress
+  # lockdown is a human-reviewed OPT-IN (egress.enabled, default false) — the
+  # exact InfluxDB + MQTT destinations are pre-wired below so flipping it on is a
+  # value-only change.
+  networkPolicy:
+    enabled: true
+    metricsScrapeNamespace: observability
+    egress:
+      enabled: false
+      # In-cluster InfluxDB (influxdb-influxdb2.influxdb): Service port 80.
+      influxNamespace: influxdb
+      influxPort: 80
+      # EMQX broker VIP on the LAN (mqtt.lab.local == 192.168.50.181). Off-
+      # cluster LoadBalancer target -> toCIDR /32, port 1883.
+      mqttCIDR: 192.168.50.181/32
+      mqttPort: 1883
+
+  # Small stdlib HTTP server + a paho MQTT client + periodic pandas InfluxDB
+  # reads/writes. pandas import is the memory floor (same as forecast serving).
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Probes on GET /healthz (stdlib ThreadingHTTPServer — up before the broker /
+  # InfluxDB background jobs; a dead broker or Influx degrades reporting but does
+  # NOT fail /healthz, by design).
+  probes:
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 4
+
+  # ServiceMonitor for GET /metrics on the API port (jupiter_reporting_* +
+  # jupiter_savings_* + build_info; port 8080).
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    releaseLabel: kube-prometheus-stack

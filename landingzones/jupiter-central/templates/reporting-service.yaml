@@ -1,0 +1,21 @@
+# In-cluster metrics endpoint for the reporting-service. It exposes ONLY
+# /healthz + /metrics (no consumer API), so this Service exists purely so the
+# ServiceMonitor has a stable target — nothing consumes it as an API.
+# Reachable at http://reporting-service.jupiter-central.svc.cluster.local:8080
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: reporting-service
+  ports:
+    - name: http
+      port: {{ .Values.reporting.service.port }}
+      targetPort: http
+      protocol: TCP

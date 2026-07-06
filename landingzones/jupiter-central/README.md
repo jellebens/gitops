@@ -2,8 +2,9 @@
 
 Landing zone for the **central** (one-per-fleet) jupiter services, per
 `zeus:.docs/jupiter/architecture.md` and the P1–P5 card breakdown. Tenants:
-**price-service** (card #106) and **forecast-service** + its training
-CronJob (card #126); fleet-reporting lands with a later P3 card.
+**price-service** (card #106), **forecast-service** + its training
+CronJob (card #126), and **reporting-service** — the central fleet-reporting /
+savings service (jupiter reporting card #161, deployed by gitops card #161-F).
 
 **Central-only:** nothing in this namespace touches zeus behavior. Zeus keeps
 fetching ENTSO-E directly until card #107 flips `prices.source: jupiter` —
@@ -190,6 +191,83 @@ only). The trainer pods are deliberately NOT selected by any policy — they
 need egress to InfluxDB (`influxdb` namespace) and the public
 `api.open-meteo.com`, both covered by the namespace's open egress
 (ingress-only convention; an egress lockdown stays a human-reviewed step).
+
+## reporting-service (card #161-F)
+
+The central fleet-reporting / savings service (jupiter repo `services/reporting`,
+image `jellebens/jupiter-reporting:0.7.0`, package `jupiter_reporting`,
+ADR-0013). **OWNER NAMING DECISION:** the k8s Deployment/Service is
+`reporting-service` (NO `jupiter-` prefix — it is already in the
+`jupiter-central` namespace, matching `price-service` / `forecast-service`); only
+the Docker image keeps the registry-convention `jupiter-reporting` name.
+
+A **pure consumer**, never on any actuation path — a broker or InfluxDB outage
+degrades it and never crashes it (`/healthz` + `/metrics` keep serving). It:
+
+- subscribes to the lars' retained MQTT `jupiter/<site>/plan` + `.../heartbeat`
+  and re-exposes them as `jupiter_reporting_*` Prometheus gauges (honoring the
+  retained-doc staleness rule);
+- reads the site-tagged realized `zeus_state` / `zeus_savings` series from the
+  shared InfluxDB `zeus` bucket to emit `jupiter_savings_*`;
+- writes durable `jupiter_state` / `jupiter_daily_savings` back to that bucket
+  (byte-parity line builder → jupiter and zeus points overwrite, not duplicate).
+
+Central singleton (`site_id=central`), single replica (Recreate). **No PVC and
+no CronJob** (unlike forecast) — all state is in InfluxDB / Prometheus; the
+realized refresh runs on an in-process timer.
+
+### Config knobs (all env, set by the chart via the `reporting-service-config`
+ConfigMap + the two secrets)
+
+| var | source | value |
+| --- | --- | --- |
+| `PORT` | Deployment env | `8080` |
+| `SITE_ID` | Deployment env | `central` |
+| `REPORTING_SITES` | ConfigMap | `tervuren` (comma-separated; add sites here) |
+| `REPORTING_TZ` | ConfigMap | `Europe/Brussels` |
+| `REPORTING_REFRESH_SECONDS` | ConfigMap | `60` |
+| `INFLUX_URL` / `INFLUX_ORG` / `INFLUX_BUCKET` | ConfigMap | `http://influxdb-influxdb2.influxdb` / `zeus` / `zeus` |
+| `INFLUX_TOKEN` | **reused** `jupiter-influx` secret | admin all-access token |
+| `MQTT_ENABLED` / `MQTT_HOST` / `MQTT_PORT` / `MQTT_KEEPALIVE_SECONDS` / `MQTT_CLIENT_ID` | ConfigMap | `true` / `mqtt.lab.local` / `1883` / `60` / `reporting-central` |
+| `MQTT_USER` / `MQTT_PASS` | `jupiter-reporting-secrets` secret | new EMQX `reporting` user |
+
+`PLAN_STALE_AFTER_S` is a module constant in `consumer.py` (900s), **not**
+env-driven — there is no knob for it in the chart.
+
+### Secrets — one reused, one new
+
+- **InfluxDB token: REUSED, no new seal.** reporting `envFrom`s the existing
+  `jupiter-influx` secret (same namespace, key `INFLUX_TOKEN`) that the forecast
+  trainer already uses. That token is the InfluxDB **admin all-access** token —
+  verified 2026-07-06 as the ONLY token with read+write on the `zeus` bucket
+  (InfluxDB has exactly two tokens: admin all-access, and a `homeassistant`
+  write-only-to-`homeassistant`-bucket token). reporting needs read
+  (`zeus_state`/`zeus_savings`) + write (`jupiter_state`/`jupiter_daily_savings`)
+  on `zeus`, all covered. Reuse works precisely because reporting shares the
+  namespace and references the same secret name (SealedSecrets are
+  namespace+name scoped).
+- **MQTT creds: NEW.** A new subscribe-only EMQX user `reporting` is required —
+  none of the existing users is a central subscriber (`cell-tervuren` is a
+  per-site publisher; `zeus-mqtt` / `homeassistant` / `mqtt-admin` are
+  unrelated). Its creds go in the new `jupiter-reporting-secrets` SealedSecret
+  (keys `MQTT_USER` / `MQTT_PASS`). The **owner step** (mint the EMQX user +
+  seal the creds) is documented in
+  [`.config/lab/jupiter-central.yaml`](../../.config/lab/jupiter-central.yaml);
+  the DR-mirror ACL is already added to
+  [`platform/mqtt/files/acl.conf`](../../platform/mqtt/files/acl.conf) and the
+  runbook table in [`platform/mqtt/README.md`](../../platform/mqtt/README.md).
+  ACL: `allow subscribe jupiter/+/plan`, `allow subscribe jupiter/+/heartbeat`,
+  `deny all #`.
+
+### Network policy
+
+`reporting-service` gets an ingress-only CiliumNetworkPolicy (repo convention):
+inbound limited to `observability` (Prometheus scrape) + the node host
+(`/healthz` probes) on port 8080; **egress stays fully open** so it reaches the
+EMQX VIP (`mqtt.lab.local:1883`, off-cluster) and in-cluster InfluxDB
+(`influxdb-influxdb2.influxdb:80`). An egress lockdown is a human-reviewed
+**opt-in** (`reporting.networkPolicy.egress.enabled`, default `false`) with both
+destinations pre-wired, so flipping it on is a value-only change.
 
 ## Argo CD
 

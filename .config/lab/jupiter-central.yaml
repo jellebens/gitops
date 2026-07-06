@@ -44,3 +44,53 @@ forecast:
       enabled: true
       encryptedData:
         INFLUX_TOKEN: "AgCqdAIc+tyRjD2KIA0uKqALHlbypP0Cz+FfhdkbjQ25iIquIR/VwwSmGCHyptSlEXKtA4qpGg3FPEA79G8gbNf67zLbiappQ9QEDYuChMUZD86s4I96f96gtQb8VlC36f1vc0qp4urwWqMHbsuexOVcNdmtk0JtGA/Xyw4GMOFqWK7EoeFyRkyoED5JT9IrLDNfnwAhS0X7KbwbB1JfYcHtvQXgARyJ7zNJPJ9EXt4uy/qA6dwb+cFS/2Mp/flmwdiyT31zinEvsqhl1sbrN/+geId+rryi3fSM78hrUayGFf/uYK/R5YTZ+rOOXzcyG8CZ7DvRRfSrxYl1JYS8FG4r3pdGIVOhIupVzAXDNvNd0vMlan2bqLgO965crg0s5WL/WkLzkBX29kT9+myb0x+rsiv0Zi/kdiL49on3a3S40WbjOD6cYO61quhv9yY0fYnkMpnR3xTdThdocw97HJ41j59/Qb6Xq/UgQzrE2xF5snFiiySwEn648qqGJLngoGo+uYG/BqC4sNYWfOatp9dxdW3rRfm4u3BafRTHmb13unjWd6Qp1HO0SPLBuAXCIUrFeXckG1KbvcAVsIwulvMO+U5Wf1H6O0LXK0EM8HI/HfYdRs9xlRE9OWx4QSWup7d2A3ra+LWhp1ZPOghG475ha7arbMsS2gyHspXtiJqJXAZtqtgxznRne4WI/+5k0qgeY9V10TaecTc85RsFG8moHLcdItRkqeEqdmB3mvWNpPW2M2PRr8KDzVleeqjBlTxmnnKTJvo6aNwkC/GfOc7z"
+
+# --- reporting-service (gitops card #161-F) --------------------------------
+#
+# reporting REUSES this same forecast InfluxDB token — NO new InfluxDB seal.
+# The reporting Deployment envFroms the `jupiter-influx` secret above (same
+# namespace, same key INFLUX_TOKEN). That token is the InfluxDB ADMIN all-access
+# token, the ONLY token with read+write on the `zeus` bucket (verified
+# 2026-07-06: InfluxDB has exactly two tokens — admin all-access + a
+# homeassistant write-only-to-homeassistant-bucket token). reporting needs READ
+# (zeus_state/zeus_savings) + WRITE (jupiter_state/jupiter_daily_savings) on
+# `zeus`, all covered. So the ONLY new secret reporting needs is its MQTT creds.
+#
+# ===========================================================================
+# MAIN-SESSION OWNER STEP (blocks reporting's MQTT subscribe, nothing else):
+# ===========================================================================
+# reporting authenticates to EMQX as a NEW SUBSCRIBE-ONLY user `reporting` to
+# consume jupiter/<site>/plan + jupiter/<site>/heartbeat for ALL sites. None of
+# the existing EMQX users is a central subscriber (cell-tervuren is a per-site
+# PUBLISHER; zeus-mqtt / homeassistant / mqtt-admin are unrelated), so a new
+# user is required. The creds live in the SealedSecret `jupiter-reporting-secrets`
+# (ns jupiter-central), keys MQTT_USER / MQTT_PASS. Sealed blobs are NAMESPACE +
+# NAME scoped: no other namespace's blob can be pasted here.
+#
+# 1. Mint the EMQX `reporting` user (REST API — see platform/mqtt/README.md
+#    "Per-client user management") with a SUBSCRIBE-ONLY ACL:
+#      allow  subscribe  jupiter/+/plan
+#      allow  subscribe  jupiter/+/heartbeat
+#      deny   all        #
+#    (no publish, no other topic). Mirror it into platform/mqtt/files/acl.conf
+#    for DR — ALREADY DONE in this PR.
+# 2. Seal each value for THIS namespace/secret:
+#      printf '%s' "$MQTT_USER" | kubeseal --raw \
+#        --namespace jupiter-central --name jupiter-reporting-secrets \
+#        --controller-name sealed-secrets --controller-namespace argocd
+#      printf '%s' "$MQTT_PASS" | kubeseal --raw \
+#        --namespace jupiter-central --name jupiter-reporting-secrets \
+#        --controller-name sealed-secrets --controller-namespace argocd
+# 3. Paste the outputs below as MQTT_USER / MQTT_PASS and remove the empty {}.
+#
+# UNTIL the blobs are filled: encryptedData stays empty and the SealedSecret is
+# NOT rendered (templates/reporting-sealed-secret.yaml renders only when
+# non-empty). The whole chart still deploys cleanly (envFrom is optional:true) —
+# reporting serves /healthz + /metrics, reads/writes InfluxDB via the reused
+# token, and its MQTT subscribe is a best-effort no-op (jupiter_reporting_*
+# gauges stay absent) until the creds land. reporting actuates NOTHING regardless.
+reporting:
+  secret:
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
