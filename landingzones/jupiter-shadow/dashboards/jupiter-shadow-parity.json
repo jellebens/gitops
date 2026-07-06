@@ -123,7 +123,7 @@
     {
       "id": 12,
       "type": "state-timeline",
-      "title": "cell (shadow) intent  —  0 idle · 1 charge · 2 discharge",
+      "title": "lar (shadow) intent  —  0 idle · 1 charge · 2 discharge",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 7 },
       "fieldConfig": {
@@ -185,13 +185,13 @@
       "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_zeus_setpoint_kw)", "legendFormat": "zeus (live) {{site_id}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_cell_setpoint_kw)", "legendFormat": "cell (shadow) {{site_id}}" }
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_shadow_cell_setpoint_kw)", "legendFormat": "lar (shadow) {{site_id}}" }
       ]
     },
     {
       "id": 22,
       "type": "timeseries",
-      "title": "Setpoint delta (kW)  —  zeus_net - cell_net",
+      "title": "Setpoint delta (kW)  —  zeus_net - lar_net",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 20 },
       "fieldConfig": {
@@ -210,7 +210,7 @@
       "id": 23,
       "type": "state-timeline",
       "title": "Price source-class match  —  1 same class · 0 differ",
-      "description": "Degrade-class parity: primary(0) vs degraded(!=0). The two source enums differ (zeus 0..4, cell 0..2) so only the class is compared, not the raw code.",
+      "description": "Degrade-class parity: primary(0) vs degraded(!=0). The two source enums differ (zeus 0..4, lar 0..2) so only the class is compared, not the raw code.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 12, "x": 0, "y": 27 },
       "fieldConfig": {
@@ -255,7 +255,7 @@
       "id": 31,
       "type": "stat",
       "title": "Intent-match fraction (window)",
-      "description": "Share of the selected window where zeus and cell intents matched. Cutover target: sustained ~1.0.",
+      "description": "Share of the selected window where zeus and lar intents matched. Cutover target: sustained ~1.0.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 33 },
       "fieldConfig": {
@@ -317,7 +317,7 @@
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 39 },
       "options": {
         "mode": "markdown",
-        "content": "**What this harness proves (per cycle, from Prometheus only):** intent-match (charge/discharge/idle), setpoint delta (kW), source-class inputs parity (primary vs degraded), and charge-guard conflict — joining zeus's LIVE `zeus_*` against the tervuren cell's SHADOW `jupiter_cell_*`, keyed on `site_id`.\n\n**`jupiter_shadow_logic_divergence` is the P4 cutover gate:** intents differ *while metric-visible inputs agree*. Sustained 0 across a soak = the shadow logic matches the live logic = safe to flip the site live.\n\n**Partial — `inputs_equal` attribution:** only the source *class* is compared here (the zeus enum has 5 codes, the cell 3, so raw-code equality would be wrong). The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`, `running_peak_kw`, and SoC equality — lives ONLY in the retained MQTT plan doc `jupiter/<site>/plan`, which is not scraped. So a \"logic\" flag here means *logic OR a same-class-but-different-curve/SoC input*. Tightening to full inputs-equality needs an MQTT consumer (follow-up).\n\n**One-sided signals:** the cell exposes no guard-trip or SoC metric yet (guard counters land with jupiter #137; SoC is MQTT-only). Guard-conflict is inferred from zeus's guard trips vs the cell's charge intent."
+        "content": "**What this harness proves (per cycle, from Prometheus only):** intent-match (charge/discharge/idle), setpoint delta (kW), source-class inputs parity (primary vs degraded), and charge-guard conflict — joining zeus's LIVE `zeus_*` against the tervuren lar's SHADOW `jupiter_lar_*`, keyed on `site_id`.\n\n**`jupiter_shadow_logic_divergence` is the P4 cutover gate:** intents differ *while metric-visible inputs agree*. Sustained 0 across a soak = the shadow logic matches the live logic = safe to flip the site live.\n\n**Partial — `inputs_equal` attribution:** only the source *class* is compared here (the zeus enum has 5 codes, the lar 3, so raw-code equality would be wrong). The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`, `running_peak_kw`, and SoC equality — lives ONLY in the retained MQTT plan doc `jupiter/<site>/plan`, which is not scraped. So a \"logic\" flag here means *logic OR a same-class-but-different-curve/SoC input*. Tightening to full inputs-equality needs an MQTT consumer (follow-up).\n\n**One-sided signals:** the lar exposes no guard-trip or SoC metric yet (guard counters land with jupiter #137; SoC is MQTT-only). Guard-conflict is inferred from zeus's guard trips vs the lar's charge intent."
       }
     }
   ],

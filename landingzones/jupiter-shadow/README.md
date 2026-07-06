@@ -1,32 +1,32 @@
 # jupiter-shadow — shadow parity harness (P3.6, card #141)
 
 Monitoring-only landing zone. It proves, **per cycle**, that the tervuren
-cell's **shadow** plan matches zeus's **actual** dispatch — the signal that
+lar's **shadow** plan matches zeus's **actual** dispatch — the signal that
 gates the P4 cutover (sustained clean parity = safe to flip a site to live).
 
 ## Approach: Prometheus recording rules + a Grafana dashboard (NO new service)
 
 Both stacks already export everything the join needs as scraped metrics, so
-this is **rules + dashboard only** — no new service, no cell edit (the cell is
+this is **rules + dashboard only** — no new service, no lar edit (the lar is
 owned by #142), no MQTT consumer:
 
 - **zeus actual** (ns `zeus`, **no `site_id` label** — the single tervuren
   battery): `zeus_target_charge_kw`, `zeus_target_discharge_kw`,
   `zeus_price_source` (0=primary 1=fallback 2=cache 3=none 4=partial),
   `zeus_forecast_source`, `zeus_charge_guard_trips_total`.
-- **cell shadow** (ns `jupiter-tervuren`, all `site_id="tervuren"`):
-  `jupiter_cell_target_charge_kw`, `jupiter_cell_target_discharge_kw`,
-  `jupiter_cell_price_source` (0=primary 1=cache 2=none),
-  `jupiter_cell_forecast_source`.
+- **lar shadow** (ns `jupiter-tervuren`, all `site_id="tervuren"`):
+  `jupiter_lar_target_charge_kw`, `jupiter_lar_target_discharge_kw`,
+  `jupiter_lar_price_source` (0=primary 1=cache 2=none),
+  `jupiter_lar_forecast_source`.
 
 The `zeus_*` series carry no `site_id`, so every zeus term is
 `label_replace`'d with `site_id="{{ site.id }}"` (default `tervuren`) and joined
-`on(site_id)` against the cell term. If either side stops being scraped, the
+`on(site_id)` against the lar term. If either side stops being scraped, the
 join yields no samples and the `jupiter_shadow_*` series go **absent** (the
 dashboard shows "no data", never a false 0) — that absence is the
 `jupiter_shadow_both_present` gate.
 
-Intent is derived exactly as the cell's own `jupiter_cell.plan._intent`:
+Intent is derived exactly as the lar's own `jupiter_lar.plan._intent`:
 `charge_kw>0 → 1 (charging)`, `discharge_kw>0 → 2 (discharging)`, else
 `0 (idle)`, encoded `(charge>0) + 2*(discharge>0)`.
 
@@ -43,7 +43,7 @@ Intent is derived exactly as the cell's own `jupiter_cell.plan._intent`:
 | `jupiter_shadow_inputs_source_match` | 1 iff both feeds' source-class agree |
 | `jupiter_shadow_logic_divergence` | intents differ **and** inputs source-class agree — **the cutover gate** |
 | `jupiter_shadow_inputs_divergence` | intents differ **but** source-class differs — expected/benign |
-| `jupiter_shadow_guard_conflict` | zeus tripped its charge-guard (<15m) while the cell planned to charge |
+| `jupiter_shadow_guard_conflict` | zeus tripped its charge-guard (<15m) while the lar planned to charge |
 
 ## Parity coverage vs gaps
 
@@ -51,21 +51,21 @@ Intent is derived exactly as the cell's own `jupiter_cell.plan._intent`:
 inputs parity, guard-conflict.
 
 **Partial — `inputs_equal` attribution.** The two source enums are **not**
-numerically identical (zeus 0..4, cell 0..2), so only the derived degrade
+numerically identical (zeus 0..4, lar 0..2), so only the derived degrade
 **class** (`==0` primary/healthy vs `!=0` degraded) is compared, never the raw
 code. The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`,
 `running_peak_kw`, `peak_threshold_kw`, and SoC equality — lives **only** in the
-retained MQTT plan doc `jupiter/<site>/plan` (`jupiter_cell.publish
+retained MQTT plan doc `jupiter/<site>/plan` (`jupiter_lar.publish
 .build_plan_document`, `inputs` block) and is **not scraped**. So a
 `jupiter_shadow_logic_divergence` here means *logic OR a same-class-but-
 different-curve/SoC input*. Tightening it to full inputs-equality needs a small
 MQTT consumer that subscribes `jupiter/<site>/plan` and compares the fingerprint
-— a **follow-up**, not a cell edit.
+— a **follow-up**, not a lar edit.
 
-**One-sided signals (metric GAP on the cell, do NOT fix here — cell is #142):**
-- The cell exposes **no guard-trip metric** (jupiter #137 lands it). Guard
-  conflict is inferred from zeus's guard trips vs the cell's charge intent.
-- The cell exposes **no SoC metric** (`soc_pct` is MQTT-plan-doc only), so a
+**One-sided signals (metric GAP on the lar, do NOT fix here — lar is #142):**
+- The lar exposes **no guard-trip metric** (jupiter #137 lands it). Guard
+  conflict is inferred from zeus's guard trips vs the lar's charge intent.
+- The lar exposes **no SoC metric** (`soc_pct` is MQTT-plan-doc only), so a
   SoC-equal input check is not possible from Prometheus.
 
 ## Dashboard
@@ -74,7 +74,7 @@ MQTT consumer that subscribes `jupiter/<site>/plan` and compares the fingerprint
 provisioned via the ConfigMap the kube-prometheus-stack Grafana sidecar
 discovers (`grafana_dashboard: "1"`) — same pattern as `landingzones/zeus`. A
 **new** dashboard; the kiosk and every existing dashboard are untouched.
-Panels: parity-at-a-glance stats, zeus vs cell intent state-timelines, a
+Panels: parity-at-a-glance stats, zeus vs lar intent state-timelines, a
 match/inputs/logic attribution timeline, net-setpoint + delta timeseries,
 source-class match timelines, and a soak-summary row (intent-match fraction,
 logic-divergence minutes, max |delta| over the selected window).

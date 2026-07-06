@@ -2,26 +2,31 @@
 
 The per-site jupiter unit for the `tervuren` site. **As of 2026-07-06 (card
 #153) it is the LIVE battery controller** — zeus is demoted to a running
-cross-check. Deploys `jellebens/jupiter-cell:0.5.0` as a single-replica control
+cross-check. Deploys `jellebens/jupiter-lar:0.6.0` as a single-replica control
 loop that, every cycle, reads live battery/house state from Home Assistant,
 computes a dispatch plan (prices + forecast → `packages/dispatch`), publishes it
 to MQTT, and — gated by the single-controller interlock — commands the battery's
 working-mode select.
 
-> **Naming:** the per-site unit is being renamed **cell → lar** (card #154, in
-> flight). Until that ships, the deployed artifacts still carry "cell": image
-> `jupiter-cell`, metrics `jupiter_cell_*`, EMQX user `cell-tervuren`, namespace
-> `jupiter-tervuren`. This doc uses the current (deployed) names.
+> **Naming:** the per-site unit was renamed **cell → lar** (card #154, shipped
+> with image `jupiter-lar:0.6.0`). The rename covers the image
+> (`jupiter-cell` → `jupiter-lar`) and the emitted metrics
+> (`jupiter_cell_*` → `jupiter_lar_*`). Deliberately **NOT** renamed (to avoid a
+> live-connectivity / selector churn): the Kubernetes workload name and labels
+> (Deployment/Service `jupiter-cell`, `app.kubernetes.io/name: jupiter-cell` — so
+> `kubectl` targets below still say `deploy/jupiter-cell`), the EMQX user
+> `cell-tervuren`, the MQTT topics `jupiter/tervuren/...`, and the namespace
+> `jupiter-tervuren`.
 
 ## The load-bearing safety property — exactly ONE controller per battery
 
 Enforced in **code, not procedure**, by the single-controller **interlock**
-(`jupiter_cell.interlock`, cards #150/#151):
+(`jupiter_lar.interlock`, cards #150/#151):
 
 - zeus emits a **commander signal** — metric `zeus_commander{site_id}` (1 = zeus
   is commanding, 0 = demoted to a check) plus a **retained** MQTT heartbeat
   `zeus/tervuren/commander` (`{"commander":0|1,"ts":<epoch>,"site":"tervuren"}`).
-- The cell actuates **only** when it reads a **fresh `commander==0`**. It
+- The lar actuates **only** when it reads a **fresh `commander==0`**. It
   **refuses** (safe-holds, commands nothing) on `commander==1`, a stale
   timestamp (age ≥ 2× cycle interval), or no/unparseable signal. Every
   uncertainty fails SAFE — better no controller for a few minutes than two.
@@ -49,14 +54,15 @@ annotation rolls both pods):
 1. **zeus ≥ 0.8.0** deployed (emits the commander signal). Confirm
    `zeus_commander` is present and the retained `zeus/tervuren/commander` topic
    exists on the broker.
-2. **cell ≥ 0.5.0** deployed (live HA reads + actuation + interlock). An older
+2. **lar ≥ 0.6.0** (the cell→lar rename of ≥ 0.5.0) deployed (live HA reads +
+   actuation + interlock). An older
    image `load_site_config`-raises on the `ha:`/`control:` keys.
 3. **`HA_TOKEN`** sealed into `jupiter-tervuren-secrets` (live reads + actuation).
    Sanity-check its decoded length (~180 B JWT, **not** ~20 B — a truncated seal
    401s). One HA instance per site; the token is that site's HA.
 4. **EMQX ACL — the #153 blocker.** The `cell-tervuren` user MUST be allowed to
    **subscribe** `zeus/tervuren/commander`, else the interlock reads UNKNOWN and
-   the cell refuses forever. Its rule set (verify via the admin API):
+   the lar refuses forever. Its rule set (verify via the admin API):
    ```
    allow  all        jupiter/tervuren/#
    allow  subscribe  zeus/tervuren/commander      <-- required for the interlock
@@ -66,7 +72,7 @@ annotation rolls both pods):
 5. **Timing:** cut in a quiet quarter — avoid `xx:00/:15/:30/:45 ± 2 min` (the
    ENTSO-E / cycle boundary) and a mid-charge-guard-hold quarter.
 
-**After the merge + Argo sync:** if the cell's startup cycle happened to read the
+**After the merge + Argo sync:** if the lar's startup cycle happened to read the
 **stale** retained `commander=1` (zeus hadn't published `0` yet at that instant),
 it will safe-hold and only re-check on its next 15-min cycle. Force an immediate
 re-read:
@@ -82,20 +88,20 @@ needed for future site cutovers.)
 **Verification (within ~2 cycles):**
 
 ```sh
-# cell metrics — controllers_live MUST be 1
+# lar metrics — controllers_live MUST be 1
 kubectl exec -n jupiter-tervuren deploy/jupiter-cell -- \
   python -c 'import urllib.request;print(urllib.request.urlopen("http://localhost:8080/metrics").read().decode())' \
-  | grep -E 'jupiter_controllers_live|jupiter_cell_live_actuating|jupiter_zeus_commander_value'
+  | grep -E 'jupiter_controllers_live|jupiter_lar_live_actuating|jupiter_zeus_commander_value'
 # expect: controllers_live 1, live_actuating 1, commander_value 0
 ```
 
-- HA `select.apex300_working_mode` matches the cell's `intent0`.
+- HA `select.apex300_working_mode` matches the lar's `intent0`.
 - `zeus_commander 0`, zeus still writing `zeus_savings_today_*` (the check).
 - `zeus_*` kiosk series continuous across the flip (no gap).
 
 **Rollback — one revert.** Revert the cutover commit (`git revert -m 1 <merge>`)
-→ zeus `control.enabled: true` (`commander=1`, reclaims the battery) + cell
-`controller: shadow`. Argo rolls both pods; the interlock stands the cell down.
+→ zeus `control.enabled: true` (`commander=1`, reclaims the battery) + lar
+`controller: shadow`. Argo rolls both pods; the interlock stands the lar down.
 ~2–3 min. This was exercised cleanly during the #153 cutover.
 
 ## What it needs to run
@@ -116,11 +122,11 @@ kubectl exec -n jupiter-tervuren deploy/jupiter-cell -- \
 
 ## Metrics
 
-`jupiter_cell_*` (plan, HA-read health `jupiter_cell_ha_read_ok` /
-`_errors_total`), plus the actuation + interlock series: `jupiter_controllers_live`,
-`jupiter_cell_live_actuating`, `jupiter_interlock_refusals`,
-`jupiter_zeus_commander_value` / `_age_seconds`, `jupiter_cell_control_available`,
-`jupiter_cell_actual_mode`. All carry `site_id="tervuren"` and never re-emit any
+`jupiter_lar_*` (plan, HA-read health `jupiter_lar_ha_read_ok` /
+`jupiter_lar_ha_read_errors_total`), plus the actuation + interlock series: `jupiter_controllers_live`,
+`jupiter_lar_live_actuating`, `jupiter_interlock_refusals`,
+`jupiter_zeus_commander_value` / `_age_seconds`, `jupiter_lar_control_available`,
+`jupiter_lar_actual_mode`. All carry `site_id="tervuren"` and never re-emit any
 `zeus_*` name — no collision with the live `zeus_*` series.
 
 ## Known gotchas
@@ -128,7 +134,7 @@ kubectl exec -n jupiter-tervuren deploy/jupiter-cell -- \
 - **`capacity_peak`** (`sensor.fluvius_meter_..._peak_power`) is intermittently
   `unavailable` in HA → the peak-shaving guard degrades (fail-safe, no bad
   command). zeus reads the same sensor and degrades identically; it self-heals
-  when the sensor next reports and the cell caches the last-good register.
+  when the sensor next reports and the lar caches the last-good register.
 - **Interlock re-check cadence** is per 15-min planning cycle → a cutover may
   need the `rollout restart` above. Tracked by card #155 (make it event-driven
   off the commander subscriber).
@@ -136,7 +142,7 @@ kubectl exec -n jupiter-tervuren deploy/jupiter-cell -- \
 ## Networking
 
 `CiliumNetworkPolicy` is **ingress-only by default** (egress open), matching
-zeus / jupiter-central / mqtt — the cell's egress to the in-cluster
+zeus / jupiter-central / mqtt — the lar's egress to the in-cluster
 price/forecast services, the EMQX broker (`mqtt.lab.local`), **Home Assistant
 (`vesta.local:8123`)** and DNS is never severed. An egress lockdown is an opt-in,
 human-reviewed step (`networkPolicy.egress.enabled`, default `false`).
@@ -151,7 +157,7 @@ the owner mints the token and runs `kubeseal` (strict scope, `--raw`,
 
 ## Last-good cache volume (card #146)
 
-The cell persists the last-good **price** and **forecast** curves to a writable
+The lar persists the last-good **price** and **forecast** curves to a writable
 `emptyDir` at `cache.dir` (default `/var/cache/jupiter-cell`) so a pod restart
 during an upstream outage rehydrates the in-memory last-good cache instead of
 cold-starting to safe idle. `cache.dir` is the single source of truth for both

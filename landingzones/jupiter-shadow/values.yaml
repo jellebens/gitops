@@ -2,15 +2,15 @@
 #
 # A MONITORING-ONLY chart: no Deployment, no Service, no Secret, no PVC. It
 # ships only (a) a PrometheusRule of jupiter_shadow_* RECORDING rules that join
-# the already-scraped zeus_* (live dispatch) and jupiter_cell_* (shadow plan)
+# the already-scraped zeus_* (live dispatch) and jupiter_lar_* (shadow plan)
 # series, and (b) a Grafana dashboard ConfigMap the sidecar discovers. Nothing
-# here reaches the live battery or the cell; it observes both from Prometheus.
+# here reaches the live battery or the lar; it observes both from Prometheus.
 
 # The site under shadow. zeus_* has NO site_id label (the single tervuren
 # battery), so the recording rules inject this value onto every zeus term
-# before joining `on(site_id)` against the site-labelled jupiter_cell_* series.
+# before joining `on(site_id)` against the site-labelled jupiter_lar_* series.
 # One harness instance = one site today; a second site becomes a second landing
-# zone (or a values-driven loop) once a second cell soaks.
+# zone (or a values-driven loop) once a second lar soaks.
 site:
   id: tervuren
 
