@@ -1,6 +1,9 @@
 image:
   repository: jellebens/zeus
-  tag: "0.7.0"
+  # 0.8.0 = commander signal (#150): zeus_commander metric + retained MQTT
+  # heartbeat zeus/tervuren/commander. Additive — zeus stays commander=1
+  # (control.enabled true); the JUPITER cell interlock keys on this signal.
+  tag: "0.8.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
