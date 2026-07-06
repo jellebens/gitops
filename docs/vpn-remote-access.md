@@ -1,6 +1,15 @@
 # Remote access (VPN) to the homelab
 
-**Status: PREPARED — nothing is applied.** This runbook is the deliverable of
+**Status: OPTION A EXECUTED (owner, 2026-07-06).** The owner enabled the
+native WireGuard server on the GT-AX11000 (appendix below) and verified remote
+access from a hotspot. As-built notes: the stock ASUS WireGuard UI does not
+accept a per-peer `DNS =` value — set DNS **client-side** instead (WireGuard
+app → Edit tunnel → DNS servers `192.168.50.180, 192.168.50.144`, replacing
+any auto-filled `192.168.50.1`); split tunnel `AllowedIPs = 192.168.50.0/24`.
+Option B (Tailscale subnet router) remains the recommended path for P5
+remote-site connectivity and as a future second path; it is NOT set up today.
+
+Original investigation below, kept as reference. This runbook is the deliverable of
 Trello card #72. Every step that touches the router, a Tailscale account, the
 NAS, or a client device needs **owner hands**; the exact click-paths are below.
 No cluster manifests, DNS zone edits, or k3s changes are required (verified —
