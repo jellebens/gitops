@@ -19,6 +19,13 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: mqtt
+{{- if .Values.acl.enabled }}
+      annotations:
+        # Roll the pods when the git-managed ACL file changes (subPath
+        # ConfigMap mounts do not hot-reload) so the `file` authz source
+        # picks up new DR rules on the next controlled restart.
+        checksum/acl: {{ .Files.Get "files/acl.conf" | sha256sum }}
+{{- end }}
     spec:
       # Spread replicas across nodes so a single node loss keeps the broker up
       # (same pattern as coredns-lab).
@@ -107,6 +114,16 @@ spec:
             - name: auth-bootstrap
               mountPath: /opt/emqx/auth
               readOnly: true
+{{- if .Values.acl.enabled }}
+            # Overwrite the stock etc/acl.conf (the `file` authz source's path)
+            # with the git-managed DR ACL. subPath mounts a single file without
+            # hiding the rest of /opt/emqx/etc. EMQX treats this path as
+            # immutable, so read-only is correct.
+            - name: acl
+              mountPath: /opt/emqx/etc/acl.conf
+              subPath: acl.conf
+              readOnly: true
+{{- end }}
       volumes:
         - name: auth-bootstrap
           secret:
@@ -114,6 +131,14 @@ spec:
             items:
               - key: users.csv
                 path: users.csv
+{{- if .Values.acl.enabled }}
+        - name: acl
+          configMap:
+            name: mqtt-acl
+            items:
+              - key: acl.conf
+                path: acl.conf
+{{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data
