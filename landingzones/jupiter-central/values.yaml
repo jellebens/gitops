@@ -299,10 +299,11 @@ reporting:
   image:
     repository: jellebens/jupiter-reporting
     # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-    # v0.7.2 (ba344a8) fixes the MQTT_USER/MQTT_PASS env-var names so the telemetry
-    # consumer authenticates (v0.7.1 connected anonymously → broker_connected=false,
-    # no jupiter_reporting_soc/energy gauges).
-    tag: "0.7.2"
+    # v0.8.0 (acd4df9): savings independence — jupiter_state + jupiter_savings now
+    # sourced entirely from jupiter's own inputs (lar MQTT + price-service), ZERO
+    # zeus_state reads (#163/#170/#171). Makes the #164 parity soak a true
+    # independent cross-check.
+    tag: "0.8.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the
