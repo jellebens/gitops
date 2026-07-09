@@ -1,0 +1,36 @@
+# Non-secret config for the reporting-service, injected as env via envFrom on
+# the Deployment. The reporting app is fully env-driven (app.py reads
+# REPORTING_SITES / REPORTING_TZ / REPORTING_REFRESH_SECONDS; consumer.py reads
+# MQTT_* ; influx.py reads INFLUX_URL/ORG/BUCKET) — there is no mounted config
+# document like the forecast trainer's sites.json, so the fleet/site config
+# lives here as plain env keys. Only the two SECRETS (INFLUX_TOKEN via the shared
+# jupiter-influx secret; MQTT_USER/MQTT_PASS via jupiter-reporting-secrets) are
+# kept out of this ConfigMap and injected from their SealedSecrets.
+#
+# site config: tervuren (REPORTING_SITES). Add more sites here (comma-separated)
+# as the fleet grows; the EMQX `reporting` user already has a wildcard subscribe
+# on jupiter/+/plan + jupiter/+/heartbeat, so no broker change is needed to add
+# a site — only this list.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reporting-service-config
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+data:
+  # --- app (app.py) ---
+  REPORTING_SITES: {{ .Values.reporting.sites | quote }}
+  REPORTING_TZ: {{ .Values.reporting.tz | quote }}
+  REPORTING_REFRESH_SECONDS: {{ .Values.reporting.refreshSeconds | quote }}
+  # --- InfluxDB (influx.py, non-secret half) ---
+  INFLUX_URL: {{ .Values.reporting.influx.url | quote }}
+  INFLUX_ORG: {{ .Values.reporting.influx.org | quote }}
+  INFLUX_BUCKET: {{ .Values.reporting.influx.bucket | quote }}
+  # --- MQTT (consumer.py, non-secret half) ---
+  MQTT_ENABLED: {{ .Values.reporting.mqtt.enabled | quote }}
+  MQTT_HOST: {{ .Values.reporting.mqtt.host | quote }}
+  MQTT_PORT: {{ .Values.reporting.mqtt.port | quote }}
+  MQTT_KEEPALIVE_SECONDS: {{ .Values.reporting.mqtt.keepaliveSeconds | quote }}
+  MQTT_CLIENT_ID: {{ .Values.reporting.mqtt.clientId | quote }}

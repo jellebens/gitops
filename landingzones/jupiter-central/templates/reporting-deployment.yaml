@@ -1,0 +1,131 @@
+# reporting-service (jupiter P-reporting card #161, gitops card #161-F).
+#
+# Third tenant of this landing zone: the central fleet-reporting / savings
+# service (jupiter repo services/reporting, image jellebens/jupiter-reporting,
+# package jupiter_reporting). OWNER NAMING DECISION: the k8s workload/Service is
+# `reporting-service` (NO jupiter- prefix — it is already in the jupiter-central
+# namespace, matching price-service / forecast-service); only the Docker IMAGE
+# keeps the registry-convention jupiter-reporting name.
+#
+# It is a PURE CONSUMER, never on any actuation path (ADR-0013):
+#   - subscribes to the lars' retained MQTT jupiter/<site>/plan + /heartbeat and
+#     re-exposes jupiter_reporting_* gauges (consumer.py);
+#   - reads the site-tagged realized zeus_state / zeus_savings series from the
+#     shared InfluxDB `zeus` bucket to emit jupiter_savings_* (realized.py);
+#   - writes durable jupiter_state / jupiter_daily_savings back to that bucket
+#     (influx.py). Both directions are best-effort — a broker or InfluxDB outage
+#     degrades reporting and never crashes it (/healthz + /metrics keep serving).
+#
+# It is a central singleton (site_id=central), like price/forecast. No PVC and
+# no CronJob (unlike forecast): all state is in InfluxDB / Prometheus, and the
+# realized refresh runs on an in-process timer, not a batch job. Image default
+# ENTRYPOINT is the jupiter-reporting console script, so no command override.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reporting-service
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+spec:
+  replicas: {{ .Values.reporting.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reporting-service
+  # Recreate + single replica: two consumers would double-write the durable
+  # jupiter_state / jupiter_daily_savings points (byte-parity line builder means
+  # they overwrite, not duplicate — but a second writer is still pointless) and
+  # double-count nothing on the Prometheus side. Same single-writer discipline
+  # as price/forecast; there is no PVC to node-pin here.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: reporting-service
+        app.kubernetes.io/part-of: jupiter
+      annotations:
+        # Roll the pod when the non-secret config changes.
+        checksum/config: {{ include (print $.Template.BasePath "/reporting-configmap.yaml") . | sha256sum }}
+        {{- if and .Values.reporting.secret.sealedSecret.enabled .Values.reporting.secret.sealedSecret.encryptedData }}
+        # Roll the pod when the MQTT creds seal changes (so a creds update is
+        # picked up without a manual restart).
+        checksum/secret: {{ include (print $.Template.BasePath "/reporting-sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: reporting-service
+          image: "{{ .Values.reporting.image.repository }}:{{ .Values.reporting.image.tag }}"
+          imagePullPolicy: {{ .Values.reporting.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PORT
+              value: {{ .Values.reporting.service.port | quote }}
+            # D4 site identity: central singleton (site_id=central; get_site_id).
+            - name: SITE_ID
+              value: {{ .Values.siteId | quote }}
+          # Config comes from THREE sources, all envFrom + optional:true so the
+          # chart deploys before either seal exists (a missing token/creds just
+          # degrades reporting — never a crash):
+          #   reporting-service-config   -> the non-secret app/Influx/MQTT knobs
+          #                                 (REPORTING_SITES / REPORTING_TZ /
+          #                                 REPORTING_REFRESH_SECONDS / INFLUX_URL
+          #                                 / INFLUX_ORG / INFLUX_BUCKET / MQTT_*).
+          #   jupiter-influx             -> INFLUX_TOKEN  (SHARED with the forecast
+          #                                 trainer; same namespace + same admin
+          #                                 all-access token, which is the ONLY
+          #                                 token with read+write on the zeus
+          #                                 bucket — see values.yaml + the PR
+          #                                 notes. NO new InfluxDB secret is
+          #                                 minted).
+          #   jupiter-reporting-secrets  -> MQTT_USER / MQTT_PASS (NEW subscribe-
+          #                                 only EMQX user `reporting`; placeholder
+          #                                 until the owner seals the real creds).
+          envFrom:
+            - configMapRef:
+                name: reporting-service-config
+            - secretRef:
+                name: {{ .Values.reporting.influx.secretName }}
+                optional: true
+            - secretRef:
+                name: {{ .Values.reporting.secret.name }}
+                optional: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.reporting.service.port }}
+              protocol: TCP
+          # /healthz answers before/without the broker or InfluxDB (both are
+          # best-effort background jobs) — the pod is Ready from first sync even
+          # with no creds yet. A dead broker/Influx does NOT fail /healthz.
+          {{- with .Values.reporting.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.reporting.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.reporting.resources | nindent 12 }}

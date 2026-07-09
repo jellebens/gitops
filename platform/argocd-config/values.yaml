@@ -10,6 +10,40 @@ cmdParams:
   server:
     insecure: "true"
 
+# repoServer: tuning patch for the argocd-repo-server Deployment.
+# The Argo CD install itself (Deployment/probes/resources) is a stock
+# argo-cd Helm release ("argocd") applied out-of-band at bootstrap and is
+# NOT otherwise GitOps-managed. This chart owns a small strategic-merge
+# patch (applied via ServerSideApply + annotation tracking, same pattern as
+# the argocd-server Service) so the repo-server tuning is declarative.
+#
+# Root cause of card #159 (477+ restarts): the stock liveness probe hits
+# /healthz?full=true with timeoutSeconds=1. That endpoint does real work and,
+# whenever the repo-server is busy rendering a chart on the arm64 nodes, it
+# cannot answer within 1s -> 3 failures -> kubelet kills the pod (clean
+# SIGTERM, exit 0 -- NOT OOM; usage is ~58Mi). We point liveness at the
+# lightweight /healthz, give it a saner timeout/period/threshold, and add
+# resource requests so the pod leaves BestEffort QoS with headroom for helm
+# rendering.
+repoServer:
+  tuning:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        # memory limit only; no CPU limit -> avoid throttling that would slow
+        # the health check and re-trigger the loop.
+        memory: 1Gi
+    livenessProbe:
+      # lightweight endpoint (readiness already uses this), not full=true
+      path: /healthz
+      timeoutSeconds: 5
+      periodSeconds: 30
+      failureThreshold: 5
+      initialDelaySeconds: 10
+
 tlsCertificate:
   enabled: false
   secretName: argocd-server-tls

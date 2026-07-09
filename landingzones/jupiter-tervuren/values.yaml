@@ -1,26 +1,32 @@
-# jupiter-tervuren landing zone — the per-site CELL for the tervuren site,
+# jupiter-tervuren landing zone — the per-site LAR (renamed from "cell",
+# card #154) for the tervuren site,
 # deployed in SHADOW mode (jupiter P3.4, card #139).
 #
 # THE LOAD-BEARING SAFETY PROPERTY (do not weaken):
 #   controller: shadow  (hard default, see siteConfig.controller below and the
-#   SITE_ID/config wiring). In shadow the cell computes a full plan every cycle
+#   SITE_ID/config wiring). In shadow the lar computes a full plan every cycle
 #   and publishes it to MQTT, but ACTUATES NOTHING. zeus remains the SOLE live
 #   battery controller until the P4 cutover (#142 wires the live HA reads + the
 #   `live` controller; this chart only ships shadow). The image itself refuses
 #   to run `live` in 0.4.0 (config.py CONTROLLER_MODES stub), so shadow is
 #   belt-and-braces.
 #
-# METRIC ISOLATION: the cell emits ONLY jupiter_cell_* series (all carrying a
+# METRIC ISOLATION: the lar emits ONLY jupiter_lar_* series (all carrying a
 # site_id="tervuren" label) — it never re-emits any zeus_* name, so there is no
 # collision with the LIVE zeus_* Prometheus series (verified #137/#140). Nothing
 # in this chart enables any zeus_* dual-emit.
 
 image:
-  repository: jellebens/jupiter-cell
-  # jupiter repo release tag v0.4.2 (arm64, --provenance=false — cluster is arm64).
-  # 0.4.2 = load_site_config parses the mqtt section (#139 publish); 0.4.1 wired
-  # SITE_CONFIG_PATH (#144).
-  tag: "0.4.2"
+  # cell → lar rename (card #154): image renamed jupiter-cell → jupiter-lar and
+  # the emitted metrics jupiter_cell_* → jupiter_lar_* in lockstep at v0.6.0.
+  repository: jellebens/jupiter-lar
+  # jupiter repo release tag v0.6.0 (arm64, --provenance=false — cluster is arm64).
+  # 0.6.0 = the cell→lar rename of 0.5.0 (live HA reads #148 + live actuation #149
+  # + commander-keyed interlock #151); identical runtime behaviour, only the unit
+  # name / image / metric prefix change. REQUIRED with the ha:/entities:/control:
+  # siteConfig below — older images' load_site_config raises on the unknown ha:
+  # key. Stays controller: live per the #153 cutover (siteConfig.controller below).
+  tag: "0.9.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -29,19 +35,19 @@ image:
 replicaCount: 1
 
 # D4 site identity. Exported as the SITE_ID env var (jupiter_shared.site): the
-# cell's app.py reads it via config_from_env(), stamps it on every metric label,
+# lar's app.py reads it via config_from_env(), stamps it on every metric label,
 # cache path and MQTT topic (jupiter/tervuren/...), and derives the per-site
 # secret name jupiter-tervuren-secrets from it.
 siteId: tervuren
 
 service:
-  # Container/service port; exported to the app as PORT. The cell serves
-  # GET /metrics + GET /healthz on this one port (services/cell/app.py).
+  # Container/service port; exported to the app as PORT. The lar serves
+  # GET /metrics + GET /healthz on this one port (services/lar/app.py).
   port: 8080
 
 # --- The mounted site-config document -------------------------------------
 # Vendored value-for-value from the jupiter repo
-# services/cell/sites/tervuren.yaml (origin/develop, #138) so the cell
+# services/lar/sites/tervuren.yaml (origin/develop, #138) so the lar
 # dispatches tervuren EXACTLY as zeus does today. Rendered verbatim into the
 # jupiter-tervuren-config ConfigMap (templates/configmap.yaml) and mounted at
 # CELL_CONFIG_DIR (/config/site.yaml).
@@ -56,8 +62,11 @@ service:
 siteConfig:
   site:
     id: tervuren
-  # SAFETY: hard-defaulted to shadow. Do not change without the P4 cutover.
-  controller: shadow
+  # CUTOVER 2026-07-06 (#153): the tervuren lar is now the LIVE battery
+  # controller. zeus is demoted to a check (zeus_commander=0); the single-
+  # controller interlock gates EVERY command on that signal (refuses unless it
+  # sees a fresh commander==0). ROLLBACK: set back to shadow (+ re-arm zeus).
+  controller: live
   battery:
     usable_capacity_kwh: 13.0
     max_charge_kw: 2.2
@@ -86,7 +95,7 @@ siteConfig:
       detector_use_fluvius: true
       detector_fluvius_days: 365
   # Central price-service client (in-cluster). On an outage the loop degrades to
-  # the local last-good cache (cell invariant).
+  # the local last-good cache (lar invariant).
   price:
     base_url: http://price-service.jupiter-central.svc.cluster.local:8080
     zone: "10YBE----------2"
@@ -102,8 +111,29 @@ siteConfig:
     timeout_seconds: 5.0
     max_artifact_age_hours: 48.0
     cache_path: cache/forecast_last_good.json
-  # HA entity ids — carried for reproduction; NOT read by the shadow loop yet
-  # (the live HA read is #142). Present so #142 is a value-only change.
+  # Home Assistant REST connection (card #152 — the READ wiring). Value-for-value
+  # from the LIVE zeus config (landingzones/zeus/values.yaml `home_assistant:`) so
+  # the lar talks to the SAME HA instance zeus does today. base_url is
+  # vesta.local (NOT homeassistant.local — the jupiter repo tervuren.yaml carries
+  # homeassistant.local, which does NOT match the live zeus value; zeus's
+  # vesta.local is authoritative — flagged on the card). vesta.local resolves
+  # in-cluster via coredns-config (forwards vesta.local -> router 192.168.50.1,
+  # which serves the DHCP-reserved HA host 192.168.50.18). The long-lived token is
+  # NEVER stored here — it is ${HA_TOKEN}, expanded from the per-site sealed secret
+  # jupiter-tervuren-secrets at load time (site_config.py _expand_env reads env,
+  # injected via the Deployment envFrom). An empty base_url would disable the live
+  # read path; this is set so the READ ability is wired. NOTE: the lar still stays
+  # SHADOW (controller: shadow + control.enabled: false below), so it READS HA but
+  # actuates NOTHING — the live flip is the supervised cutover (#153).
+  ha:
+    base_url: http://vesta.local:8123
+    token: ${HA_TOKEN}
+    verify_ssl: true
+    timeout_seconds: 10.0
+  # HA entity ids — value-for-value from the LIVE zeus config
+  # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA
+  # read path once the lar reads them; carried here so the read wiring is
+  # complete. Field names match zeus/EntitiesConfig exactly.
   entities:
     soc: sensor.ap3002532000565690_battery_level
     grid_input_power: sensor.buzzbrick_ap3002532000565690_grid_input_power
@@ -115,6 +145,27 @@ siteConfig:
     current_price: ""
     capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
     grid_power_import: sensor.utility_room_home_energy_meter_electric_consumption_w
+  # Live actuation control (card #152 wires it; the COMMAND path stays inert).
+  # Value-for-value from the LIVE zeus config (landingzones/zeus/values.yaml
+  # `control:`) — the SAME working-mode SELECT entity with the SAME options zeus
+  # drives today. SAFETY: `enabled: false` keeps the lar shadow-only regardless
+  # of `controller` (zeus's live config has enabled: true; the lar deliberately
+  # does NOT). The supervised cutover (#153) is what flips BOTH `controller: live`
+  # AND `control.enabled: true`; even then the single-controller interlock still
+  # gates every command on zeus's commander signal. This card only lands the
+  # values so #153 is a clean flip — it does NOT command the battery.
+  control:
+    # CUTOVER 2026-07-06 (#153): arm the command gate. With controller: live
+    # above, the lar now actuates — but ONLY when the interlock sees zeus's
+    # fresh commander==0 AND the charge guard does not veto. ROLLBACK: false.
+    enabled: true
+    mode: working_mode
+    working_mode:
+      entity: select.apex300_working_mode
+      charge_option: "CHARGING"
+      discharge_option: "DISCHARGING"
+      idle_option: "PASSTHROUGH"
+      intent_threshold_kw: 0.1
   weather:
     latitude: 50.857017
     longitude: 4.5362013
@@ -127,6 +178,12 @@ siteConfig:
     replan_load_drop_kw: 0.4
     replan_load_rise_kw: 0.4
     input_failure_retry_seconds: 60
+    # Actively poke the whole-home Aeotec HEM (via zwave_js.refresh_value) before
+    # reading it, so the live capacity-peak grid register isn't stale. Ported
+    # value-for-value from the LIVE zeus config (landingzones/zeus/values.yaml
+    # run.grid_power_poll_seconds: 60). Part of the #152 HA READ wiring — the read
+    # path is inert until the lar reads it; harmless in shadow.
+    grid_power_poll_seconds: 60
   # Cluster EMQX broker publish creds (#139). host defaults to
   # mqtt.lab.local:1883; username/password expand (load_site_config ${VAR})
   # from the envFrom sealed secret jupiter-tervuren-secrets (the minted
@@ -138,26 +195,26 @@ siteConfig:
     client_id: cell-tervuren
 
 # Where the site-config ConfigMap is mounted. The document lands at
-# {mountPath}/{fileName}; CELL_CONFIG env points the cell at the full path
+# {mountPath}/{fileName}; SITE_CONFIG_PATH env points the lar at the full path
 # (read once the config-wiring card lands — see the siteConfig note above).
 config:
   mountPath: /config
   fileName: site.yaml
 
 # --- Writable last-good cache (card #146) ----------------------------------
-# The cell persists the last-good price + forecast curves to disk so a pod
+# The lar persists the last-good price + forecast curves to disk so a pod
 # restart during an upstream (price/forecast-service) outage rehydrates the
 # in-memory last-good cache instead of cold-starting (jupiter_shared.cache /
-# jupiter_cell.clients). It writes to price.cache_path / forecast.cache_path
+# jupiter_lar.clients). It writes to price.cache_path / forecast.cache_path
 # from the site-config document. Those default to a RELATIVE `cache/...` path,
 # which resolves against the container WORKDIR (/app) — root-owned and NOT
-# writable by the non-root runtime uid (1000) — so the cell logs, every cycle:
+# writable by the non-root runtime uid (1000) — so the lar logs, every cycle:
 #   WARNING could not persist last-good curve to cache/price_last_good.json:
 #   [Errno 13] Permission denied: 'cache'   (and the same for forecast)
 # Effect: cross-restart rehydration is degraded (in-memory last-good still holds
 # within a pod lifetime, so the fail-safe is intact — this is hardening).
 #
-# Fix (REUSABLE — every future site cell gets a writable cache the same way):
+# Fix (REUSABLE — every future site lar gets a writable cache the same way):
 # mount a writable emptyDir at `dir` and, in templates/configmap.yaml, override
 # price.cache_path / forecast.cache_path to absolute files under `dir`. `dir` is
 # the SINGLE source of truth for both the mount and the config paths, so they
@@ -172,18 +229,18 @@ cache:
   # root-owned WORKDIR works; /var/cache is the conventional home for regenerable
   # cache data.
   dir: /var/cache/jupiter-cell
-  # File names under `dir` (kept identical to the cell's historical relative
+  # File names under `dir` (kept identical to the lar's historical relative
   # names so the on-disk artefacts are unsurprising).
   priceFileName: price_last_good.json
   forecastFileName: forecast_last_good.json
 
 # Scoped CiliumNetworkPolicy. INGRESS-ONLY BY DEFAULT (repo convention, same as
 # zeus + jupiter-central): a Cilium policy with only `ingress` rules default-
-# denies inbound while leaving EGRESS FULLY OPEN. The cell needs egress to the
+# denies inbound while leaving EGRESS FULLY OPEN. The lar needs egress to the
 # in-cluster price/forecast services AND — critically — to the EMQX broker at
 # mqtt.lab.local (a LoadBalancer VIP 192.168.50.181 on the LAN, reached as a
 # `world`/CIDR entity, not a cluster endpoint) plus cluster DNS. A broad egress
-# default-deny that missed any of those would SEVER the cell, so it is left as a
+# default-deny that missed any of those would SEVER the lar, so it is left as a
 # deliberate, human-reviewed opt-in (egress.enabled, default false).
 networkPolicy:
   enabled: true
@@ -193,7 +250,7 @@ networkPolicy:
   # OPT-IN egress lockdown. Default false = ingress-only (egress stays open),
   # matching zeus/jupiter-central and the "never sever live connectivity" rule.
   # Flip to true only as a reviewed step once every destination below is
-  # confirmed. When true the cell is put into egress default-deny and ONLY the
+  # confirmed. When true the lar is put into egress default-deny and ONLY the
   # destinations below are reachable.
   egress:
     enabled: false
@@ -205,13 +262,23 @@ networkPolicy:
     # not toEndpoints.
     mqttCIDR: 192.168.50.181/32
     mqttPort: 1883
-    # Home Assistant (vesta) REST — present for #142 readiness. Harmless now
-    # (the shadow loop does not read HA yet).
+    # Home Assistant (vesta) REST egress — the HA READ target (card #152).
+    # CONFIRMED against the LIVE zeus config: zeus reaches HA at
+    # http://vesta.local:8123, and vesta.local is the DHCP-reserved HA host
+    # 192.168.50.18 (coredns-config forwards vesta.local -> router, which serves
+    # .18; the zone file pins `vesta IN A 192.168.50.18`). Egress leaves the
+    # cluster to that LAN address, so this is a /32 toCIDR rule on 8123, mirroring
+    # how zeus reaches HA. NOTE: this rule is only ENFORCED when
+    # networkPolicy.egress.enabled is true. It stays FALSE (ingress-only default),
+    # so the lar's egress is fully open and its HA reads are NOT gated today — no
+    # broad egress default-deny is shipped by this card (that is a separate,
+    # human-reviewed step). This entry is here so that if/when egress lockdown is
+    # enabled, the HA read path is already whitelisted and won't be severed.
     haCIDR: 192.168.50.18/32
     haPort: 8123
 
 # Prometheus Operator ServiceMonitor, scraping GET /metrics on the service port
-# (jupiter_cell_* series with a site_id label — see services/cell/metrics.py).
+# (jupiter_lar_* series with a site_id label — see services/lar/metrics.py).
 serviceMonitor:
   enabled: true
   interval: 30s
@@ -231,8 +298,8 @@ resources:
 # Probes on GET /healthz — served by the stdlib ThreadingHTTPServer on a daemon
 # thread, up before any price/forecast I/O, and returns 200 with status "ok"
 # even before the first cycle (it is a liveness target). Generous thresholds:
-# a shadow cell restart-loop is noise, and a degraded cycle (no price/forecast)
-# is NOT unhealthy — it self-heals. See the cell app.py health contract.
+# a shadow lar restart-loop is noise, and a degraded cycle (no price/forecast)
+# is NOT unhealthy — it self-heals. See the lar app.py health contract.
 probes:
   readiness:
     initialDelaySeconds: 5
@@ -254,20 +321,21 @@ runtime:
 # optional: true so the FIRST sync comes up before the seal is provided.
 #
 # Keys (site_config.REQUIRED_SECRET_ENV):
-#   MQTT_USER / MQTT_PASS  — REQUIRED for the cell's MQTT publish (#140). The
-#                            EMQX per-site cell user must be minted by the main
+#   MQTT_USER / MQTT_PASS  — REQUIRED for the lar's MQTT publish (#140). The
+#                            EMQX per-site user (cell-tervuren) must be minted by
+#                            the main
 #                            session before publishing works; until then MQTT
 #                            connect fails best-effort (telemetry only, never the
 #                            actuation path — the loop keeps running).
-#   HA_TOKEN               — NOT required by the 0.4.0 shadow cell (live HA reads
+#   HA_TOKEN               — NOT required by the 0.4.0 shadow lar (live HA reads
 #                            are deferred to #142; the loop defaults SoC to
 #                            soc_min and grid power to None). Sealed here anyway
-#                            so #142 is a value-only change, but the cell starts
+#                            so #142 is a value-only change, but the lar starts
 #                            fine without it.
 #
 # PLACEHOLDER: encryptedData is EMPTY so the SealedSecret is NOT rendered yet
 # (see templates/sealed-secret.yaml — it only renders when encryptedData is
-# non-empty). The main session mints the EMQX cell user, runs kubeseal for THIS
+# non-empty). The main session mints the EMQX per-site user (cell-tervuren), runs kubeseal for THIS
 # namespace, and pastes the sealed blobs into
 # .config/lab/jupiter-tervuren.yaml. envFrom optional:true keeps the pod up in
 # the meantime. Do NOT put plaintext secrets here or invent fake sealed data.
