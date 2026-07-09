@@ -10,11 +10,23 @@ metadata:
 spec:
   schedule: {{ .Values.backup.schedule | quote }}
   concurrencyPolicy: Forbid
+  # If a window is missed (controller down, stuck predecessor just killed),
+  # still start up to this late; after that, wait for the next nightly window.
+  startingDeadlineSeconds: {{ .Values.backup.startingDeadlineSeconds }}
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
       backoffLimit: 1
+      # Hard-kill a run that hangs (e.g. an unmountable SMB volume kept the
+      # 2026-06-29 job in ContainerCreating for 10 days; with Forbid above,
+      # that silently blocked every later run). A normal run takes ~30s, so
+      # anything past this deadline is wedged: the job is marked Failed and
+      # the next nightly window can run.
+      activeDeadlineSeconds: {{ .Values.backup.activeDeadlineSeconds }}
+      # GC finished jobs after a few days (history limits above trim sooner);
+      # freshness is watched by the HermesBackupNotRun alert, not job objects.
+      ttlSecondsAfterFinished: {{ .Values.backup.ttlSecondsAfterFinished }}
       template:
         metadata:
           labels:

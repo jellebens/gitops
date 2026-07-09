@@ -1,0 +1,42 @@
+{{- if and .Values.backup.enabled .Values.backup.prometheusRule.enabled }}
+# Direct freshness signal for the nightly state backup. The 2026-06/07 incident
+# (#175) showed the generic KubeJobNotCompleted/KubeContainerWaiting alerts are
+# too noisy to notice a silently wedged backup; this alert states the actual
+# problem: "no successful backup recently".
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hermes-backup
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: hermes
+    app.kubernetes.io/part-of: hermes
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.backup.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: hermes-backup
+      rules:
+        - alert: HermesBackupNotRun
+          # Fires when the last successful hermes-backup run is older than
+          # maxAgeSeconds (default 2x the nightly schedule), or when the
+          # kube-state-metrics series is missing entirely (CronJob deleted /
+          # never succeeded).
+          expr: >-
+            (time() - max(kube_cronjob_status_last_successful_time{namespace="hermes",cronjob="hermes-backup"})
+              > {{ .Values.backup.prometheusRule.maxAgeSeconds }})
+            or
+            absent(kube_cronjob_status_last_successful_time{namespace="hermes",cronjob="hermes-backup"})
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: hermes nightly state backup has not succeeded recently
+            description: >-
+              The hermes-backup CronJob has no successful run in the last
+              {{ .Values.backup.prometheusRule.maxAgeSeconds }}s. Cortana's
+              state (state.db, kanban.db, memory/profile, MS365 token) lives on
+              a node-pinned local-path PVC and is only as durable as the last
+              backup. Runbook: landingzones/hermes/README.md, "Storage &
+              backups".
+{{- end }}

@@ -55,6 +55,6 @@ git:
 
 # --- Nightly SQLite-safe backup to SMB ------------------------------------
 # SQLite (WAL) can't live on CIFS; live state stays on local-path and is backed
-# up to the smb-hermes StorageClass nightly via the online .backup API.
+# up to the smb-cortana StorageClass nightly via the online .backup API.
 backup:
   enabled: true
