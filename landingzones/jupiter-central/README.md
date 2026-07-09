@@ -86,6 +86,26 @@ warranted: losing the node only costs one fresh fetch per zone.
   (503 `no_usable_curve` answers for 15m, **critical**). Zeus's own
   `ZeusPriceSourceDegraded`/`ZeusPricePartialCoverage`/`ZeusNoPriceData`
   rules remain the price-feed signal for the live battery.
+- **Day-ahead publish-time rules** (card #172; inert until the jupiter
+  release carrying PR #52's metrics deploys): tomorrow's day-ahead prices
+  only exist from **15:00 Europe/Brussels** (owner rule). The service
+  exports `jupiter_price_tomorrow_expected` (0/1, clock+config driven,
+  process-global, flips at publish-by, DST-aware) and
+  `jupiter_price_tomorrow_present{zone}` (tomorrow's market-local-date
+  slots present in the served curve). `JupiterPriceTomorrowMissing`
+  (warning) fires on `expected==1 and present==0` sustained 45m
+  (≈ 15:45 local); `JupiterPriceTomorrowMissingCritical` escalates the same
+  predicate at 2h (≈ 17:00 — the overnight charge plan is then being built
+  on a LOCF-flat price tail). The same card gated
+  `JupiterPricePartialCoverage` on `expected==1` (with an `absent()`
+  fallback that keeps its original behavior until the metrics ship):
+  a 36h-horizon serve is `*-partial` all morning *by design*, so the
+  ungated 6h sustain would have paged daily at ~06:00. The absolute,
+  clock-independent staleness rules (`JupiterPriceFeedDegraded`,
+  `JupiterPriceNoUsableCurve`) are deliberately **not** expectation-gated.
+  The expected/present state is visible on the zeus `price-grid` dashboard
+  (stat + arrival-rhythm timeline, plus a 15:00 time-region marker on the
+  realized-price curve).
 - Availability: `JupiterPriceServiceDown` (`up==0` for 10m via the
   ServiceMonitor), `JupiterPriceServiceNoReplica` (kube-state-metrics view,
   catches a deleted deployment too) and `JupiterPriceServiceCrashLooping`

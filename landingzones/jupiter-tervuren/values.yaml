@@ -26,7 +26,7 @@ image:
   # name / image / metric prefix change. REQUIRED with the ha:/entities:/control:
   # siteConfig below — older images' load_site_config raises on the unknown ha:
   # key. Stays controller: live per the #153 cutover (siteConfig.controller below).
-  tag: "0.6.0"
+  tag: "0.9.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
