@@ -1,5 +1,21 @@
 {
-  "annotations": { "list": [] },
+  "annotations": { "list": [
+    {
+      "name": "Day-ahead publish-by — 15:00 Europe/Brussels (#172)",
+      "enable": true,
+      "hide": false,
+      "iconColor": "orange",
+      "datasource": { "type": "datasource", "uid": "-- Grafana --" },
+      "target": {
+        "queryType": "timeRegions",
+        "matchAny": false,
+        "tags": [],
+        "type": "dashboard",
+        "timeRegion": { "from": "15:00", "to": "15:15", "timezone": "Europe/Brussels" }
+      },
+      "filter": { "exclude": false, "ids": [ 6 ] }
+    }
+  ] },
   "description": "Price feed + grid monitor (card #130). Day-ahead curve with coverage, per-cycle price-source timeline (#108 soak evidence), historical cheap/expensive strip, grid import/export, and quarter-hour capacity-peak tracking (#98/#100).",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -447,6 +463,58 @@
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_charge_guard_trips_total[1h]))", "legendFormat": "guard trips / h" },
         { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_shaving_miss_total[1h]))", "legendFormat": "shaving misses / h" }
       ]
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Tomorrow's day-ahead (BE): expected vs present",
+      "description": "Card #172. Combined state of jupiter_price_tomorrow_expected (0/1 process-global clock gauge, flips at the 15:00 Europe/Brussels publish-by, DST-aware) and jupiter_price_tomorrow_present{zone} (tomorrow's market-local-date slots present in the served curve): state = expected + 2×present. 'Not expected yet' before 15:00 is the normal morning; MISSING past 15:00 is the JupiterPriceTomorrowMissing alert condition (warning at 15:45, critical at 17:00). Shows 'awaiting metrics' until the jupiter release that ships these series (PR #52) is deployed.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 10, "x": 0, "y": 55 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "noValue": "awaiting metrics (pre-#52 image)",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "Not expected yet (before 15:00)", "color": "blue" },
+              "1": { "text": "MISSING — past 15:00 publish-by", "color": "red" },
+              "2": { "text": "Present (early, before 15:00)", "color": "green" },
+              "3": { "text": "Present", "color": "green" }
+            } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_price_tomorrow_expected) + 2 * max(jupiter_price_tomorrow_present)", "instant": true } ]
+    },
+    {
+      "id": 20,
+      "type": "state-timeline",
+      "title": "Tomorrow-curve arrival rhythm (expected + 2×present)",
+      "description": "Card #172. History of the expected/present state above: healthy days go blue (morning, tomorrow not expected) → green at/before 15:00 (tomorrow arrived); any red stretch = past publish-by with tomorrow still missing — the exact window the JupiterPriceTomorrowMissing alerts fire in. Empty until the jupiter release that ships the PR #52 metrics is deployed.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 14, "x": 10, "y": 55 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "not expected yet", "color": "blue" },
+              "1": { "text": "MISSING past publish-by", "color": "red" },
+              "2": { "text": "present (early)", "color": "green" },
+              "3": { "text": "present", "color": "green" }
+            } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "mergeValues": true, "rowHeight": 0.9, "showValue": "never", "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_price_tomorrow_expected) + 2 * max(jupiter_price_tomorrow_present)", "legendFormat": "tomorrow curve state" } ]
     }
   ],
   "refresh": "5m",
