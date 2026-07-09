@@ -12,6 +12,23 @@ metadata:
 spec:
   groups:
     - name: zeus
+      # ALERTING CONVENTION since the P4 cutover (2026-07-06, #153 / audit #174):
+      # zeus is a DEMOTED advisory cross-check (control.enabled=false) emitting
+      # zeus_commander{site_id="tervuren"} == 0; the jupiter LAR commands the
+      # battery. Two classes of rule:
+      #   * controller-era (meaningful only while zeus commands the battery):
+      #     gated with `and on() (max(zeus_commander) == 1)` — silent while zeus
+      #     is demoted, auto-rearmed the moment zeus is re-promoted
+      #     (control.enabled=true -> commander=1), so the gate doubles as the
+      #     rollback safety net.
+      #   * check-health (zeus must keep running/computing for the parity check
+      #     to have value): kept UNGATED.
+      # Vector matching: max() aggregates away zeus_commander's labels (site_id,
+      # instance, ...) and on() matches on the empty label set, so the gate
+      # composes with any left-hand series regardless of its labels.
+      # zeus-vs-LAR divergence signals are NOT alerted here — they belong to the
+      # jupiter shadow harness; the expectation-aware price-coverage alerts are
+      # owned by the jupiter-central rules (#172).
       rules:
         - alert: ZeusDown
           expr: up{job="zeus-metrics"} == 0
@@ -56,6 +73,14 @@ spec:
           #       a naive == 4 alert would page permanently — hence the long
           #       `for:` on the dedicated rule rather than inclusion here.
           #   3 = no data at all: its own ZeusNoPriceData critical rule.
+          #
+          # POST-CUTOVER (#174): KEPT UNGATED — check-health. This watches
+          # zeus's own input pipeline, not its command authority: a broken
+          # primary feed degrades the parity check's fidelity (exactly the
+          # inputs-divergence class of noise) and needs fixing regardless of
+          # who commands the battery. ("battery is still commanded" above is
+          # pre-cutover wording; while demoted read it as "the advisory plan is
+          # still computed".)
           expr: zeus_price_source == 1 or zeus_price_source == 2
           for: 30m
           labels:
@@ -79,7 +104,15 @@ spec:
           # backoff + #63 cache-first) sustains long enough to page.
           # NOTE FOR REVIEW: 6h is a deliberate conservative pick, not derived
           # from measured data — tune against real partial-coverage dwell times.
-          expr: zeus_price_source == 4
+          #
+          # POST-CUTOVER (#174): commander-gated — controller-era. Double-role
+          # rule: it is also expectation-blind (no notion of the day-ahead
+          # publish-by deadline; it fired continuously from the 07-06 cutover).
+          # While zeus is demoted a flat-lined tail only mis-shapes zeus's
+          # ADVISORY plan, not the battery, so the commander gate suffices; the
+          # expectation-aware LAR-side coverage alerting is owned by the
+          # jupiter-central rules (#172).
+          expr: (zeus_price_source == 4) and on() (max(zeus_commander) == 1)
           for: 6h
           labels:
             severity: warning
@@ -90,6 +123,11 @@ spec:
           # No prices from primary, fallback, or cache -> zeus is holding a SAFE
           # IDLE each cycle (no arbitrage) until a feed returns. More urgent than
           # a mere degrade because there is no price signal at all.
+          #
+          # POST-CUTOVER (#174): KEPT UNGATED — check-health (absolute feed
+          # staleness). With no price data at all the parity check runs blind
+          # and its would-be plan is worthless; also worth knowing promptly
+          # since a shared upstream (ENTSO-E) could hit the LAR too.
           expr: zeus_price_source == 3
           for: 15m
           labels:
@@ -98,6 +136,13 @@ spec:
             summary: Zeus has no price data
             description: Primary, fallback, and cached price sources have all been empty for 15m; zeus is holding a safe idle (no charge/discharge) until a feed returns.
         - alert: ZeusSocCriticallyLow
+          # POST-CUTOVER (#174): KEPT UNGATED — physical-battery telemetry, not
+          # command authority: zeus merely OBSERVES SoC, and this is the only
+          # SoC-floor alert in this repo (an independent safety net on the
+          # battery whoever commands it). Watch item: the LAR's peak-shaving
+          # policy may deliberately ride to its 10% floor — if that makes this
+          # flap, tighten the threshold or move ownership to the jupiter rules
+          # rather than commander-gating a physical-safety signal.
           expr: zeus_soc_percent < 12
           for: 1h
           labels:
@@ -107,7 +152,13 @@ spec:
             description: 'SoC has been {{ "{{ $value }}" }}% for over 1h (near the floor).'
         - alert: ZeusControlUnavailable
           # The working-mode select went unavailable -> zeus commands are no-ops.
-          expr: zeus_control_available == 0
+          #
+          # POST-CUTOVER (#174): commander-gated — controller-era. With zeus
+          # demoted (control.enabled=false) its commands are no-ops BY DESIGN,
+          # so an unavailable control surface is not actionable from zeus's
+          # side; the LAR owns actuation health. Auto-rearms as a critical if
+          # zeus is ever re-promoted.
+          expr: (zeus_control_available == 0) and on() (max(zeus_commander) == 1)
           for: 10m
           labels:
             severity: critical
@@ -119,6 +170,12 @@ spec:
           # is running on the price-percentile fallback rather than a real plan.
           # Usually a bad/over-stated forecast or mis-set bound. Savings degrade
           # until fixed.
+          #
+          # POST-CUTOVER (#174): KEPT UNGATED — check-health. A non-Optimal LP
+          # means zeus's would-be plan is the crude percentile fallback, which
+          # makes the zeus-vs-LAR parity comparison meaningless; the check only
+          # has value while the solver genuinely solves. Internal computation
+          # health, independent of who commands the battery.
           expr: zeus_solver_optimal == 0
           for: 20m
           labels:
@@ -134,7 +191,15 @@ spec:
           # case (charging is throttled under the shared grid-import cap, so it can
           # legitimately read idle). Gated on control being available (a dead
           # control surface is covered by ZeusControlUnavailable).
-          expr: ((zeus_mode_code != ignoring(__name__) zeus_actual_mode_code) unless ignoring(__name__) ((zeus_mode_code == 1) and ignoring(__name__) (zeus_actual_mode_code == 0))) and ignoring(__name__) (zeus_control_available == 1)
+          #
+          # POST-CUTOVER (#174): commander-gated — controller-era. This rule
+          # compares demoted zeus's WOULD-BE mode against a battery that now
+          # follows the jupiter LAR, so post-cutover it was pure noise (15
+          # flaps/24h; shadow harness verified logic_divergence=0 — the
+          # disagreement was input-driven, not a battery fault). zeus-vs-LAR
+          # divergence is the jupiter shadow harness's signal, not an alert
+          # here. Auto-rearms if zeus is re-promoted.
+          expr: (((zeus_mode_code != ignoring(__name__) zeus_actual_mode_code) unless ignoring(__name__) ((zeus_mode_code == 1) and ignoring(__name__) (zeus_actual_mode_code == 0))) and ignoring(__name__) (zeus_control_available == 1)) and on() (max(zeus_commander) == 1)
           for: 15m
           labels:
             severity: warning

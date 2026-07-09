@@ -53,11 +53,16 @@ dashboards/*.json       four Grafana dashboard models (see Observability)
 All runtime config lives under `.Values.config` in [`values.yaml`](values.yaml)
 and is rendered verbatim into `/config/config.yaml`. Key choices:
 
-- **Control (LIVE):** `control.enabled: true`, `run.dry_run: false`. Zeus sets
-  HA select `select.apex300_working_mode` to `CHARGING` / `DISCHARGING` /
-  `PASSTHROUGH`. Mode-based control is self-limiting (sets a mode, not a power
-  setpoint). ⚠️ The old HA price automations **must stay disabled** — two
-  controllers fighting the battery is bad.
+- **Control (DEMOTED since the P4 cutover, 2026-07-06, #153):**
+  `control.enabled: false` — zeus no longer actuates the battery. The **jupiter
+  LAR** (`jupiter-lar`, ns `jupiter-tervuren`) is the live controller; zeus
+  keeps forecasting/optimizing/reporting as the advisory **cross-check** and
+  emits `zeus_commander{site_id="tervuren"} == 0`. Rollback: set
+  `control.enabled: true` — zeus reclaims the battery (commander=1, the cell
+  interlock stands down) and sets HA select `select.apex300_working_mode` to
+  `CHARGING` / `DISCHARGING` / `PASSTHROUGH` (mode-based control is
+  self-limiting: a mode, not a power setpoint). ⚠️ The old HA price automations
+  **must stay disabled** — two controllers fighting the battery is bad.
 - **Prices:** **ENTSO-E Transparency API, direct** (`prices.source: entsoe`,
   area `10YBE----------2`) — no Home Assistant / community Nord Pool integration
   in the path. Token in `zeus-secrets/ENTSOE_TOKEN` (needs *Restful API access*
@@ -150,6 +155,33 @@ true accuracy), `zeus_load_kwh{ts,kind}` (per-slot load on a wall-clock axis,
 vs a no-battery baseline), `zeus_predicted_baseline_cost_eur`,
 `zeus_predicted_optimized_cost_eur`, `zeus_horizon_cum_savings_eur{ts}`
 (cumulative savings through each future slot, for the next-36 h ramp chart).
+
+### Post-cutover alerting (since 2026-07-06, audited in #174)
+
+Zeus is a demoted advisory cross-check; the jupiter LAR commands the battery.
+The alert rules in [`templates/prometheusrule.yaml`](templates/prometheusrule.yaml)
+follow the **commander-gate convention**:
+
+- **Controller-era rules** (only meaningful while zeus commands the battery)
+  are gated with `and on() (max(zeus_commander) == 1)`: silent while zeus is
+  demoted (`zeus_commander == 0`), and they **auto-rearm** the moment zeus is
+  re-promoted (`control.enabled: true` → commander=1) — the gate doubles as
+  the rollback safety net. Gated: **ZeusBatteryStateMismatch**,
+  **ZeusControlUnavailable**, **ZeusPricePartialCoverage** (double-role: also
+  expectation-blind; the expectation-aware price-coverage alerting for the
+  live controller is owned by the jupiter-central rules, #172).
+- **Check-health rules** (zeus must keep running/computing for the parity
+  check to have value) stay **ungated**: ZeusDown, ZeusCycleStalled,
+  ZeusCycleFailing, ZeusPriceSourceDegraded, ZeusNoPriceData,
+  ZeusSocCriticallyLow (physical-battery telemetry, the only SoC-floor alert
+  in this repo), ZeusOptimizerNotOptimal.
+- **zeus-vs-LAR divergence is NOT alerted here** — that signal belongs to the
+  **jupiter shadow harness** (logic/inputs divergence), which knows whether a
+  disagreement is input-driven or a real logic fault. The retired-noise case
+  that triggered this audit (ZeusBatteryStateMismatch flapping post-cutover)
+  was exactly demoted-zeus's would-be mode vs a LAR-driven battery.
+- `max()` + `on()` in the gate deliberately drops `zeus_commander`'s labels
+  (`site_id`, `instance`, …) so it vector-matches any left-hand series.
 
 **Grafana dashboards** — provisioned as ConfigMap `zeus-dashboard` (the template
 globs `dashboards/*.json`), labeled `grafana_dashboard=1`. **Datasource split by
