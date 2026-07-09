@@ -116,9 +116,27 @@ git:
 backup:
   enabled: false
   schedule: "17 3 * * *"
+  # Start a missed window up to this late (seconds), then skip to the next one.
+  startingDeadlineSeconds: 3600
+  # Kill any run older than this (seconds). Normal runs finish in ~30s; this
+  # bounds a wedged run (unmountable volume, hung CIFS copy) so that, with
+  # concurrencyPolicy Forbid, it can never block the next nightly run forever
+  # (the 2026-06-29 job sat in ContainerCreating for 10 days doing exactly that).
+  activeDeadlineSeconds: 1800
+  # Garbage-collect finished jobs after 3 days.
+  ttlSecondsAfterFinished: 259200
   storageClassName: smb-cortana
   size: 10Gi
   retentionDays: 14
+  # Direct backup-freshness alert (kube-prometheus-stack PrometheusRule):
+  # fires when the last successful hermes-backup run is older than
+  # maxAgeSeconds (2x the nightly schedule) or the CronJob metric is absent —
+  # so a broken backup is its own signal instead of generic KubeJobNotCompleted
+  # noise.
+  prometheusRule:
+    enabled: true
+    releaseLabel: kube-prometheus-stack
+    maxAgeSeconds: 172800
   # SQLite databases backed up via the online .backup API.
   databases:
     - state.db

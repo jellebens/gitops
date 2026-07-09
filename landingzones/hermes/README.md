@@ -184,8 +184,59 @@ SQLite **online `.backup` API** plus a file copy of the rest, writing to an
 SMB-backed PVC on the `smb-cortana` StorageClass (`Retain`). The job co-locates
 with the agent pod via pod-affinity (to attach the RWO local-path volume).
 
-Restore: untar/copy a dated dir from the `hermes-backup` PVC back into
-`hermes-cortana-state` while the agent is scaled to 0.
+**What is backed up, where:** `backup.databases` (`state.db`, `kanban.db`, via
+the online `.backup` API) plus `backup.extraPaths` (`config.yaml`, `auth.json`,
+`SOUL.md`, `.env`, `.ms-365-mcp-server`, `cron`), staged on local disk and then
+bulk-copied to the `hermes-backup` PVC → SMB share
+`//nas001.lab.local/cortana-backup` (subdir `pvc-<uid>/<YYYYMMDD-HHMMSS>/`),
+nightly at 03:17 (`backup.schedule`), 14-day retention on the share.
+
+**Guardrails** (added after the 2026-06/07 stuck-job incident, #175): the Job
+carries `activeDeadlineSeconds` (default 1800s — a normal run takes ~30s) so a
+wedged run (e.g. unmountable SMB volume) is killed instead of blocking every
+later run via `concurrencyPolicy: Forbid`; `startingDeadlineSeconds` (3600s)
+bounds late starts; `ttlSecondsAfterFinished` (3d) GCs old jobs. Freshness is
+alerted directly by **`HermesBackupNotRun`**
+([templates/backup-prometheusrule.yaml](templates/backup-prometheusrule.yaml)):
+fires when `kube_cronjob_status_last_successful_time` is older than
+`backup.prometheusRule.maxAgeSeconds` (default 48h = 2× the schedule) or absent.
+
+**Verify backups are healthy:**
+
+```sh
+# last successful run (should be < 24h ago)
+kubectl -n hermes get cronjob hermes-backup -o jsonpath='{.status.lastSuccessfulTime}'
+kubectl -n hermes get jobs
+# spot-check the share content (from any SMB client, or the NAS)
+#   //nas001.lab.local/cortana-backup/pvc-<uid>/<date>/state.db
+# trigger a run now and watch it complete (~30s)
+kubectl -n hermes create job --from=cronjob/hermes-backup hermes-backup-manual
+kubectl -n hermes get pods -l app.kubernetes.io/name=hermes-backup -w
+```
+
+**Runbook — backup stuck / `HermesBackupNotRun` firing:**
+
+1. `kubectl -n hermes describe pod <backup-pod>` — look at the last `Events`.
+2. `FailedMount ... could not connect to <IP>` against the SMB share means the
+   PV is pinning a stale NAS address. Dynamically provisioned SMB PVs bake the
+   `source` into their immutable `volumeHandle` at provision time — fixing the
+   StorageClass (done 2026-06-28: `//nas001.lab.local/...` instead of a DHCP
+   IP) does **not** heal existing PVs. Recreate the PV:
+
+   ```sh
+   kubectl -n hermes delete job <stuck-job>          # unblocks Forbid
+   kubectl -n hermes delete pvc hermes-backup        # Argo recreates it from this chart
+   kubectl delete pv <old-pv>                        # reclaimPolicy Retain: share data is untouched
+   # csi-smb provisions a fresh PV from the (name-based) smb-cortana class;
+   # older backups stay on the share under the previous pvc-<uid> subdir.
+   kubectl -n hermes create job --from=cronjob/hermes-backup hermes-backup-manual
+   ```
+
+3. Any other wedge: the job self-terminates at `activeDeadlineSeconds` and the
+   next nightly window runs; fix the cause before then if the alert persists.
+
+**Restore:** scale the agent to 0, copy a dated dir from the `hermes-backup`
+PVC (or straight from the share) back into `hermes-cortana-state`, scale up.
 
 ## Secrets (all SealedSecrets, controller `sealed-secrets` in `argocd`)
 
