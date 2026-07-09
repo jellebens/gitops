@@ -5,6 +5,15 @@
 # (jupiter services/price — the source-label taxonomy mirrors zeus:
 # primary | primary-partial | cache-fresh | cache | cache-partial | none).
 #
+# Since card #172 also the day-ahead PUBLISH-TIME rules over the jupiter
+# PR #52 expectation metrics (OWNER RULE: tomorrow's prices only exist from
+# 15:00 Europe/Brussels):
+#   jupiter_price_tomorrow_expected      0/1, clock+config driven, process-
+#                                        global (NO zone label), flips at
+#                                        publish-by (15:00 local, DST-aware)
+#   jupiter_price_tomorrow_present{zone} 0/1, tomorrow's market-local-date
+#                                        slots present in the served curve
+#
 # The metric-based rules are silently inert until the ServiceMonitor scrape
 # actually succeeds (their vectors are simply absent) — i.e. until the
 # jupiter release that ships /metrics is deployed. Zeus keeps its own
@@ -111,13 +120,31 @@ spec:
           # Mirror of ZeusPricePartialCoverage: serves labelled *-partial
           # cover the horizon START but not its end, so consumers LOCF-flat-
           # line the tail. LONG `for:` on purpose (same rationale as zeus):
-          # the end-of-horizon tail is uncovered most of the day BY DESIGN
-          # and self-heals at day-ahead publication (~13:00 CET); only a
-          # STUCK partial — a feed staying short across a publication
+          # only a STUCK partial — a feed staying short across a publication
           # boundary — should page. 6h matches the zeus rule's deliberate
           # conservative pick.
+          #
+          # REFINED by card #172 — the raw rule was expectation-blind: with
+          # a 36h optimizer horizon, every serve from midnight until the
+          # day-ahead publication is *-partial BY DESIGN (tomorrow's prices
+          # do not exist before 15:00 Europe/Brussels — owner rule), so the
+          # 6h sustain would have fired ~06:00 every day on a perfectly
+          # healthy feed. Gated on jupiter_price_tomorrow_expected == 1 the
+          # sustain only counts inside the 15:00→midnight window where a
+          # short curve is actually anomalous (fires ~21:00 on a genuinely
+          # stuck feed). The `or absent(...)` leg keeps the rule ARMED with
+          # its ORIGINAL behavior until the jupiter release that ships the
+          # expectation metric deploys — without it the gate would silently
+          # disable the alert. Vector matching: the LHS is sum by (zone),
+          # expected is process-global (no labels kept) — match on the
+          # empty label set (`and on()`).
+          # NOT touched (absolute, clock-independent signals — the card's
+          # explicit non-goal): JupiterPriceFeedDegraded (cooldown / 26h
+          # cache age) and JupiterPriceNoUsableCurve below.
           expr: >-
-            sum by (zone) (increase(jupiter_price_curve_serves_total{source_label=~".+-partial"}[1h])) > 0
+            (sum by (zone) (increase(jupiter_price_curve_serves_total{source_label=~".+-partial"}[1h])) > 0)
+            and on ()
+            ((jupiter_price_tomorrow_expected == 1) or absent(jupiter_price_tomorrow_expected))
           for: 6h
           labels:
             severity: warning
@@ -129,6 +156,53 @@ spec:
               for 6h. A transient end-of-horizon tail is normal and clears at
               day-ahead publication; a sustained partial means ENTSO-E is
               returning a short curve.
+        - alert: JupiterPriceTomorrowMissing
+          # Card #172. Tomorrow's day-ahead prices should be in the served
+          # curve once the publish-by time (15:00 Europe/Brussels, DST-aware
+          # — the expectation gauge owns that clock logic) has passed. Fires
+          # when a zone's curve still lacks tomorrow's slots 45m past
+          # publish-by (~15:45 local). Vector matching: present carries
+          # {zone}, expected does not — match ignoring(zone); both series
+          # come off the same scrape target, so the remaining
+          # instrumentation labels line up. Inert until the jupiter release
+          # that ships the PR #52 metrics deploys (vectors simply absent).
+          # Warning only: consumers still hold today's full curve — the
+          # optimizer just plans tomorrow on a LOCF-flat tail.
+          expr: >-
+            (jupiter_price_tomorrow_present == 0)
+            and ignoring (zone)
+            (jupiter_price_tomorrow_expected == 1)
+          for: 45m
+          labels:
+            severity: warning
+          annotations:
+            summary: tomorrow's day-ahead prices missing past publish-by
+            description: >-
+              Zone {{ "{{ $labels.zone }}" }}: the day-ahead publish-by time
+              (15:00 Europe/Brussels) has passed and tomorrow's slots are
+              still not present in the served curve (sustained 45m).
+              Consumers keep today's curve; tomorrow is being planned on a
+              LOCF-flat price tail until the curve arrives.
+        - alert: JupiterPriceTomorrowMissingCritical
+          # Card #172. Same predicate sustained 2h (~17:00 local): by then
+          # the evening/overnight charge plan is being built on a flat-tail
+          # price assumption — escalate. ENTSO-E publication or the fetch
+          # path is genuinely broken, not merely late.
+          expr: >-
+            (jupiter_price_tomorrow_present == 0)
+            and ignoring (zone)
+            (jupiter_price_tomorrow_expected == 1)
+          for: 2h
+          labels:
+            severity: critical
+          annotations:
+            summary: tomorrow's day-ahead prices still missing 2h past publish-by
+            description: >-
+              Zone {{ "{{ $labels.zone }}" }}: 2h past the day-ahead
+              publish-by (15:00 Europe/Brussels) and tomorrow's slots are
+              still absent from the served curve. ENTSO-E publication or the
+              price-service fetch path is broken; overnight optimization
+              will run on a LOCF-flat price tail.
         - alert: JupiterPriceNoUsableCurve
           # Mirror of ZeusNoPriceData (critical): serves labelled `none` are
           # the machine-readable 503 — a consumer asked and got NOTHING
