@@ -1,0 +1,25 @@
+{{- if .Values.acl.enabled }}
+# Git-managed EMQX ACL file (card #156 — DR durability for per-user authz).
+# Mounted read-only into each broker pod at ${EMQX_ETC_DIR}/acl.conf via a
+# subPath in the StatefulSet, which is exactly where the live `file` authz
+# source already points. This does NOT add or reorder authz sources: the
+# built_in_database (mnesia) source stays first and remains terminal for every
+# live client (each has a `deny #` catch-all), so this file is only consulted
+# on a fresh cluster where mnesia is empty — i.e. disaster recovery. See
+# platform/mqtt/README.md and the header of the acl.conf itself.
+#
+# A change here rewrites the file and requires a pod restart to take effect
+# (subPath ConfigMap mounts do not hot-reload); Argo rolls the StatefulSet on
+# the checksum-annotation change below.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mqtt-acl
+  namespace: mqtt
+  labels:
+    app.kubernetes.io/name: mqtt
+    app.kubernetes.io/part-of: platform
+data:
+  acl.conf: |-
+{{ .Files.Get "files/acl.conf" | indent 4 }}
+{{- end }}

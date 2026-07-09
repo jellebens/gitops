@@ -1,0 +1,43 @@
+{{- if .Values.reporting.dashboard.enabled }}
+# jupiter-central reporting-service VALIDATION dashboard (jupiter reporting,
+# gitops card #161-G). A NEW Grafana dashboard (uid jupiter-reporting-validation)
+# that lets us visually confirm the reporting-service series track reality —
+# jupiter_savings_* vs zeus_savings_* (savings parity), jupiter_reporting_* vs
+# the lar's own jupiter_lar_* / zeus state (state parity), and the service's
+# scrape + plan freshness (health).
+#
+# ADDITIVE ONLY: this is its OWN dashboard with its OWN uid. It does NOT touch
+# the kiosk or any existing dashboard. Provisioned exactly like the zeus /
+# jupiter-shadow dashboards: a ConfigMap the kube-prometheus-stack Grafana
+# sidecar discovers (label grafana_dashboard=1, watches ALL namespaces), filed
+# under the program-level "Jupiter" folder via the sidecar folder annotation
+# (FOLDER_ANNOTATION=grafana_folder, set in .config/lab/observability.yaml).
+#
+# CAVEAT baked into the dashboard text: during the soak jupiter_savings_*
+# RE-READS zeus's banked result, so the savings parity is ~trivially exact right
+# now — the meaningful divergence test only begins once savings-independence
+# lands. The panels are labelled "cross-check (independence pending)" so a green
+# result now is not over-interpreted.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reporting-dashboard
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Grafana dashboard sidecar
+    # (NAMESPACE=ALL). Same mechanism as the zeus + jupiter-shadow dashboards.
+    {{ .Values.reporting.dashboard.sidecarLabel }}: "1"
+  {{- if .Values.reporting.dashboard.folder }}
+  annotations:
+    # Grafana folder placement: the sidecar files every dashboard in this
+    # ConfigMap under this Grafana folder (program-level "Jupiter" grouping).
+    {{ .Values.reporting.dashboard.folderAnnotation }}: {{ .Values.reporting.dashboard.folder | quote }}
+  {{- end }}
+data:
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+{{- end }}

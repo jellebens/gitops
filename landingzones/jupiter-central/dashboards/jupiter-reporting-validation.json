@@ -1,0 +1,385 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "templating": {
+    "list": [
+      {
+        "name": "site_id",
+        "label": "Site",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(jupiter_reporting_soc_percent, site_id)", "refId": "site_id-var" },
+        "definition": "label_values(jupiter_reporting_soc_percent, site_id)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "What this dashboard proves",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Jupiter reporting-service validation** — visually confirm the new `reporting-service` (jupiter-central) series track reality, WITHOUT touching the kiosk. Left = jupiter (`jupiter_savings_*` / `jupiter_reporting_*`), right/overlay = the live incumbent (`zeus_*`), keyed on `site_id`.\n\n**CROSS-CHECK — independence pending.** During the soak `jupiter_savings_*` currently RE-READS zeus's banked savings result, so the parity here is ~trivially exact RIGHT NOW. The meaningful divergence test only begins once the *savings-independence* refinement lands (jupiter computing from its own `jupiter_state` history). Read a green parity now as \"pipeline wired\", NOT as \"logic validated\"."
+      }
+    },
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Savings parity  —  jupiter vs zeus (cross-check, independence pending)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Savings today (EUR)  —  jupiter vs zeus",
+      "description": "Side-by-side. During the soak jupiter re-reads zeus's banked value, so these should match near-exactly. A gap here is the signal once savings-independence lands.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 3,
+          "color": { "mode": "palette-classic" },
+          "noValue": "no data"
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "displayName", "value": "jupiter" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "displayName", "value": "zeus (live)" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "value_and_name", "orientation": "horizontal" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_savings_today_eur)", "legendFormat": "zeus", "instant": true }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "|savings delta| today (EUR)  —  cutover gate",
+      "description": "abs(jupiter_savings_today_eur - zeus_savings_today_eur). The ADR-0022 gate: must read unbroken (near-zero) through the soak before any kiosk savings-panel migration. NOTE: exact-by-construction until savings-independence lands.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 4,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.05 }, { "color": "red", "value": 0.25 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "jupiter_savings_parity_abs_eur{site_id=~\"$site_id\"} or abs(max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"}) - max by (site_id) (zeus_savings_today_eur))", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Charged / discharged today (kWh)",
+      "description": "jupiter_savings_charged_today_kwh / _discharged_today_kwh — the energy behind the savings figure.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 5 },
+      "fieldConfig": {
+        "defaults": { "unit": "kwatth", "decimals": 2, "color": { "mode": "palette-classic" }, "noValue": "no data" },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "displayName", "value": "charged" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "displayName", "value": "discharged" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "value_and_name", "orientation": "horizontal" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_charged_today_kwh{site_id=~\"$site_id\"})", "legendFormat": "charged", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_discharged_today_kwh{site_id=~\"$site_id\"})", "legendFormat": "discharged", "instant": true }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Savings today over time (EUR)  —  jupiter vs zeus",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 8, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter {{site_id}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_savings_today_eur)", "legendFormat": "zeus (live)" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Baseline vs actual (EUR)  —  jupiter vs zeus",
+      "description": "jupiter_savings_baseline_eur / _actual_eur against zeus_savings_baseline_eur / _actual_eur. Savings = baseline - actual on each side.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 6, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "super-light-blue" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "C" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "D" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "light-green" } } ] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_baseline_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter baseline" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_actual_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter actual" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_savings_baseline_eur)", "legendFormat": "zeus baseline" },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_savings_actual_eur)", "legendFormat": "zeus actual" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "State parity  —  re-exposed lar state vs the live controller",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "SoC (%)  —  reporting vs lar vs zeus",
+      "description": "jupiter_reporting_soc_percent (what the service re-exposes) against the lar's own jupiter_lar_soc_percent and zeus's live SoC — all three should overlay.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 6, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "C" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_soc_percent{site_id=~\"$site_id\"})", "legendFormat": "reporting" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_lar_soc_percent{site_id=~\"$site_id\"})", "legendFormat": "lar" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_soc_percent)", "legendFormat": "zeus (live)" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Energy stored (kWh)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 8, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_energy_stored_kwh{site_id=~\"$site_id\"})", "legendFormat": "energy stored {{site_id}}" } ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Grid power (W)  —  + import · - export",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 10, "spanNulls": false, "showPoints": "never", "thresholdsStyle": { "mode": "line" } },
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_grid_power_w{site_id=~\"$site_id\"})", "legendFormat": "grid power {{site_id}}" } ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Price position (%) & import price (EUR/kWh)",
+      "description": "jupiter_reporting_price_position_pct (where now sits in the day's price band) with jupiter_reporting_import_price_eur_per_kwh on the right axis.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 6, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "unit", "value": "currencyEUR" }, { "id": "custom.axisPlacement", "value": "right" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } } ] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_price_position_pct{site_id=~\"$site_id\"})", "legendFormat": "price position %" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_import_price_eur_per_kwh{site_id=~\"$site_id\"})", "legendFormat": "import price EUR/kWh" }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Capacity peak (kW)",
+      "description": "jupiter_reporting_capacity_peak_kw — the running monthly peak that drives capacity-tariff avoidance.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 36 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 8, "spanNulls": false, "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_capacity_peak_kw{site_id=~\"$site_id\"})", "legendFormat": "capacity peak {{site_id}}" } ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Health  —  reporting service scrape & plan freshness",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "reporting-service scrape  —  up?",
+      "description": "up{job=\"reporting-service\"} from the ServiceMonitor. 1 = Prometheus is scraping /metrics.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 44 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [ { "type": "value", "options": { "1": { "text": "UP", "index": 0 }, "0": { "text": "DOWN", "index": 1 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "noValue": "NO TARGET"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(up{job=\"reporting-service\",namespace=\"jupiter-central\"})", "legendFormat": "up", "instant": true } ]
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Plan stale?",
+      "description": "jupiter_reporting_plan_stale — 1 = the lar's retained plan doc is stale (no fresh heartbeat/plan for the site).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 44 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [ { "type": "value", "options": { "0": { "text": "FRESH", "index": 0 }, "1": { "text": "STALE", "index": 1 } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_plan_stale{site_id=~\"$site_id\"})", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Plan age (s)",
+      "description": "jupiter_reporting_plan_age_seconds — seconds since the site's plan/heartbeat was last refreshed.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 44 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 300 }, { "color": "red", "value": 900 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_plan_age_seconds{site_id=~\"$site_id\"})", "legendFormat": "{{site_id}}", "instant": true } ]
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Interlock  —  live controllers",
+      "description": "jupiter_controllers_live — how many jupiter controllers report themselves live (should be 0 during shadow soak; the live check stays zeus).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 44 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] },
+          "noValue": "no data"
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_controllers_live)", "legendFormat": "live", "instant": true } ]
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Plan age over time (s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 49 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "lineWidth": 2, "fillOpacity": 8, "spanNulls": false, "showPoints": "never", "thresholdsStyle": { "mode": "line" } },
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 300 }, { "color": "red", "value": 900 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_plan_age_seconds{site_id=~\"$site_id\"})", "legendFormat": "plan age {{site_id}}" } ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [ "jupiter", "reporting", "validation", "parity" ],
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Jupiter — Reporting Validation",
+  "uid": "jupiter-reporting-validation",
+  "version": 1,
+  "weekStart": ""
+}
