@@ -135,14 +135,21 @@ alertmanager:
 kubeEtcd:
   enabled: false
 
+# k3s embeds the controller-manager, scheduler and kube-proxy inside the single
+# k3s server process — there are no standalone pods/endpoints for the
+# kube-prometheus-stack default targets to scrape, so KubeControllerManagerDown /
+# KubeSchedulerDown / KubeProxyDown fired permanently (false positives since
+# 2026-06-22). Disabling the component flag removes both the scrape target and
+# the matching default rule group — the standard k3s fix (#174). k3s exposes
+# their health via the apiserver/kubelet metrics that remain enabled.
 kubeProxy:
-  enabled: true
+  enabled: false
 
 kubeControllerManager:
-  enabled: true
+  enabled: false
 
 kubeScheduler:
-  enabled: true
+  enabled: false
 
 kube-state-metrics:
   enabled: true
