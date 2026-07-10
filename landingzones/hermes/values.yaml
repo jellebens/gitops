@@ -20,6 +20,14 @@ service:
   port: 80
   targetPort: 9119
 
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (card #145 — see
+# docs/network-policies.md). Only the Cilium Gateway (reserved `ingress`
+# identity, hermes.lab.local) may reach the pod; egress stays fully open —
+# the egress lockdown is a separate, human-reviewed step. Disable with this
+# single flag to return the namespace to unpoliced (Argo prunes the CNP).
+networkPolicy:
+  enabled: true
+
 gateway:
   enabled: true
   parentRef:
