@@ -1,0 +1,36 @@
+# Config riding next to the upstream longhorn chart (which is deployed by the
+# `longhorn` Argo app from .config/<env>/longhorn.yaml). This chart only adds
+# the repo-convention extras: CNP from birth, alerts, dashboard, and the
+# sealed backup-credentials placeholder. See README.md for the full card #176
+# findings and runbook.
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (repo convention — mqtt/zeus):
+# egress stays fully open; ingress to every pod in longhorn-system is limited
+# to in-cluster sources. Details in templates/ciliumnetworkpolicy.yaml.
+networkPolicy:
+  enabled: true
+
+# Volume-degraded / node-down / rebuild-storm alerts.
+prometheusRule:
+  enabled: true
+  # kube-prometheus-stack Prometheus ruleSelector label.
+  releaseLabel: kube-prometheus-stack
+
+# Upstream Longhorn dashboard (grafana.com id 13032) provisioned as a
+# ConfigMap for the kube-prometheus-stack Grafana sidecar.
+dashboard:
+  enabled: true
+  sidecarLabel: grafana_dashboard
+
+# Backup-target credentials — SealedSecret placeholder (controller
+# `sealed-secrets`, ns `argocd`). Stays empty (renders nothing) until the
+# owner picks the backup flavour on the DS918 and seals real values:
+#   NFS  : no credentials needed at all — leave this empty.
+#   CIFS : keys CIFS_USERNAME / CIFS_PASSWORD
+#   S3   : keys AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_ENDPOINTS
+# Seal per-env into .config/<env>/longhorn-config.yaml. Never commit
+# plaintext.
+secret:
+  name: longhorn-backup-credentials
+  sealedSecret:
+    encryptedData: {}

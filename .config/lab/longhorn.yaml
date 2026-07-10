@@ -1,0 +1,81 @@
+# Longhorn (upstream chart 1.11.3, appVersion v1.12-line family — see
+# .config/shared/values.yaml) — distributed block storage on the unused NVMe
+# space of the 6 Raspberry Pi 5 k3s nodes (card #176).
+#
+# Phase-1 findings this config encodes (2026-07-10, full data in
+# platform/longhorn/README.md):
+#   - All 6 nodes are wired 1 GbE at the NIC (node_exporter: only eth0 up,
+#     full-duplex, speed 125 MB/s, zero node_wifi_* series) -> a 3-replica
+#     default is defensible. What the NIC evidence CANNOT prove is the path
+#     BETWEEN switch/mesh units (AiMesh wireless backhaul) — hence disks are
+#     only created on nodes the owner explicitly labels (see below).
+#   - Free space: ~200-211 GiB on .151-.154 (234 GiB NVMe), ~408/413 GiB on
+#     .155/.156 (458/469 GiB NVMe). Plenty; 30% of each disk stays reserved.
+#
+# SAFETY: deploying this creates the `longhorn` StorageClass and the control
+# plane, but ZERO storage capacity until the owner labels nodes with
+#   node.longhorn.io/create-default-disk=true
+# (createDefaultDiskLabeledNodes below). Nothing migrates automatically;
+# local-path remains the cluster default StorageClass.
+
+persistence:
+  # local-path stays the default StorageClass — Longhorn is opt-in per PVC
+  # until the phase-3 pilot migration proves it.
+  defaultClass: false
+  # 3 synchronous replicas on 3 distinct nodes: survives one node/disk loss
+  # with redundancy left over during the rebuild.
+  defaultClassReplicaCount: 3
+  # Retain: an accidental PVC deletion (or an Argo prune) must never take the
+  # last copy of state with it — #175 is exactly the scar this card heals.
+  # Released PVs are cleaned up manually after the owner confirms.
+  reclaimPolicy: Retain
+
+# Longhorn's pre-upgrade hook Job is incompatible with Argo CD (helm-hook
+# semantics differ; upstream docs say to disable it for GitOps installs).
+preUpgradeChecker:
+  jobEnabled: false
+
+defaultSettings:
+  # Only nodes the OWNER labels node.longhorn.io/create-default-disk=true get
+  # a disk. This is the wired-only replica gate from phase 1: label a node
+  # only after confirming its whole path to the other storage nodes is wired
+  # (NIC evidence says all 6 qualify; the switch/mesh-uplink hop is the part
+  # only the owner can see).
+  createDefaultDiskLabeledNodes: true
+  # On the NVMe root filesystem (single partition on all 6 nodes).
+  defaultDataPath: /var/lib/longhorn/
+  defaultReplicaCount: 3
+  # Hard requirement: every replica on a different node.
+  replicaSoftAntiAffinity: false
+  # Stop scheduling new replicas when a disk drops below 25% free…
+  storageMinimalAvailablePercentage: 25
+  # …and never hand Longhorn more than 70% of the disk to begin with: the OS,
+  # k3s, container images, local-path PVCs and ephemeral storage keep ~70 GiB
+  # headroom on the small (234 GiB) nodes.
+  storageReservedPercentageForDefaultDisk: 30
+  # 1 GbE Pis: cap concurrent rebuilds per node so a node reboot doesn't
+  # saturate the LAN the battery controller (zeus/HA/MQTT) also rides on.
+  concurrentReplicaRebuildPerNodeLimit: 2
+  # The point of this card is surviving a node failure: let Longhorn delete
+  # pods stuck on a down node so their volumes reattach elsewhere.
+  nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod
+  # Backup target intentionally UNSET at deploy time. Decision + options
+  # (NFS vs CIFS vs S3/MinIO on the DS918) in platform/longhorn/README.md;
+  # wiring it is a follow-up once the owner enables the share. Do not invent
+  # credentials here.
+  # backupTarget: "nfs://nas001.lab.local:/volume1/longhorn-backup"
+  # backupTargetCredentialSecret: "longhorn-backup-credentials"
+
+# Stateless dashboard; one replica is enough on the arm64 nodes. Not exposed
+# outside the cluster (no LB/gateway) — see README for the port-forward.
+longhornUI:
+  replicas: 1
+
+# Prometheus scrape via the upstream ServiceMonitor (longhorn-manager :9500,
+# service longhorn-backend). kube-prometheus-stack selects on the release
+# label, same as mqtt/zeus.
+metrics:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack

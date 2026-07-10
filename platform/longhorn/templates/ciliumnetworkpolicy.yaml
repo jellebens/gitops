@@ -1,0 +1,34 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for the whole longhorn-system
+# namespace (#145 alignment, same deliberate pattern as mqtt/zeus).
+#
+# Why ingress-only: in Cilium, a policy that specifies only `ingress` rules
+# puts the selected endpoints into default-deny for INGRESS only; their
+# EGRESS stays fully open. A broader egress default-deny is a separate,
+# human-reviewed step.
+#
+# Why one namespace-wide rule instead of per-port carve-outs: Longhorn's data
+# path is a mesh of engine<->replica connections on DYNAMIC ports between
+# instance-manager pods, plus iSCSI/NVMe-style attach traffic that arrives
+# from the NODE (kubelet/host network) rather than from another pod, plus
+# admission/conversion webhooks called by the kube-apiserver (a host process
+# on k3s). Enumerating ports would be guesswork with a live-storage blast
+# radius; the meaningful boundary for a storage backend is "nothing from
+# outside the cluster". The Cilium `cluster` entity covers all cluster pods
+# AND the local-host/remote-node entities, so kubelet probes, apiserver
+# webhook calls and node-initiated attach traffic keep working while `world`
+# (the LAN — Longhorn has no LB/gateway exposure) is denied.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: longhorn
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/part-of: platform
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromEntities:
+        - cluster
+{{- end }}
