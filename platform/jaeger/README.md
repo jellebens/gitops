@@ -27,7 +27,7 @@ and cross-service timeouts are invisible without traces.
 |---|---|
 | OTLP gRPC ingest | `jaeger-collector.jaeger.svc.cluster.local:4317` |
 | OTLP HTTP ingest | `jaeger-collector.jaeger.svc.cluster.local:4318` |
-| UI (LAN) | `http://jaeger.lab.local` — **HTTP only**: the shared gateway has no per-hostname HTTPS listener/cert for jaeger, so `https://` fails with connection refused (browsers auto-upgrade — type the `http://`). Adding TLS = the influxdb/hermes pattern: lab-CA `tlsCertificate` + a `jaeger-https` listener + HTTPRoute `sectionName`. (Shared gateway VIP `192.168.50.200`; HTTPRoute in `gateway-config`, A record + serial bump in `.config/lab/coredns-lab.yaml`) |
+| UI (LAN) | **`https://jaeger.lab.local`** (lab-CA cert `jaeger-server-tls`, per-hostname `jaeger-https` listener on the shared gateway — influxdb/hermes pattern; `http://` also answers on the shared listener). The lab CA must be trusted on the client for a clean padlock. (Gateway VIP `192.168.50.200`; HTTPRoute + listener in `gateway-config`, A record in `.config/lab/coredns-lab.yaml`) |
 | Query API (in-cluster) | `http://jaeger-query.jaeger:16686` (this is what the Grafana datasource uses) |
 | Metrics | `:8888/metrics` on `jaeger-collector` (ServiceMonitor, kube-prometheus-stack) |
 
