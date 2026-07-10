@@ -56,7 +56,25 @@ is the control: disks are created **only** on nodes labeled by the owner
 
 ### Prereqs — pre-deploy checklist (owner, per node)
 
-These are **not verifiable read-only from the cluster** (no SSH/exec):
+These are **not verifiable read-only from the cluster** (no SSH/exec).
+
+**The package/module/service items are AUTOMATED in the homelab ansible repo**
+(`jellebens/homelab`, `roles/k3s/tasks/install-storage-prereqs.yml`, commit
+`ae5a132`) — one targeted run covers all 6 nodes and asserts the exact
+longhorn-manager precheck (`iscsiadm --version`):
+
+```bash
+cd ~/repos/homelab
+ansible-navigator run playbooks/deploy_k3s.yml \
+  -i inventories/shared -i inventories/lab/k3s.yml \
+  --vault-password-file ~/.ansible-vault-pass --tags longhorn
+```
+
+(Installs `open-iscsi` + `nfs-common`, persists + loads `iscsi_tcp`, enables
+`iscsid`. Idempotent; also runs as part of a full `deploy_k3s.yml`. The
+crash-looping longhorn-manager pods recover on their own once `iscsid` is up.)
+
+Manual equivalents, if ever needed without ansible:
 
 - [ ] `open-iscsi` installed and `iscsid` enabled+running on **all 6 nodes**
       (Debian 13: `sudo apt install open-iscsi && sudo systemctl enable --now iscsid`).
