@@ -77,3 +77,11 @@ routes:
     backend:
       name: influxdb-influxdb2
       port: 80
+
+  - name: jaeger
+    namespace: jaeger
+    hostnames:
+      - jaeger.lab.local
+    backend:
+      name: jaeger-query
+      port: 16686

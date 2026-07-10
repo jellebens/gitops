@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: jaeger
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/part-of: platform
+spec:
+  # ONE replica by design: Badger is embedded single-writer storage (directory
+  # lock + RWO local-path PVC). Tracing is diagnostic, not on a control path.
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+  strategy:
+    # Recreate: the RWO PVC can only attach to one pod, and Badger holds a
+    # directory lock — a RollingUpdate surge pod would deadlock on both.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jaeger
+      annotations:
+        # Roll the pod when the collector config changes.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-config.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: jaeger
+          image: {{ .Values.jaeger.image }}
+          args: ["--config", "/etc/jaeger/config.yaml"]
+          ports:
+            - { name: otlp-grpc, containerPort: 4317, protocol: TCP }
+            - { name: otlp-http, containerPort: 4318, protocol: TCP }
+            - { name: query, containerPort: 16686, protocol: TCP }
+            - { name: metrics, containerPort: 8888, protocol: TCP }
+            - { name: health, containerPort: 13133, protocol: TCP }
+          readinessProbe:
+            httpGet: { path: /status, port: 13133 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /status, port: 13133 }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 5
+          resources:
+{{ toYaml .Values.jaeger.resources | indent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/jaeger
+              readOnly: true
+            - name: badger
+              mountPath: /badger
+      volumes:
+        - name: config
+          configMap:
+            name: jaeger-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+        - name: badger
+          persistentVolumeClaim:
+            claimName: jaeger-badger

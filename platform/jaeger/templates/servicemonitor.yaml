@@ -1,0 +1,29 @@
+{{- if .Values.serviceMonitor.enabled }}
+# Scrapes the collector's internal telemetry (service.telemetry in the config
+# serves Prometheus text on :8888/metrics — receiver/exporter/queue counters,
+# Badger storage metrics). Selects ONLY the jaeger-collector Service; the
+# jaeger-query Service has no metrics port, so the shared pod is never
+# double-scraped (same guard as the mqtt headless-only selector).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: jaeger
+  namespace: jaeger
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/part-of: platform
+    # Picked up by the kube-prometheus-stack Prometheus serviceMonitorSelector.
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+      app.kubernetes.io/component: collector
+  namespaceSelector:
+    matchNames:
+      - jaeger
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

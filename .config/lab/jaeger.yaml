@@ -1,0 +1,14 @@
+# Jaeger distributed tracing — lab env. See platform/jaeger/README.md.
+# UI: http://jaeger.lab.local (shared gateway VIP 192.168.50.200 — HTTPRoute in
+# .config/lab/gateway.yaml, A record in coredns-lab.yaml). No dedicated LB VIP.
+# OTLP ingest (in-cluster only, CNP-scoped):
+#   grpc: jaeger-collector.jaeger.svc.cluster.local:4317
+#   http: jaeger-collector.jaeger.svc.cluster.local:4318
+jaeger:
+  # Badger span TTL — the retention knob. 7d is plenty for debugging jupiter
+  # request flows; bump here (and the PVC size below) if longer look-back is
+  # ever needed.
+  retention: 168h
+  persistence:
+    # local-path, node-local (Badger needs POSIX semantics; see chart values).
+    size: 5Gi

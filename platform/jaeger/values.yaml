@@ -1,0 +1,59 @@
+# Platform distributed-tracing backend — Jaeger v2 all-in-one (card #162).
+# Jaeger v2 is a distribution of the OpenTelemetry Collector: one binary runs
+# the OTLP receivers, the Badger storage backend and the query UI, configured
+# by an OTel-collector-style YAML file (templates/configmap-config.yaml).
+#
+# Sizing rationale (homelab, 6× arm64 nodes): ONE replica, all-in-one. Badger
+# is embedded single-writer storage — it cannot be shared between replicas, so
+# this is deliberately not HA. Tracing is a diagnostic aid, not on any control
+# path; if the pod restarts we lose nothing but a few seconds of spans.
+#
+# Endpoints (in-cluster):
+#   OTLP gRPC  jaeger-collector.jaeger.svc.cluster.local:4317
+#   OTLP HTTP  jaeger-collector.jaeger.svc.cluster.local:4318
+#   Query UI   jaeger-query.jaeger.svc.cluster.local:16686 (LAN: http://jaeger.lab.local via the gateway)
+jaeger:
+  # Official multi-arch image — linux/arm64 present in the manifest list
+  # (verified against the Docker Hub registry API for this exact tag).
+  image: jaegertracing/jaeger:2.19.0
+  # Badger span retention (TTL). Expired spans are dropped on compaction;
+  # with ~7d the PVC below is generous for homelab trace volumes.
+  retention: 168h # 7 days
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  persistence:
+    # Badger needs POSIX/block semantics -> node-local storage (same reasoning
+    # as InfluxDB and EMQX), NOT the SMB share. RWO pins the pod to one node;
+    # the Deployment uses strategy Recreate so upgrades don't deadlock on the
+    # single-attach volume (and Badger's directory lock).
+    storageClassName: local-path
+    size: 5Gi
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (repo convention — see mqtt/zeus):
+# egress stays fully open; inbound is limited to OTLP from the instrumented
+# workload namespaces, the UI from the gateway + in-cluster clients (Grafana
+# datasource, port-forward), and metrics/health from the cluster.
+networkPolicy:
+  enabled: true
+  # Namespaces whose pods may push OTLP spans (4317/4318).
+  otlpNamespaces:
+    - zeus
+    - jupiter-central
+    - jupiter-tervuren
+  # Namespace of the Prometheus that scrapes /metrics (kube-prometheus-stack).
+  metricsScrapeNamespace: observability
+
+# Prometheus scrape (kube-prometheus-stack, ns observability). The collector's
+# internal telemetry serves Prometheus text on :8888/metrics (service.telemetry
+# in the config), reachable only in-cluster (CNP).
+serviceMonitor:
+  enabled: true
+  # Diagnostic telemetry, not on any kiosk hot path — global 30s cadence.
+  interval: 30s
+  # Prometheus selects ServiceMonitors with this label (serviceMonitorSelector).
+  releaseLabel: kube-prometheus-stack

@@ -1,0 +1,32 @@
+# OTLP ingest endpoint — THE address instrumented services point at:
+#   grpc: jaeger-collector.jaeger.svc.cluster.local:4317
+#   http: jaeger-collector.jaeger.svc.cluster.local:4318
+# Also carries the collector's internal telemetry port (8888) for the
+# ServiceMonitor — jaeger-query deliberately has no metrics port, so the two
+# Services never double-scrape the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: jaeger
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: collector
+    app.kubernetes.io/part-of: platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: jaeger
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP
+    - name: metrics
+      port: 8888
+      targetPort: metrics
+      protocol: TCP

@@ -1,0 +1,66 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for Jaeger (born policed, #145).
+#
+# Why ingress-only: in Cilium, a policy that specifies only `ingress` rules
+# puts the selected endpoint into default-deny for INGRESS only; its EGRESS
+# stays fully open (same deliberate pattern as mqtt/zeus/jupiter). A broader
+# egress default-deny is a separate, human-reviewed step. (Jaeger barely
+# egresses anyway — it only answers.)
+#
+# Inbound allowed:
+#   - OTLP 4317 (gRPC) / 4318 (HTTP) from the instrumented workload
+#     namespaces (values-gated list: zeus, jupiter-central, jupiter-tervuren).
+#   - UI/query API 16686 from the shared Cilium gateway (Gateway API traffic
+#     arrives with the reserved `ingress` entity — listed explicitly rather
+#     than relying on it being folded into `cluster`) and from in-cluster
+#     clients (`cluster`: the Grafana datasource proxy, port-forward tooling).
+#   - Internal telemetry 8888 (/metrics) + health 13133 (/status) from the
+#     observability namespace (Prometheus) and the `cluster` entity — which
+#     includes the node host, so kubelet probes keep working.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: jaeger
+  namespace: jaeger
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/part-of: platform
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+  ingress:
+    # OTLP span ingest from the instrumented workload namespaces.
+    - fromEndpoints:
+        {{- range .Values.networkPolicy.otlpNamespaces }}
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: "4317"
+              protocol: TCP
+            - port: "4318"
+              protocol: TCP
+    # Query UI/API: gateway (Envoy `ingress` entity) + in-cluster clients.
+    - fromEntities:
+        - ingress
+        - cluster
+      toPorts:
+        - ports:
+            - port: "16686"
+              protocol: TCP
+    # Prometheus /metrics scrape + kubelet /status probes (node host is part
+    # of the `cluster` entity), scoped to the telemetry/health ports.
+    - fromEntities:
+        - cluster
+      fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: "8888"
+              protocol: TCP
+            - port: "13133"
+              protocol: TCP
+{{- end }}
