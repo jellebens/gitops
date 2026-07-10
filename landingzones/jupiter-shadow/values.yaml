@@ -33,3 +33,13 @@ prometheusRule:
   # dispatch disagree on magnitude enough to review before cutover. Deliberately
   # conservative starting pick — tune against observed soak deltas.
   setpointDeltaKw: 0.5
+  # Fine-grained inputs-equality tolerances (card #147). Both sides read the
+  # SAME HA entities, but at different instants within a cycle — so equality is
+  # a small band, never == on floats.
+  # SoC "equal" band (percentage points): |zeus_soc_percent - jupiter_lar_soc_pct|
+  # within this is the same SoC input. 2 pp ≈ one cycle of drift on the 13 kWh pack.
+  socDeltaPct: 2.0
+  # Running-peak "equal" band (kW): both read the meter's own monthly billing
+  # register, so they should match near-exactly; 0.1 kW absorbs read-timing skew
+  # across a quarter boundary.
+  peakDeltaKw: 0.1
