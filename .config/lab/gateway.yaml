@@ -85,3 +85,14 @@ routes:
     backend:
       name: jaeger-query
       port: 16686
+
+  # Longhorn admin UI (#176). HTTP-only (shared http listener — see AGENTS.md
+  # Known Pitfalls); UNAUTHENTICATED admin surface (can delete volumes), so it
+  # rides LAN-only like the rest, never beyond the gateway.
+  - name: longhorn
+    namespace: longhorn-system
+    hostnames:
+      - longhorn.lab.local
+    backend:
+      name: longhorn-frontend
+      port: 80
