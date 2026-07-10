@@ -56,6 +56,7 @@ This repository manages Argo CD app-of-apps and platform service configuration v
 - Use sync waves for ordering (for example config apps before dependent apps).
 
 ## Known Pitfalls
+- **Gateway UI exposure is HTTP-only unless a per-hostname HTTPS listener exists.** Web UIs are exposed via the shared Cilium gateway (VIP `192.168.50.200`, `gateway-config`): an A record + **zone serial bump** in `.config/lab/coredns-lab.yaml` plus an HTTPRoute. The shared `http` listener (port 80) serves any `*.lab.local` hostname, but **HTTPS needs its own listener + lab-CA certificate per hostname** (the argocd/hermes/influxdb pattern: a `tlsCertificate` from `lab-ca-issuer` + a dedicated `<name>-https` listener the HTTPRoute parents to via `sectionName`). A service without one (grafana, jaeger) is reachable ONLY at `http://<name>.lab.local` — browsers auto-upgrading to `https://` make it look down (connection refused on 443) even though the pod, route, and DNS are all healthy. When adding a UI, either ship the HTTPS listener+cert with it or state `http://` explicitly in its README.
 - In Argo `Application` specs, `spec.sources[].helm.values` must be a string block, not a YAML object.
 - `argocd app sync --force` can conflict with `ServerSideApply=true` and produce `--force cannot be used with --server-side`; retry without `--force` unless replacement is required.
 - Public ACME issuers cannot issue certificates for `.local` domains; for lab domains use a non-public issuer (for example self-signed/internal CA).
