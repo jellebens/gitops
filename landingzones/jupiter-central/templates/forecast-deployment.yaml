@@ -49,6 +49,12 @@ spec:
             - name: FORECAST_ARTIFACT_DIR
               value: {{ .Values.forecast.persistence.mountPath | quote }}
             {{- end }}
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #179; shared tracing knob — see
+            # values.yaml). Serving only; the training CronJob is NOT wired.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.forecast.service.port }}

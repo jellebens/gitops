@@ -251,6 +251,21 @@ cache:
   priceFileName: price_last_good.json
   forecastFileName: forecast_last_good.json
 
+# --- Distributed tracing (card #179) ---------------------------------------
+# OTel OTLP export to the Jaeger v2 backend (platform/jaeger). The env var's
+# PRESENCE is the whole switch (jupiter_shared.tracing): enabled: false removes
+# it and the lar constructs zero SDK objects — byte-identical to pre-#179.
+# DEFAULT ON: the jaeger CNP already admits OTLP from jupiter-tervuren, and the
+# motivating trace is exactly this lar's price/forecast fetch latency (#108-era
+# blindspot). Instrumentation is fail-open by construction (bounded
+# drop-on-full batch queue, never on the actuation path): a down collector
+# costs dropped spans, never a cycle. Requires jupiter-lar >= the #179 release
+# (older images simply ignore the env var).
+tracing:
+  enabled: true
+  # gRPC OTLP (4317). The HTTP variant is :4318 with the same host.
+  endpoint: "http://jaeger-collector.jaeger.svc.cluster.local:4317"
+
 # Scoped CiliumNetworkPolicy. INGRESS-ONLY BY DEFAULT (repo convention, same as
 # zeus + jupiter-central): a Cilium policy with only `ingress` rules default-
 # denies inbound while leaving EGRESS FULLY OPEN. The lar needs egress to the
@@ -293,6 +308,11 @@ networkPolicy:
     # enabled, the HA read path is already whitelisted and won't be severed.
     haCIDR: 192.168.50.18/32
     haPort: 8123
+    # Jaeger OTLP collector (in-cluster) — pre-declared so an egress lockdown
+    # cannot silently sever span export while tracing.enabled is true (#179).
+    # (Losing OTLP is only dropped spans — fail-open — but declare it anyway.)
+    jaegerNamespace: jaeger
+    otlpPort: 4317
 
 # Prometheus Operator ServiceMonitor, scraping GET /metrics on the service port
 # (jupiter_lar_* series with a site_id label — see services/lar/metrics.py).

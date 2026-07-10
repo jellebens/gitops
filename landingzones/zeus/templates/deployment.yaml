@@ -44,6 +44,15 @@ spec:
             - secretRef:
                 name: {{ .Values.secret.name }}
                 optional: true
+          {{- if .Values.tracing.enabled }}
+          env:
+            # OTel OTLP endpoint (card #179). The env var's PRESENCE is the
+            # whole switch (zeus.tracing): without it zeus constructs no SDK
+            # objects. Export is fail-open (small bounded drop-on-full batch
+            # queue) and NEVER on the control/actuation path.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+          {{- end }}
           {{- if .Values.config.metrics.enabled }}
           ports:
             - name: metrics

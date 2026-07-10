@@ -74,5 +74,17 @@ spec:
         - ports:
             - port: {{ .Values.reporting.networkPolicy.egress.mqttPort | quote }}
               protocol: TCP
+    {{- if .Values.tracing.enabled }}
+    # OTLP span export to the in-cluster Jaeger collector (card #179). Only
+    # rendered while tracing is enabled; losing it would only drop spans
+    # (fail-open), but a lockdown must still declare it.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.reporting.networkPolicy.egress.jaegerNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.reporting.networkPolicy.egress.otlpPort | quote }}
+              protocol: TCP
+    {{- end }}
   {{- end }}
 {{- end }}

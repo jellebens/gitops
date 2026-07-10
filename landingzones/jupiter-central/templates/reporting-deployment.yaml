@@ -74,6 +74,12 @@ spec:
             # D4 site identity: central singleton (site_id=central; get_site_id).
             - name: SITE_ID
               value: {{ .Values.siteId | quote }}
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #179; shared tracing knob — see
+            # values.yaml). Traces the reporting -> price-service fetches.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
           # Config comes from THREE sources, all envFrom + optional:true so the
           # chart deploys before either seal exists (a missing token/creds just
           # degrades reporting — never a crash):
