@@ -44,6 +44,11 @@ networkPolicy:
   allowedClientNamespaces:
     - zeus
     - jupiter-tervuren
+    # reporting-service (SAME namespace) fetches /v1/curve for the import price
+    # (#170 independent savings). Broke at the 0.11.0 roll (2026-07-10 17:39 UTC,
+    # JupiterReportingSavingsParityNoData): the fresh price-service endpoint
+    # enforced this allow-list strictly and same-namespace was never on it.
+    - jupiter-central
 
 # Prometheus Operator ServiceMonitor, scraping GET /metrics on the service
 # port (jupiter card #115 wired prometheus_client into the price-service —
