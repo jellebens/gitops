@@ -34,6 +34,22 @@ jaeger:
     storageClassName: local-path
     size: 5Gi
 
+# Lab-CA TLS cert for the gateway's per-hostname HTTPS listener (jaeger-https
+# in .config/lab/gateway.yaml) so https://jaeger.lab.local terminates at the
+# gateway — same pattern as influxdb/hermes. Secret lives in ns jaeger; the
+# gateway-config chart emits the ReferenceGrant automatically.
+tlsCertificate:
+  enabled: true
+  secretName: jaeger-server-tls
+  commonName: jaeger.lab.local
+  dnsNames:
+    - jaeger.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
+
 # Scoped, INGRESS-ONLY CiliumNetworkPolicy (repo convention — see mqtt/zeus):
 # egress stays fully open; inbound is limited to OTLP from the instrumented
 # workload namespaces, the UI from the gateway + in-cluster clients (Grafana
