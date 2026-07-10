@@ -1,0 +1,30 @@
+# Jaeger datasource for Grafana, provisioned via a STATIC file mount
+# (grafana.extraConfigmapMounts in .config/<env>/observability.yaml) — the same
+# pattern as the InfluxDB datasource above it, and for the same reason: the
+# kube-prometheus-stack datasource sidecar loses a boot race (it writes AFTER
+# Grafana boot-provisions, and its unauthenticated reload call 403s), so
+# sidecar-managed datasources never register. A direct mount at
+# /etc/grafana/provisioning/datasources/jaeger.yaml is present BEFORE Grafana
+# starts and loads deterministically at boot.
+#
+# No secret material here: the Jaeger query API is unauthenticated and only
+# reachable in-cluster / via the gateway (CNP in platform/jaeger).
+#
+# NOTE: deliberately has NO grafana_datasource label, so the sidecar does NOT
+# also pick it up (which would create a duplicate uid and fail provisioning).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-jaeger-datasource
+  namespace: observability
+data:
+  jaeger.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Jaeger
+        uid: jaeger
+        type: jaeger
+        access: proxy
+        url: http://jaeger-query.jaeger:16686
+        isDefault: false
+        editable: false

@@ -1,0 +1,22 @@
+# Query API + UI. Reached two ways:
+#   - LAN: http://jaeger.lab.local via the shared Cilium gateway (HTTPRoute in
+#     gateway-config; A record -> 192.168.50.200 in the coredns-lab zone).
+#   - In-cluster: http://jaeger-query.jaeger:16686 (the Grafana datasource).
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: jaeger
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: jaeger
+  ports:
+    - name: http-query
+      port: 16686
+      targetPort: query
+      protocol: TCP
