@@ -137,8 +137,17 @@ credentials; seal real ones with kubeseal (controller `sealed-secrets`, ns
 
 ## UI
 
-Not exposed via LB/gateway (would need auth in front — Longhorn UI has
-none). Port-forward when needed:
+**`http://longhorn.lab.local`** — exposed via the shared gateway on OWNER
+request (2026-07-10): HTTPRoute in `gateway-config` → `longhorn-frontend:80`,
+A record + serial bump in `.config/lab/coredns-lab.yaml`, and the namespace
+CNP admits the gateway's reserved `ingress` identity. **HTTP only** (no
+per-hostname HTTPS listener — see AGENTS.md Known Pitfalls; type the
+`http://`). ⚠ The Longhorn UI is **UNAUTHENTICATED admin** (it can delete
+volumes/backups): it stays LAN-only behind the gateway, never expose it
+beyond, and don't add it to anything internet-reachable (the VPN is the
+remote path).
+
+Port-forward alternative (works without the gateway):
 
 ```sh
 kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
