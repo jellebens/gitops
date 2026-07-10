@@ -1,0 +1,9 @@
+apiVersion: v2
+name: longhorn-config
+description: >-
+  Local config next to the upstream longhorn chart — CiliumNetworkPolicy,
+  PrometheusRule alerts, Grafana dashboard, sealed backup credentials
+  placeholder (card #176)
+type: application
+version: 0.1.0
+appVersion: "1.11.3"

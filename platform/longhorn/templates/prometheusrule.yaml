@@ -1,0 +1,82 @@
+{{- if .Values.prometheusRule.enabled }}
+# Longhorn alerts (card #176). Metric names follow the upstream metrics
+# reference for the 1.11 line (longhorn_volume_robustness,
+# longhorn_node_status, longhorn_node_storage_*) and upstream's example
+# alert rules. NOTE (mqtt-README convention): these names could NOT be
+# verified against a live scrape pre-deploy — Longhorn is not running yet.
+# Post-deploy checklist item: curl the longhorn-backend :9500/metrics scrape
+# once and confirm every name below is actually emitted.
+#
+# Robustness encoding: 0=unknown, 1=healthy, 2=degraded (a replica is
+# offline/rebuilding), 3=faulted (volume unusable).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: longhorn
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/part-of: platform
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: longhorn
+      rules:
+        - alert: LonghornVolumeFaulted
+          # Faulted = all replicas gone/unusable; the volume is DOWN. This is
+          # the disaster the card exists to prevent — page immediately.
+          expr: longhorn_volume_robustness == 3
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn volume is faulted (unusable)
+            description: 'Volume {{ "{{ $labels.volume }}" }} has been faulted for 2m — no usable replica remains. Restore from the last backup/snapshot (see platform/longhorn/README.md runbook).'
+        - alert: LonghornVolumeDegraded
+          # Degraded = redundancy reduced, data still served. A rebuild should
+          # clear it well within an hour on these 1 GbE nodes; sustained
+          # degradation means the rebuild is stuck or a node stayed gone.
+          expr: longhorn_volume_robustness == 2
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn volume degraded (replica redundancy reduced)
+            description: 'Volume {{ "{{ $labels.volume }}" }} has been degraded for 15m. Data is still served, but another node/disk loss can now lose it — check node state and rebuild progress in the Longhorn UI.'
+        - alert: LonghornRebuildStorm
+          # Several volumes degraded at once = a node/disk went away and every
+          # replica it held is rebuilding simultaneously — on a 1 GbE LAN
+          # shared with the LIVE battery controller (zeus/HA/MQTT) that is a
+          # bandwidth event worth eyes even though rebuilds are capped at 2
+          # per node (concurrentReplicaRebuildPerNodeLimit).
+          expr: count(longhorn_volume_robustness == 2) >= 3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn rebuild storm (multiple volumes degraded)
+            description: '{{ "{{ $value }}" }} volumes have been degraded simultaneously for 10m — likely a lost node/disk with mass rebuilds saturating the 1 GbE LAN. Verify zeus/HA/MQTT stay healthy; consider pausing rebuilds if the LAN suffers.'
+        - alert: LonghornNodeNotReady
+          # A storage node dropped out of the Longhorn cluster (its replicas
+          # are now rebuilding elsewhere).
+          expr: longhorn_node_status{condition="ready"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn storage node not ready
+            description: 'Longhorn reports node {{ "{{ $labels.node }}" }} not ready for 5m. Replicas it hosted are rebuilding on the remaining nodes; capacity and redundancy are reduced until it returns.'
+        - alert: LonghornNodeStorageAboveThreshold
+          # Approaching the scheduling floor (storageMinimalAvailablePercentage
+          # 25%): act before Longhorn stops scheduling replicas.
+          expr: >-
+            longhorn_node_storage_usage_bytes
+              / longhorn_node_storage_capacity_bytes > 0.70
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn node storage above 70%
+            description: 'Longhorn storage on node {{ "{{ $labels.node }}" }} is over 70% used for 15m. Below 25% free Longhorn stops scheduling new replicas there — clean up snapshots/volumes or grow the fleet.'
+{{- end }}
