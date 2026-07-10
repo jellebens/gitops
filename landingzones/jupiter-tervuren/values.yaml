@@ -145,6 +145,10 @@ siteConfig:
     current_price: ""
     capacity_peak_power: sensor.fluvius_meter_1sag1100121989_peak_power
     grid_power_import: sensor.utility_room_home_energy_meter_electric_consumption_w
+    # #178: spike responder samples the CORRECTED house draw max(0, import -
+    # battery_grid_input) so the battery's own charging (~2.2 kW) can't trigger
+    # it. Guard/capacity reads keep tracking the true billed import.
+    battery_grid_input: sensor.buzzbrick_ap3002532000565690_grid_input_power
   # Live actuation control (card #152 wires it; the COMMAND path stays inert).
   # Value-for-value from the LIVE zeus config (landingzones/zeus/values.yaml
   # `control:`) — the SAME working-mode SELECT entity with the SAME options zeus
