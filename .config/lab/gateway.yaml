@@ -37,6 +37,16 @@ gateway:
             kind: Secret
             name: influxdb-server-tls
             namespace: influxdb
+    - name: jaeger-https
+      port: 443
+      hostname: jaeger.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: jaeger-server-tls
+            namespace: jaeger
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -80,6 +90,9 @@ routes:
 
   - name: jaeger
     namespace: jaeger
+    listeners:
+      - http
+      - jaeger-https
     hostnames:
       - jaeger.lab.local
     backend:
