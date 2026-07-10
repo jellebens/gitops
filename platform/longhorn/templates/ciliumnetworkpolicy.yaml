@@ -31,4 +31,9 @@ spec:
   ingress:
     - fromEntities:
         - cluster
+        # Gateway traffic (the longhorn.lab.local UI HTTPRoute) arrives with
+        # the reserved `ingress` identity, not as a cluster pod — without this
+        # the UI would be silently dropped (the #145 Hubble finding). The LAN
+        # (`world`) stays denied; only the gateway's Envoy carries `ingress`.
+        - ingress
 {{- end }}
