@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Distributed block storage (card #176). Foundational like csi-driver-smb
+    # (wave 10/11): after the CNI and CSI layers, before the workloads whose
+    # PVCs will eventually migrate onto it (observability 20, zeus/hermes 30).
+    # Deploying this adds the `longhorn` StorageClass only — local-path stays
+    # the cluster default and NO data moves until a phase-3 migration card.
+    argocd.argoproj.io/sync-wave: "12"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  sources:
+    - repoURL: {{ .Values.repos.longhorn.url | quote }}
+      chart: longhorn
+      targetRevision: {{ .Values.repos.longhorn.targetRevision | quote }}
+      helm:
+        releaseName: longhorn
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/longhorn.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

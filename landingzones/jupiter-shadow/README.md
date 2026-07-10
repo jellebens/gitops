@@ -1,8 +1,13 @@
-# jupiter-shadow — shadow parity harness (P3.6, card #141)
+# jupiter-shadow — shadow parity harness (P3.6, card #141; fine-grained inputs #147)
 
-Monitoring-only landing zone. It proves, **per cycle**, that the tervuren
-lar's **shadow** plan matches zeus's **actual** dispatch — the signal that
-gates the P4 cutover (sustained clean parity = safe to flip a site to live).
+Monitoring-only landing zone. Originally it proved, **per cycle**, that the
+tervuren lar's **shadow** plan matched zeus's **actual** dispatch — the signal
+that gated the P4 cutover. **Since the 2026-07-06 go-live (ADR-0023) the roles
+are swapped:** the lar is the LIVE commander and zeus runs demoted as the
+cross-check, so the same joins now cross-check zeus's advisory plan against the
+live lar dispatch. Series names and semantics are unchanged (a divergence is a
+divergence either way); `guard_conflict` is the one rule whose direction
+flipped (card #147, below).
 
 ## Approach: Prometheus recording rules + a Grafana dashboard (NO new service)
 
@@ -41,32 +46,54 @@ Intent is derived exactly as the lar's own `jupiter_lar.plan._intent`:
 | `jupiter_shadow_setpoint_delta_kw` / `_setpoint_abs_delta_kw` | `zeus_net − cell_net` and its magnitude |
 | `jupiter_shadow_price_source_class_match` / `_forecast_source_class_match` | degrade-class parity (primary vs degraded) per feed |
 | `jupiter_shadow_inputs_source_match` | 1 iff both feeds' source-class agree |
-| `jupiter_shadow_logic_divergence` | intents differ **and** inputs source-class agree — **the cutover gate** |
+| `jupiter_shadow_logic_divergence` | intents differ **and** inputs source-class agree — the classic gate (unchanged) |
 | `jupiter_shadow_inputs_divergence` | intents differ **but** source-class differs — expected/benign |
-| `jupiter_shadow_guard_conflict` | zeus tripped its charge-guard (<15m) while the lar planned to charge |
+| `jupiter_shadow_zeus_soc_pct` / `_cell_soc_pct` | SoC input per side (#147; cell side = `jupiter_lar_soc_pct`) |
+| `jupiter_shadow_soc_delta_pct` / `_soc_match` | \|zeus − lar\| SoC and within-band match (`socDeltaPct`, default 2 pp) |
+| `jupiter_shadow_zeus_peak_kw` / `_cell_peak_kw` | running month peak per side (#147; cell side = `jupiter_reporting_capacity_peak_kw`) |
+| `jupiter_shadow_peak_delta_kw` / `_peak_match` | \|zeus − lar\| peak and within-band match (`peakDeltaKw`, default 0.1 kW) |
+| `jupiter_shadow_inputs_equal` | **fine-grained** inputs equality (#147): source-class ∧ SoC ∧ peak |
+| `jupiter_shadow_logic_divergence_strict` | intents differ **and** fine-grained inputs agree — the tightened gate (#147) |
+| `jupiter_shadow_inputs_divergence_price` / `_forecast` / `_soc` / `_peak` | the inputs divergence split by WHICH input differed (#147; not mutually exclusive) |
+| `jupiter_shadow_guard_conflict` | **redefined #147 (roles swapped):** the LIVE lar tripped its charge-guard (`jupiter_charge_guard_trips_total`, <15m — a real veto) while zeus's cross-check plan wanted to charge |
 
 ## Parity coverage vs gaps
 
 **Full from metrics:** intent-match, setpoint delta (kW), source-**class**
 inputs parity, guard-conflict.
 
-**Partial — `inputs_equal` attribution.** The two source enums are **not**
-numerically identical (zeus 0..4, lar 0..2), so only the derived degrade
-**class** (`==0` primary/healthy vs `!=0` degraded) is compared, never the raw
-code. The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`,
-`running_peak_kw`, `peak_threshold_kw`, and SoC equality — lives **only** in the
-retained MQTT plan doc `jupiter/<site>/plan` (`jupiter_lar.publish
-.build_plan_document`, `inputs` block) and is **not scraped**. So a
-`jupiter_shadow_logic_divergence` here means *logic OR a same-class-but-
-different-curve/SoC input*. Tightening it to full inputs-equality needs a small
-MQTT consumer that subscribes `jupiter/<site>/plan` and compares the fingerprint
-— a **follow-up**, not a lar edit.
+**Source-class comparison.** The two source enums are **not** numerically
+identical (zeus 0..4, lar 0..2), so only the derived degrade **class** (`==0`
+primary/healthy vs `!=0` degraded) is compared, never the raw code.
 
-**One-sided signals (metric GAP on the lar, do NOT fix here — lar is #142):**
-- The lar exposes **no guard-trip metric** (jupiter #137 lands it). Guard
-  conflict is inferred from zeus's guard trips vs the lar's charge intent.
-- The lar exposes **no SoC metric** (`soc_pct` is MQTT-plan-doc only), so a
-  SoC-equal input check is not possible from Prometheus.
+**Fine-grained inputs equality (closed by card #147).** The lar now exports
+`jupiter_lar_soc_pct` directly, and the **reporting-service** (which already
+subscribes `jupiter/+/plan` with its existing `reporting` EMQX user — no new
+consumer or broker user was needed) re-exposes the plan doc's `inputs`
+fingerprint as `jupiter_reporting_plan_*` gauges plus
+`jupiter_reporting_capacity_peak_kw`. That upgraded the harness from
+source-class-only to `jupiter_shadow_inputs_equal` (source-class ∧ SoC ∧
+running peak) and the tightened `jupiter_shadow_logic_divergence_strict` gate,
+with the per-input `jupiter_shadow_inputs_divergence_{price,forecast,soc,peak}`
+split for attribution.
+
+**Still not cross-comparable:** `price_curve_etag` and `forecast_trained_at`
+have **no zeus-side counterpart series**, so cross-stack equality on them is
+impossible from Prometheus. They ARE exposed lar-side
+(`jupiter_reporting_plan_price_curve_etag_info`,
+`jupiter_reporting_plan_forecast_trained_at_timestamp_seconds`) for
+change-attribution — "did the curve/model change between these two cycles".
+
+**Deployment-order caveat (#147).** The new series only produce samples once
+the jupiter release shipping the #147 lar + reporting changes is deployed:
+until then `jupiter_shadow_{soc,peak}_*`, `inputs_equal`,
+`logic_divergence_strict`, the `_soc`/`_peak` splits AND the redefined
+`guard_conflict` evaluate to **absent** (never a false 0), while every
+pre-#147 series keeps working unchanged. `cell_peak_kw` additionally needs the
+lar to have a live month-peak HA read (`running_peak_kw` is `null` before one
+lands). The lar pre-seeds `jupiter_charge_guard_trips_total` at 0 from #147 on,
+so post-release `guard_conflict` is a live 0/1 rather than
+absent-until-first-trip.
 
 ## Dashboard
 
@@ -81,6 +108,15 @@ logic-divergence minutes, max |delta| over the selected window).
 
 ## Alerts (warning only — the harness never actuates; these are P4-readiness)
 
-`JupiterShadowHarnessNoData`, `JupiterShadowLogicDivergence` (the gate),
+`JupiterShadowHarnessNoData`, `JupiterShadowLogicDivergence` (the gate; its
+description points at the #147 strict/per-input series for attribution),
 `JupiterShadowSetpointDelta` (`values.yaml prometheusRule.setpointDeltaKw`,
-default 0.5 kW), `JupiterShadowGuardConflict`.
+default 0.5 kW), `JupiterShadowGuardConflict` (#147: now fires on a REAL live-lar
+guard veto conflicting with the zeus cross-check plan).
+
+## Tolerances (`values.yaml prometheusRule.*`, card #147)
+
+| knob | default | rationale |
+| --- | --- | --- |
+| `socDeltaPct` | `2.0` | both stacks read the same HA SoC entity at different instants; ~one cycle of drift on the 13 kWh pack |
+| `peakDeltaKw` | `0.1` | both read the meter's own monthly billing register; absorbs read-timing skew across a quarter boundary |

@@ -1,0 +1,46 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for hermes (card #145, PR 1 of the
+# cluster-wide baseline — see docs/network-policies.md).
+#
+# Why ingress-only (repo convention, same as zeus / jupiter-central / mqtt): in
+# Cilium, a policy that specifies only `ingress` rules puts the selected
+# endpoint into default-deny for INGRESS only; its EGRESS stays fully open.
+# That is deliberate — hermes egresses to Discord, OpenAI, Microsoft 365,
+# GitHub (SSH), in-cluster Prometheus (Aetos) and the SMB NAS backup share; an
+# egress lockdown is a later, human-reviewed step. Replies to those outbound
+# connections are stateful (conntrack) and unaffected by ingress default-deny.
+#
+# Inbound allowed:
+#   - the Cilium Gateway only: hermes.lab.local (HTTPRoute via cilium-gateway,
+#     VIP 192.168.50.200) reaches the pod from the node-local Cilium Envoy,
+#     which carries the reserved `ingress` identity (Hubble-verified on this
+#     cluster). NOTE: do NOT combine fromEntities with fromEndpoints in one
+#     rule — Cilium 1.16 rejects the whole policy (VALID=False, unenforced).
+# Hubble showed zero other in-cluster inbound to this pod (no ServiceMonitor;
+# the backup CronJob shares the PVC, not the network). Kubelet/host access is
+# allowed by Cilium by default under ingress enforcement (host identity), and
+# the deployment defines no probes today anyway.
+#
+# Rollback: set networkPolicy.enabled=false (one-line values change) — Argo
+# prunes the CNP and hermes returns to unpoliced/allow-all ingress.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hermes
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: hermes
+    app.kubernetes.io/part-of: hermes
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: hermes
+  ingress:
+    # Gateway (Cilium Envoy, reserved `ingress` identity) -> dashboard port.
+    - fromEntities:
+        - ingress
+      toPorts:
+        - ports:
+            - port: {{ .Values.service.targetPort | quote }}
+              protocol: TCP
+{{- end }}

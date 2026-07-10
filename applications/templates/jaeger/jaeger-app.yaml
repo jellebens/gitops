@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jaeger
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Distributed tracing backend. After cilium-config (5) so the CNP CRDs and
+    # gateway (10) exist, alongside the other platform stores (influxdb 18);
+    # before the workloads that will emit traces (jupiter 20/35, zeus 30).
+    argocd.argoproj.io/sync-wave: "19"
+spec:
+  project: platform-services
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      path: platform/jaeger
+      helm:
+        releaseName: jaeger
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/jaeger.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jaeger
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

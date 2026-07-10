@@ -64,6 +64,15 @@ grafana:
       subPath: influxdb.yaml
       configMap: grafana-influxdb-datasource
       readOnly: true
+    # Jaeger datasource (#162) — same static-mount pattern (the sidecar path
+    # loses the boot race + 403s on reload; see the ConfigMap comment in
+    # platform/observability-config). No token: Jaeger's query API is
+    # unauthenticated, in-cluster/gateway-only (CNP).
+    - name: jaeger-datasource
+      mountPath: /etc/grafana/provisioning/datasources/jaeger.yaml
+      subPath: jaeger.yaml
+      configMap: grafana-jaeger-datasource
+      readOnly: true
 
   persistence:
     enabled: true

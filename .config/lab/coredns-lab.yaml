@@ -18,7 +18,7 @@ corednsLab:
     $ORIGIN lab.local.
     $TTL 86400
     @   IN SOA ns.lab.local. hostmaster.lab.local. (
-            2026070301 ; serial — BUMP on every change (YYYYMMDDnn)
+            2026071001 ; serial — BUMP on every change (YYYYMMDDnn)
             3600       ; refresh (1h backstop if NOTIFY to the slave is missed)
             180        ; retry
             1209600    ; expire
@@ -33,6 +33,7 @@ corednsLab:
     influxdb     IN A   192.168.50.200
     hermes       IN A   192.168.50.200
     chaos-mesh   IN A   192.168.50.200
+    jaeger       IN A   192.168.50.200
     ; platform services (dedicated Cilium LB VIPs, platform pool .180-.199)
     mqtt         IN A   192.168.50.181   ; EMQX HA broker (platform/mqtt)
     ; infra / hosts

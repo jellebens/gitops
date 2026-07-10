@@ -19,6 +19,10 @@ repos:
     url: https://helm.influxdata.com
     targetRevision: 2.1.2
 
+  longhorn:
+    url: https://charts.longhorn.io
+    targetRevision: 1.11.3
+
   config:
     url: https://github.com/jellebens/gitops.git
     targetRevision: HEAD

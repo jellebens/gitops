@@ -1,0 +1,77 @@
+# Jaeger v2 configuration — OTel-collector style YAML (this is the entire
+# all-in-one: OTLP receivers -> batch processor -> Badger storage, plus the
+# query UI and storage as collector extensions). Schema follows the upstream
+# v2.19.0 example (cmd/jaeger/config-badger.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: jaeger
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/part-of: platform
+data:
+  config.yaml: |
+    service:
+      extensions: [jaeger_storage, jaeger_query, healthcheckv2]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [jaeger_storage_exporter]
+      telemetry:
+        resource:
+          service.name: jaeger
+        metrics:
+          level: detailed
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888
+        logs:
+          level: info
+
+    extensions:
+      # v2 health endpoint (serves /status on :13133) — kubelet probes.
+      healthcheckv2:
+        use_v2: true
+        http:
+          endpoint: 0.0.0.0:13133
+
+      # Query API + UI on :16686 (exposed via jaeger-query -> the gateway).
+      jaeger_query:
+        storage:
+          traces: badger_main
+
+      # Badger: embedded local storage on the PVC, bounded by a span TTL —
+      # expired spans are dropped during compaction, so disk use stays capped
+      # without any external database.
+      jaeger_storage:
+        backends:
+          badger_main:
+            badger:
+              directories:
+                keys: /badger/keys
+                values: /badger/values
+              ephemeral: false
+              ttl:
+                spans: {{ .Values.jaeger.retention }}
+
+    receivers:
+      otlp:
+        protocols:
+          # Explicit 0.0.0.0 binds: recent OTel collectors default to
+          # localhost-only, which would break in-cluster ingest.
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+
+    exporters:
+      jaeger_storage_exporter:
+        trace_storage: badger_main
