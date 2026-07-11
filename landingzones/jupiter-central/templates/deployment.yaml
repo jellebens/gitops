@@ -52,6 +52,13 @@ spec:
             - name: PRICE_CACHE_DIR
               value: {{ .Values.persistence.mountPath | quote }}
             {{- end }}
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #179). Presence of this env is the whole
+            # switch (jupiter_shared.tracing); export is fail-open, never on
+            # the request path.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
           # ENTSOE_API_TOKEN. optional: true so the very first sync (before the
           # sealed secret is provided) still comes up: the service serves
           # persisted last-good curves without a token and degrades a fetch

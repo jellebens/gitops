@@ -21,6 +21,22 @@ networkPolicy:
   # port. Must match the observability app's destination namespace.
   metricsScrapeNamespace: observability
 
+# --- Distributed tracing (card #179) ---------------------------------------
+# OTel OTLP export to the Jaeger v2 backend (platform/jaeger). The env var's
+# PRESENCE is the whole switch (zeus.tracing, jupiter #179 pattern):
+# enabled: false removes it and zeus constructs zero SDK objects —
+# byte-identical to pre-#179. DEFAULT ON: the jaeger CNP already admits OTLP
+# from the zeus namespace, and zeus's price-service calls carry a W3C
+# traceparent so the cross-check request chain stitches into the same traces
+# the lar produces. Fail-open by construction (small bounded drop-on-full
+# batch queue, lazy imports, never raises) — a down collector costs dropped
+# spans, never a control cycle. Requires the zeus #179 release (older images
+# simply ignore the env var).
+tracing:
+  enabled: true
+  # gRPC OTLP (4317). The HTTP variant is :4318 with the same host.
+  endpoint: "http://jaeger-collector.jaeger.svc.cluster.local:4317"
+
 # Prometheus scraping via the Prometheus Operator (kube-prometheus-stack).
 serviceMonitor:
   enabled: true
