@@ -7,9 +7,12 @@ configured by one OTel-style YAML file. Stood up because JUPITER is genuinely
 microservices now (lar → price/forecast services, reporting, trainer CronJob)
 and cross-service timeouts are invisible without traces.
 
-> **Nothing emits traces yet.** This is only the backend. Instrumenting the
-> services (OTel SDK in the jupiter services + zeus `prices_jupiter` client,
-> with trace-context propagation) is a separate follow-up card.
+> **Emitters wired (card #179).** The jupiter services (price / forecast /
+> lar / reporting) and zeus's `prices_jupiter` client emit OTLP spans with W3C
+> trace-context propagation, env-gated per landing zone (`tracing.enabled`,
+> default ON for jupiter-central / jupiter-tervuren / zeus). Traces flow once
+> the #179 jupiter + zeus releases are deployed. The end-to-end runbook
+> ("see a lar → price-service trace") is jupiter `docs/OPERATIONS.md` §8.
 
 ## How it's deployed
 
@@ -31,26 +34,35 @@ and cross-service timeouts are invisible without traces.
 | Query API (in-cluster) | `http://jaeger-query.jaeger:16686` (this is what the Grafana datasource uses) |
 | Metrics | `:8888/metrics` on `jaeger-collector` (ServiceMonitor, kube-prometheus-stack) |
 
-## Pointing a service at it (OTel SDK, once instrumented)
+## Pointing a service at it (the real #179 wiring)
 
-Standard OTel environment variables — no code-level endpoint config needed:
+The jupiter/zeus emitters read exactly ONE env var — the endpoint. Its
+**presence is the switch**: unset means the tracing helper
+(`jupiter_shared.tracing` / `zeus.tracing`) constructs zero SDK objects.
+Service name / version / `site_id` are set in code (resource attributes), not
+via `OTEL_SERVICE_NAME`. The landing zones render it values-gated:
+
+```yaml
+# landingzones/{jupiter-central,jupiter-tervuren,zeus}/values.yaml (#179)
+tracing:
+  enabled: true   # default ON for these three zones
+  endpoint: "http://jaeger-collector.jaeger.svc.cluster.local:4317"  # gRPC
+```
+
+which becomes, on each Deployment (price/forecast/reporting, the lar, zeus):
 
 ```yaml
 env:
-  # gRPC (preferred):
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: "http://jaeger-collector.jaeger.svc.cluster.local:4317"
-  - name: OTEL_EXPORTER_OTLP_PROTOCOL
-    value: "grpc"
-  # or HTTP: endpoint http://jaeger-collector.jaeger.svc.cluster.local:4318
-  #          protocol http/protobuf
-  - name: OTEL_SERVICE_NAME
-    value: "price-service"
 ```
 
-If the emitting pod ever gets an egress-lockdown CNP, remember to allow
-4317/4318 to the `jaeger` namespace (ingress side is already allowed here for
-`zeus`, `jupiter-central`, `jupiter-tervuren` — `networkPolicy.otlpNamespaces`).
+The exporters speak OTLP/**gRPC** (4317); the HTTP receiver (4318) stays
+available for anything else. If the emitting pod ever gets an egress-lockdown
+CNP, remember to allow 4317 to the `jaeger` namespace — the jupiter-tervuren
+and reporting opt-in egress lists already pre-declare it (ingress side is
+already allowed here for `zeus`, `jupiter-central`, `jupiter-tervuren` —
+`networkPolicy.otlpNamespaces`).
 
 ## Storage, retention & sizing
 
@@ -103,7 +115,7 @@ so instrumented services would not change.
 kubectl -n jaeger rollout status deploy/jaeger
 kubectl -n jaeger get pvc jaeger-badger              # Bound (local-path)
 dig @192.168.50.180 jaeger.lab.local +short          # -> 192.168.50.200
-curl -s http://jaeger.lab.local/api/services | jq    # [] until instrumented
+curl -s http://jaeger.lab.local/api/services | jq    # lar/price-service/... once the #179 releases are deployed
 # smoke-test ingest from an allowed namespace (zeus/jupiter-*):
 #   grpcurl -plaintext jaeger-collector.jaeger:4317 list
 ```

@@ -65,6 +65,14 @@ spec:
             # against SITE_ID — so the cell runs tervuren's real params.
             - name: SITE_CONFIG_PATH
               value: "{{ .Values.config.mountPath }}/{{ .Values.config.fileName }}"
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #179). The env var's PRESENCE is the
+            # whole switch (jupiter_shared.tracing): without it the lar
+            # constructs no SDK objects. Export is fail-open (small bounded
+            # drop-on-full batch queue) and NEVER on the actuation path.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
           # Per-site secret injected as env. envFrom brings in EVERY key of
           # jupiter-tervuren-secrets, so ${HA_TOKEN} in the mounted site doc's
           # `ha.token` (and ${MQTT_USER}/${MQTT_PASS}) expand at config load

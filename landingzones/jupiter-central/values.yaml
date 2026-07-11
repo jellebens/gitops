@@ -10,7 +10,7 @@
 image:
   repository: jellebens/jupiter-price
   # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-  tag: "0.11.0"
+  tag: "0.12.0"
   pullPolicy: IfNotPresent
 
 # Central singleton. The last-good cache PVC is RWO (local-path pins it to a
@@ -26,6 +26,21 @@ service:
 # D4 site identity: central singletons run as site_id "central". Exported as
 # the SITE_ID env var (jupiter_shared.site); shows up in /healthz.
 siteId: central
+
+# --- Distributed tracing (card #179) ---------------------------------------
+# ONE knob for all three tenants (price / forecast serving / reporting): each
+# Deployment gets OTEL_EXPORTER_OTLP_ENDPOINT when enabled. The env var's
+# PRESENCE is the whole switch (jupiter_shared.tracing): enabled: false removes
+# it and the services construct zero SDK objects — byte-identical to pre-#179.
+# DEFAULT ON: the jaeger CNP already admits OTLP from jupiter-central, and the
+# server spans here are the other half of the lar->price-service stitch. The
+# forecast-train CronJob is deliberately NOT wired (batch job, nothing traced).
+# Fail-open: a down collector costs dropped spans, never a request. Requires
+# the #179 jupiter release (older images simply ignore the env var).
+tracing:
+  enabled: true
+  # gRPC OTLP (4317). The HTTP variant is :4318 with the same host.
+  endpoint: "http://jaeger-collector.jaeger.svc.cluster.local:4317"
 
 # Scoped CiliumNetworkPolicy, INGRESS-ONLY by repo convention: a Cilium policy
 # with only `ingress` rules default-denies inbound to the pod while leaving
@@ -140,7 +155,7 @@ forecast:
   image:
     repository: jellebens/jupiter-forecast
     # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-    tag: "0.11.0"
+    tag: "0.12.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, same reasoning as the price-service: the artifact PVC
@@ -308,7 +323,7 @@ reporting:
     # sourced entirely from jupiter's own inputs (lar MQTT + price-service), ZERO
     # zeus_state reads (#163/#170/#171). Makes the #164 parity soak a true
     # independent cross-check.
-    tag: "0.11.0"
+    tag: "0.12.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the
@@ -392,6 +407,10 @@ reporting:
       # cluster LoadBalancer target -> toCIDR /32, port 1883.
       mqttCIDR: 192.168.50.181/32
       mqttPort: 1883
+      # Jaeger OTLP collector (in-cluster) — pre-declared so an egress lockdown
+      # cannot silently sever span export while tracing.enabled is true (#179).
+      jaegerNamespace: jaeger
+      otlpPort: 4317
 
   # Small stdlib HTTP server + a paho MQTT client + periodic pandas InfluxDB
   # reads/writes. pandas import is the memory floor (same as forecast serving).
