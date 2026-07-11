@@ -26,7 +26,11 @@ image:
   # name / image / metric prefix change. REQUIRED with the ha:/entities:/control:
   # siteConfig below — older images' load_site_config raises on the unknown ha:
   # key. Stays controller: live per the #153 cutover (siteConfig.controller below).
-  tag: "0.12.0"
+  # 0.12.1 (#180): month-aware LOCF on the Fluvius month-peak read so the charge
+  # guard target never drops to floor on a single None (over-protect only, never
+  # under-protect; re-baselines on the billing-month rollover). Runtime-behaviour
+  # fix only — no config-shape change vs 0.12.0.
+  tag: "0.12.1"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
