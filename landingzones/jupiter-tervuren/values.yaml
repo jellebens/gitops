@@ -86,7 +86,13 @@ siteConfig:
   optimizer:
     horizon_hours: 36
     slot_minutes: 15
-    cycle_penalty: 0.0
+    # #184 (owner, 2026-07-12): was 0.0 ("capture every profitable spread"),
+    # which on flat-price days (~3% range) made the LP zig-zag charge/discharge
+    # on sub-cent ties — wear for pennies. 0.005 EUR/kWh applies to BOTH charge
+    # and discharge throughput => ~1c/kWh round-trip friction: kills tie-churn,
+    # invisible against real evening spreads (30%+). MUST match zeus's value or
+    # the shadow harness flags fake logic_divergence.
+    cycle_penalty: 0.005
     terminal_value_price: null
     capacity:
       enabled: true
