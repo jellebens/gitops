@@ -270,12 +270,16 @@ config:
     # aware (forecasts hourly, expands to slots scaling by duration) and a
     # non-Optimal solve falls back to a price heuristic instead of PASSTHROUGH.
     slot_minutes: 15
-    # Battery-wear cost per kWh of throughput (charge+discharge each). 0.0 =
-    # maximize energy savings, wear-agnostic. It still won't cycle for nothing:
-    # round-trip efficiency (~90%) is a natural floor on pointless cycling. A
-    # sweep on 2026-06-28 vs the live curve showed 0.03 sat past a cliff (skipped
-    # a €0.51/kWh peak, ~2.5x less savings); 0.0 captures every profitable spread.
-    cycle_penalty: 0.0
+    # Battery-wear cost per kWh of throughput (charge+discharge each). A sweep
+    # on 2026-06-28 vs the live curve showed 0.03 sat past a cliff (skipped a
+    # €0.51/kWh peak, ~2.5x less savings). But 0.0 proved too eager the other
+    # way: on the flat 2026-07-12 curve (~3% range) the LP zig-zagged
+    # charge/discharge on sub-cent ties (#184) — wear for pennies. 0.005 =
+    # ~1c/kWh round-trip friction: kills tie-churn, far below the 0.03 cliff,
+    # invisible against real spreads. MUST equal the lar's value
+    # (jupiter-tervuren siteConfig.optimizer.cycle_penalty) or the shadow
+    # harness flags fake logic_divergence.
+    cycle_penalty: 0.005
     terminal_value_price: null
     # Capacity-tariff peak shaving (capaciteitstarief). ENABLED 2026-07-03 (#84).
     # rate_eur_per_kw_month = the Fluvius contract rate; floor_kw 2.5 is the
