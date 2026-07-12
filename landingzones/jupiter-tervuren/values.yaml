@@ -332,6 +332,20 @@ serviceMonitor:
   # Prometheus selects ServiceMonitors carrying this release label.
   releaseLabel: kube-prometheus-stack
 
+# Shipped alert rules (card #185): JupiterLarCapacityPeakReadsFailing fires
+# only on SUSTAINED failure of the capacity_peak HA read — the Fluvius cloud
+# entity's normal between-refresh unavailability (bursts up to ~4 errors/hr,
+# fully absorbed by the #180 LOCF guard) must NOT alert. See
+# templates/prometheusrule.yaml for the full root cause + threshold rationale.
+prometheusRule:
+  enabled: true
+  # Prometheus selects PrometheusRules carrying this release label.
+  releaseLabel: kube-prometheus-stack
+  # Failed capacity_peak reads in 12h (of ~48 cycle reads) above which the
+  # entity counts as hard-down and the LOCF-held peak as stale-ish. Measured
+  # healthy baseline peaks at ~25/12h; 40 ≈ >83% of reads failing.
+  capacityPeakErrors12h: 40
+
 # Small stdlib HTTP server + a control loop that talks to two in-cluster
 # services and one broker. Modest footprint (mirrors zeus/price-service).
 resources:

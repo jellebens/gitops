@@ -1,0 +1,84 @@
+{{- if .Values.prometheusRule.enabled }}
+# jupiter-tervuren — shipped alert for the capacity_peak HA read (card #185).
+#
+# WHY THIS EXISTS (card #185 root cause, investigated 2026-07-12):
+#   The lar's `capacity_peak` read targets
+#   sensor.fluvius_meter_1sag1100121989_peak_power — the digital meter's
+#   monthly billed-peak register, served by the Fluvius CLOUD polling
+#   integration on HA (vesta). That integration is UI-configured (nothing in
+#   the home-assitant repo) and only refreshes ~6x/day (InfluxDB
+#   `homeassistant` bucket: all nine fluvius_* entities update together at
+#   ~:25 past scattered hours — integration-wide cadence, not entity-specific).
+#   Between successful cloud refreshes the entity spends MULTI-HOUR stretches
+#   `unavailable`, so every 15-min lar cycle that lands in a gap fails the read
+#   (measured baseline: bursts of 4/hr for consecutive hours; ~35 errors over a
+#   17h pod life ≈ 2/hr average; worst observed 16/6h ≈ 25/12h). This is
+#   INHERENT to the cloud integration — not an HA config bug, not a lar bug.
+#
+# WHY IT IS SAFE TO ABSORB: the #180 month-peak LOCF guard holds the last-good
+#   register value on a failed read (a slow-moving monthly maximum — constant
+#   5.928 kW through the whole investigation window), so the charge guard's
+#   billed-peak target never collapses and control is unaffected. The residual
+#   risk is only LOCF STALENESS: the entity being down so long that a genuinely
+#   new monthly peak (or the month rollover) is missed for many hours.
+#
+# THRESHOLD RATIONALE (deliberately NOT the cerberus-R10-suggested 6/3h): the
+#   measured ABSORBED-NORMAL baseline already reaches ~8-12 errors/3h in
+#   bursts, so a 6/3h alert would flap on behavior the LOCF guard fully
+#   covers. Instead this fires only on SUSTAINED near-total failure:
+#   > {{ .Values.prometheusRule.capacityPeakErrors12h }} failed reads in 12h out of ~48 cycle reads (>~83%) means the
+#   entity has been effectively hard-down for 10h+ — the Fluvius integration
+#   is wedged (not just between refreshes) and the LOCF value is stale-ish.
+#   Detection latency of ~half a day is proportionate: the register changes at
+#   most a handful of times a month. Worst healthy-baseline observation is
+#   ~25/12h, leaving comfortable headroom under the default threshold of 40.
+#
+# EARLIER-CATCH INVARIANT: this is the shipped alert covering
+#   jupiter_lar_ha_read_errors_total{read="capacity_peak"}, so cerberus's raw
+#   safety-net rule R10 stops re-filing cards for the absorbed hourly blips.
+#   Other read labels (soc|grid|house_load|ac — local zwave/Bluetti entities
+#   with no cloud gap pattern) stay on R10's any-error catch: for those, ANY
+#   error burst is still news and deserves a fresh card.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jupiter-tervuren
+  namespace: jupiter-tervuren
+  labels:
+    app.kubernetes.io/name: jupiter-cell
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: jupiter-tervuren-alerts
+      rules:
+        - alert: JupiterLarCapacityPeakReadsFailing
+          # Sustained near-total failure of the capacity_peak HA read: the
+          # Fluvius cloud entity has been effectively unavailable for 10h+,
+          # so the #180 LOCF guard is now holding a stale-ish billed-peak
+          # target. Intermittent bursts (the integration's normal between-
+          # refresh gaps) stay BELOW this on purpose — see header.
+          expr: |
+            max by (site_id) (
+              increase(jupiter_lar_ha_read_errors_total{read="capacity_peak"}[12h])
+            ) > {{ .Values.prometheusRule.capacityPeakErrors12h }}
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar capacity_peak HA reads failing hard (LOCF stale-ish)
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — more than
+              {{ .Values.prometheusRule.capacityPeakErrors12h }} of the lar's
+              ~48 capacity_peak reads failed in the last 12h, i.e. the Fluvius
+              cloud entity (sensor.fluvius_meter_1sag1100121989_peak_power on
+              vesta) has been effectively unavailable for 10h+, not just
+              between its ~6x/day refreshes. Control is still safe (#180 LOCF
+              guard holds the last-good monthly peak) but the billed-peak
+              target is going stale — a new real peak or the month rollover
+              could be missed. Check the Fluvius integration on HA
+              (Settings -> Devices & Services; cloud login/token), then the
+              lar logs in ns jupiter-tervuren for "capacity-peak read failed".
+              Card #185 has the full diagnosis.
+{{- end }}
