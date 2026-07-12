@@ -80,12 +80,12 @@ warranted: losing the node only costs one fresh fetch per zone.
   flip belongs with/after the first jupiter release that ships `/metrics`.
 - **PriceFeedDegraded class** (mirroring zeus's rules; inert until the
   scrape succeeds): `JupiterPriceFeedDegraded` (retry cooldown active or
-  cache age > 26h, sustained 30m), `JupiterPricePartialCoverage`
-  (`*-partial` serves sustained 6h — the routine end-of-horizon tail
-  self-heals at day-ahead publication), `JupiterPriceNoUsableCurve`
+  cache age > 26h, sustained 30m) and `JupiterPriceNoUsableCurve`
   (503 `no_usable_curve` answers for 15m, **critical**). Zeus's own
   `ZeusPriceSourceDegraded`/`ZeusPricePartialCoverage`/`ZeusNoPriceData`
-  rules remain the price-feed signal for the live battery.
+  rules remain the price-feed signal for zeus's own input pipeline.
+  `JupiterPricePartialCoverage` was **removed by card #184** — see the
+  publish-time bullet below.
 - **Day-ahead publish-time rules** (card #172; inert until the jupiter
   release carrying PR #52's metrics deploys): tomorrow's day-ahead prices
   only exist from **15:00 Europe/Brussels** (owner rule). The service
@@ -96,11 +96,18 @@ warranted: losing the node only costs one fresh fetch per zone.
   (warning) fires on `expected==1 and present==0` sustained 45m
   (≈ 15:45 local); `JupiterPriceTomorrowMissingCritical` escalates the same
   predicate at 2h (≈ 17:00 — the overnight charge plan is then being built
-  on a LOCF-flat price tail). The same card gated
-  `JupiterPricePartialCoverage` on `expected==1` (with an `absent()`
-  fallback that keeps its original behavior until the metrics ship):
-  a 36h-horizon serve is `*-partial` all morning *by design*, so the
-  ungated 6h sustain would have paged daily at ~06:00. The absolute,
+  on a LOCF-flat price tail). Card #172 also gated the (since-removed)
+  `JupiterPricePartialCoverage` on `expected==1`; **card #184 (2026-07-12,
+  [trello](https://trello.com/c/kjrF9Bw1)) removed that rule outright**:
+  the optimizer's 36h horizon always extends past end-of-tomorrow (all
+  ENTSO-E ever publishes), so *every* serve is `*-partial` outside the
+  moments right after publication and the rule fired 8h+ on 2026-07-11
+  with tomorrow present and a fresh cache — normal operation. Re-gated on
+  tomorrow-missing-when-expected it would have been a strict subset of the
+  TomorrowMissing pair delayed to 6h (consumers poll continuously), so it
+  was removed rather than tightened; a "coverage below ~18h remaining"
+  rule would need a coverage-hours metric the service does not export
+  (noted in the rule file's tombstone comment). The absolute,
   clock-independent staleness rules (`JupiterPriceFeedDegraded`,
   `JupiterPriceNoUsableCurve`) are deliberately **not** expectation-gated.
   The expected/present state is visible on the zeus `price-grid` dashboard

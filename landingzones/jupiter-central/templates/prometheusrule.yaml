@@ -116,46 +116,32 @@ spec:
               serving curves last fetched more than 26h ago for 30m. Serves
               ride the last-good cache (consumers still get curves), but the
               upstream feed needs attention.
-        - alert: JupiterPricePartialCoverage
-          # Mirror of ZeusPricePartialCoverage: serves labelled *-partial
-          # cover the horizon START but not its end, so consumers LOCF-flat-
-          # line the tail. LONG `for:` on purpose (same rationale as zeus):
-          # only a STUCK partial — a feed staying short across a publication
-          # boundary — should page. 6h matches the zeus rule's deliberate
-          # conservative pick.
-          #
-          # REFINED by card #172 — the raw rule was expectation-blind: with
-          # a 36h optimizer horizon, every serve from midnight until the
-          # day-ahead publication is *-partial BY DESIGN (tomorrow's prices
-          # do not exist before 15:00 Europe/Brussels — owner rule), so the
-          # 6h sustain would have fired ~06:00 every day on a perfectly
-          # healthy feed. Gated on jupiter_price_tomorrow_expected == 1 the
-          # sustain only counts inside the 15:00→midnight window where a
-          # short curve is actually anomalous (fires ~21:00 on a genuinely
-          # stuck feed). The `or absent(...)` leg keeps the rule ARMED with
-          # its ORIGINAL behavior until the jupiter release that ships the
-          # expectation metric deploys — without it the gate would silently
-          # disable the alert. Vector matching: the LHS is sum by (zone),
-          # expected is process-global (no labels kept) — match on the
-          # empty label set (`and on()`).
-          # NOT touched (absolute, clock-independent signals — the card's
-          # explicit non-goal): JupiterPriceFeedDegraded (cooldown / 26h
-          # cache age) and JupiterPriceNoUsableCurve below.
-          expr: >-
-            (sum by (zone) (increase(jupiter_price_curve_serves_total{source_label=~".+-partial"}[1h])) > 0)
-            and on ()
-            ((jupiter_price_tomorrow_expected == 1) or absent(jupiter_price_tomorrow_expected))
-          for: 6h
-          labels:
-            severity: warning
-          annotations:
-            summary: jupiter price-service serving partial-coverage curves
-            description: >-
-              Zone {{ "{{ $labels.zone }}" }} has been served *-partial curves
-              (horizon tail uncovered, LOCF-flat for consumers) continuously
-              for 6h. A transient end-of-horizon tail is normal and clears at
-              day-ahead publication; a sustained partial means ENTSO-E is
-              returning a short curve.
+        # REMOVED by card #184 (2026-07-12): JupiterPricePartialCoverage
+        # (https://trello.com/c/kjrF9Bw1). The #172 gate (expected==1) was
+        # not enough: the optimizer requests a 36h horizon but ENTSO-E only
+        # ever publishes through end-of-tomorrow, so outside the moments
+        # right after publication the horizon TAIL is ALWAYS uncovered and
+        # every serve is labelled *-partial — on 2026-07-11 the rule fired
+        # 8h+ (13:00→21:00Z) with jupiter_price_tomorrow_present==1 and a
+        # fresh cache, i.e. on completely normal operation (validated
+        # against live Prometheus: partial serves >0 at every step of that
+        # window while the tomorrow-missing predicate was empty throughout).
+        # Re-gating it on tomorrow-missing-when-expected (present==0 and
+        # expected==1) would make it a strict subset of the
+        # JupiterPriceTomorrowMissing/-Critical pair below delayed to 6h —
+        # consumers poll continuously (the LAR every cycle, zeus hourly), so
+        # "partial serves are happening" adds no information once tomorrow
+        # is missing — a third redundant page 4h after the critical. And the
+        # one case such a rule could have owned (partial serves with
+        # tomorrow PRESENT but TODAY's coverage short) cannot occur:
+        # ENTSO-E publishes whole contiguous days, and *-partial means the
+        # horizon tail is uncovered, not a mid-curve hole. If a
+        # coverage-hours-remaining metric ever ships, an absolute
+        # "coverage < ~18h remaining" rule is the right replacement shape.
+        # The absolute, clock-independent signals stay:
+        # JupiterPriceFeedDegraded (cooldown / 26h cache age) above and
+        # JupiterPriceNoUsableCurve below; the missing-tomorrow cases keep
+        # their dedicated #172 rules next.
         - alert: JupiterPriceTomorrowMissing
           # Card #172. Tomorrow's day-ahead prices should be in the served
           # curve once the publish-by time (15:00 Europe/Brussels, DST-aware
