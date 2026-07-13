@@ -129,12 +129,37 @@ kubectl exec -n jupiter-tervuren deploy/jupiter-cell -- \
 `jupiter_lar_actual_mode`. All carry `site_id="tervuren"` and never re-emit any
 `zeus_*` name — no collision with the live `zeus_*` series.
 
+## Alerting (card #185)
+
+[`templates/prometheusrule.yaml`](templates/prometheusrule.yaml) ships
+**`JupiterLarCapacityPeakReadsFailing`** (warning): fires when
+`increase(jupiter_lar_ha_read_errors_total{read="capacity_peak"}[12h])`
+exceeds `prometheusRule.capacityPeakErrors12h` (default 40 of ~48 cycle
+reads) for 30m — i.e. the Fluvius entity has been effectively hard-down for
+10h+ and the #180 LOCF-held billed-peak target is going stale. The threshold
+is deliberately far ABOVE the measured absorbed-normal baseline (see the
+gotcha below; worst healthy observation ~25/12h), so the alert never flaps on
+the integration's ordinary between-refresh gaps. This is the shipped alert
+that satisfies cerberus's earlier-catch invariant for the `capacity_peak`
+read label (raw rule R10 stops re-filing cards for absorbed blips); the other
+read labels (`soc|grid|house_load|ac` — local zwave/Bluetti) deliberately
+stay on R10's any-error catch.
+
 ## Known gotchas
 
 - **`capacity_peak`** (`sensor.fluvius_meter_..._peak_power`) is intermittently
   `unavailable` in HA → the peak-shaving guard degrades (fail-safe, no bad
   command). zeus reads the same sensor and degrades identically; it self-heals
   when the sensor next reports and the lar caches the last-good register.
+  **Root cause (card #185, 2026-07-12):** the sensor belongs to the Fluvius
+  CLOUD polling integration on vesta (UI-configured — no YAML in the
+  home-assitant repo). InfluxDB shows all nine `fluvius_*` entities refresh
+  together only ~6x/day (at ~:25 past scattered hours); between refreshes the
+  entity spends multi-hour stretches `unavailable`, so every 15-min lar cycle
+  in a gap fails the read (baseline ~2 errors/hr average, bursts of 4/hr —
+  ~50% of reads). This is inherent to the cloud integration; the #180 LOCF
+  guard is the correct mitigation (the register is a slow-moving monthly
+  maximum). Sustained hard-down is what alerts — see **Alerting** above.
 - **Interlock re-check cadence** is per 15-min planning cycle → a cutover may
   need the `rollout restart` above. Tracked by card #155 (make it event-driven
   off the commander subscriber).

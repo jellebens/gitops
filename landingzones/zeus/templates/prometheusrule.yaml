@@ -28,7 +28,9 @@ spec:
       # composes with any left-hand series regardless of its labels.
       # zeus-vs-LAR divergence signals are NOT alerted here — they belong to the
       # jupiter shadow harness; the expectation-aware price-coverage alerts are
-      # owned by the jupiter-central rules (#172).
+      # owned by the jupiter-central rules (#172: TomorrowMissing/-Critical;
+      # #184 removed the jupiter partial-coverage twin as redundant and gated
+      # ZeusPricePartialCoverage below on the same expectation metrics).
       rules:
         - alert: ZeusDown
           expr: up{job="zeus-metrics"} == 0
@@ -112,13 +114,40 @@ spec:
           # ADVISORY plan, not the battery, so the commander gate suffices; the
           # expectation-aware LAR-side coverage alerting is owned by the
           # jupiter-central rules (#172).
-          expr: (zeus_price_source == 4) and on() (max(zeus_commander) == 1)
+          #
+          # RE-GATED by card #184 (2026-07-12, https://trello.com/c/kjrF9Bw1):
+          # expectation-blindness fixed. With a 36h optimizer horizon the
+          # curve tail past end-of-tomorrow is NEVER covered (ENTSO-E only
+          # publishes through end-of-tomorrow), so source==4 is steady state
+          # nearly all day — the jupiter twin of this rule
+          # (JupiterPricePartialCoverage) fired 8h+ on 2026-07-11 with
+          # tomorrow present and a fresh cache, and was REMOVED as fully
+          # redundant with JupiterPriceTomorrowMissing/-Critical. THIS rule
+          # stays (it is the re-promotion / rollback safety net, and zeus
+          # exports no expectation metrics of its own) but now only counts
+          # partial serves while tomorrow is MISSING-WHEN-EXPECTED per the
+          # central price-service's #172 metrics for zeus's ENTSO-E zone:
+          # jupiter_price_tomorrow_present{zone}==0 while
+          # jupiter_price_tomorrow_expected==1. The cross-namespace metric
+          # dependency is deliberate — same Prometheus, and the day-ahead
+          # publication state describes the MARKET, not any one fetch path,
+          # so it is valid even if re-promoted zeus rides its own direct
+          # ENTSO-E chain. max()+on() drops the jupiter series' labels so
+          # the gate composes; the `or absent(...)` leg re-arms the rule
+          # with its ORIGINAL (pre-#184, expectation-blind) behavior if
+          # jupiter-central's expectation metrics ever disappear
+          # (teardown/rollback) instead of letting it die silently.
+          expr: >-
+            (zeus_price_source == 4)
+            and on () (max(zeus_commander) == 1)
+            and on ()
+            (((max(jupiter_price_tomorrow_present{zone={{ .Values.config.prices.entsoe.area_code | quote }}}) == 0) and (max(jupiter_price_tomorrow_expected) == 1)) or absent(jupiter_price_tomorrow_expected))
           for: 6h
           labels:
             severity: warning
           annotations:
             summary: Zeus price curve has partial horizon coverage
-            description: The served price curve has covered only the start of the optimization horizon (uncovered tail LOCF-flat-lined) for 6h. A transient end-of-horizon tail is normal and self-clears at day-ahead publication; a sustained partial means the feed is returning a short curve. Check the price integration.
+            description: Zeus (commanding the battery) has been served partial-coverage price curves for 6h while tomorrow's day-ahead prices are missing past their publish-by time (15:00 Europe/Brussels) — the optimizer is flat-lining its tail on stale prices. Check ENTSO-E publication and the price integration.
         - alert: ZeusNoPriceData
           # No prices from primary, fallback, or cache -> zeus is holding a SAFE
           # IDLE each cycle (no arbitrage) until a feed returns. More urgent than
