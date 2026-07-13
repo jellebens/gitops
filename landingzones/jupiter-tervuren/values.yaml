@@ -30,7 +30,7 @@ image:
   # guard target never drops to floor on a single None (over-protect only, never
   # under-protect; re-baselines on the billing-month rollover). Runtime-behaviour
   # fix only — no config-shape change vs 0.12.0.
-  tag: "0.12.1"
+  tag: "0.13.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
