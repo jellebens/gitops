@@ -115,7 +115,7 @@ so instrumented services would not change.
 kubectl -n jaeger rollout status deploy/jaeger
 kubectl -n jaeger get pvc jaeger-badger              # Bound (local-path)
 dig @192.168.50.180 jaeger.lab.local +short          # -> 192.168.50.200
-curl -s http://jaeger.lab.local/api/services | jq    # lar/price-service/... once the #179 releases are deployed
+curl -s http://jaeger.lab.local/api/services | jq    # jupiter-lar/jupiter-price/jupiter-forecast/jupiter-reporting/zeus (#183 names; pre-#183 spans show as lar/price-service/... until the 7d retention ages them out)
 # smoke-test ingest from an allowed namespace (zeus/jupiter-*):
 #   grpcurl -plaintext jaeger-collector.jaeger:4317 list
 ```
