@@ -167,9 +167,15 @@ follow the **commander-gate convention**:
   demoted (`zeus_commander == 0`), and they **auto-rearm** the moment zeus is
   re-promoted (`control.enabled: true` → commander=1) — the gate doubles as
   the rollback safety net. Gated: **ZeusBatteryStateMismatch**,
-  **ZeusControlUnavailable**, **ZeusPricePartialCoverage** (double-role: also
-  expectation-blind; the expectation-aware price-coverage alerting for the
-  live controller is owned by the jupiter-central rules, #172).
+  **ZeusControlUnavailable**, **ZeusPricePartialCoverage** (since card #184,
+  2026-07-12, ALSO gated on the central price-service's
+  tomorrow-missing-when-expected metrics (#172) for zeus's ENTSO-E zone:
+  with a 36h horizon every serve is `*-partial` by design, so the
+  expectation-blind rule was a false-alarm generator — its jupiter twin
+  fired 8h+ on 2026-07-11 on a healthy feed and was removed as redundant
+  with the TomorrowMissing pair. The zeus rule stays as the re-promotion
+  safety net, with an `absent()` arming leg that reverts it to its original
+  behavior if jupiter-central's expectation metrics ever disappear).
 - **Check-health rules** (zeus must keep running/computing for the parity
   check to have value) stay **ungated**: ZeusDown, ZeusCycleStalled,
   ZeusCycleFailing, ZeusPriceSourceDegraded, ZeusNoPriceData,
