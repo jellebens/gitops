@@ -135,24 +135,44 @@ credentials; seal real ones with kubeseal (controller `sealed-secrets`, ns
 `argocd`) when CIFS/S3 is chosen. After the target works, add a
 `RecurringJob` (snapshot + backup schedule) — part of the phase-3 card.
 
-## UI
+## UI — port-forward only (no gateway route, #193)
 
-**`http://longhorn.lab.local`** — exposed via the shared gateway on OWNER
-request (2026-07-10): HTTPRoute in `gateway-config` → `longhorn-frontend:80`,
-A record + serial bump in `.config/lab/coredns-lab.yaml`, and the namespace
-CNP admits the gateway's reserved `ingress` identity. **HTTP only** (no
-per-hostname HTTPS listener — see AGENTS.md Known Pitfalls; type the
-`http://`). ⚠ The Longhorn UI is **UNAUTHENTICATED admin** (it can delete
-volumes/backups): it stays LAN-only behind the gateway, never expose it
-beyond, and don't add it to anything internet-reachable (the VPN is the
-remote path).
+The Longhorn UI is **UNAUTHENTICATED admin**: it can delete volumes, replicas
+and backups. The 2026-07-12 security review (#193) flagged the earlier
+`http://longhorn.lab.local` gateway route as a **HARD GATE before #176
+phase-3** — the moment real state (hermes/Cortana PVC, later InfluxDB #182)
+lives on Longhorn, any LAN host that could reach that route could wipe block
+storage.
 
-Port-forward alternative (works without the gateway):
+**Access is now `kubectl port-forward` only** — no gateway HTTPRoute:
 
 ```sh
 kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
 # http://localhost:8080
 ```
+
+This gates the UI behind cluster **RBAC / kubeconfig = real authentication**,
+which is stronger than any LAN allow-list. The gateway route was removed in
+`.config/lab/gateway.yaml` and the namespace CNP no longer admits the gateway
+`ingress` identity (`templates/ciliumnetworkpolicy.yaml`).
+
+Why not the house lab-CA HTTPS-listener pattern (jaeger/influxdb/hermes)? That
+adds **TLS, not auth** — it would encrypt the wipe, not prevent it. And a
+per-route source allow-list isn't cleanly supported on the shared Cilium
+gateway (gateway traffic reaches the backend as the reserved `ingress`
+identity, so the LAN source IP is already proxied away, and the gateway
+VIP/Service is shared across every route). Dropping the route closes the hole
+with zero new infra and is trivially reversible.
+
+The `longhorn.lab.local` A record in `.config/lab/coredns-lab.yaml` is left in
+place on purpose (the DNS zone is fragile/load-bearing); with no HTTPRoute
+claiming the hostname the gateway just returns no route, so it fails clean.
+
+**Follow-up (owner-gated, heavier):** if browser access from the LAN is later
+wanted, stand up **oauth2-proxy** (real SSO) in front of a re-added
+HTTPRoute + a lab-CA HTTPS listener, and re-add `- ingress` to the CNP. That
+is the genuine "behind auth" option and a deliberate human decision — it is
+NOT required to close the phase-3 gate, which port-forward-only already does.
 
 ## Monitoring
 
