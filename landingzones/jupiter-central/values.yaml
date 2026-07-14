@@ -87,6 +87,23 @@ prometheusRule:
   enabled: true
   releaseLabel: kube-prometheus-stack
 
+# FLEET single-controller interlock backstop (gitops card #192). A SEPARATE,
+# fleet-wide (site_id-generic) PrometheusRule — templates/interlock-prometheus
+# rule.yaml — that PAGES (critical) when hard invariant #1 is violated: more than
+# one controller actuating a single battery (jupiter_controllers_live > 1, or
+# zeus commanding while the lar also actuates the same site). It is NOT a
+# price-service concern; it lives in jupiter-central because that is the fleet's
+# central home and the rule joins zeus (ns zeus) with the per-site lars (ns
+# jupiter-<site>). The lar's interlock.py DOUBLE_LIVE_ALERT_NOTE mandates this
+# rule; it had never been deployed until #192.
+fleetInterlock:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+  # Sustain before paging. Short (2m per interlock.py's note): a genuine
+  # double-live is an active safety incident, so alert promptly — but 2m still
+  # rides out a single scrape blip where the two targets momentarily overlap.
+  for: 2m
+
 # Per-zone last-good curve cache (PRICE_CACHE_DIR). local-path (k3s default,
 # same choice as platform/mqtt): the cache is small and re-fetchable from
 # ENTSO-E, so NAS durability (zeus's smb class) is not warranted — losing the
