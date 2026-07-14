@@ -203,8 +203,15 @@ Nothing deploys from card merges. When the user says **"release"** (or
    deploy** — Argo reconciles from gitops `master` (sync or let auto-sync run).
 3. Verify the rollout (pod on the new image, first cycle Optimal, no errors)
    and report what shipped: version, cards included, verification output.
+4. **Update the changelog.** After the tag(s) are pushed and the rollout is
+   verified, invoke the **mnemosyne** agent (`Agent` with
+   `subagent_type: mnemosyne`) — it reconciles `jupiter/CHANGELOG.md` against the
+   new `v*` tags and opens a draft PR into `develop`. Do this for every release,
+   jupiter and/or zeus; if no new tag was cut (gitops-only deploy), skip it.
+   Merge that PR with the next batch — it needs no separate release (docs only).
 Order matters: zeus first (image must exist before the tag bump deploys), then
-gitops. If only gitops cards are pending, step 2 alone is the release.
+gitops. If only gitops cards are pending, step 2 alone is the release (and
+step 4 is skipped — no new app tag).
 
 ## Agent prompt template
 
