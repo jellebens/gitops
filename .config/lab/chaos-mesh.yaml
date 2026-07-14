@@ -3,9 +3,21 @@ chaosDaemon:
   socketPath: /run/k3s/containerd/containerd.sock
 
 dashboard:
-  securityMode: false
+  # #189 security fix: restore the token/RBAC gate. The upstream chart defaults
+  # securityMode to true; it had been set to false here, removing all auth so
+  # any client reaching the dashboard could create destructive chaos
+  # experiments. With true, even port-forward access is authenticated.
+  securityMode: true
   ingress:
     enabled: false
+  # #189: the upstream chart defaults the dashboard Service to NodePort, which
+  # republishes the UI on every node IP (30732 -> 2333) — a second LAN exposure
+  # path alongside the (now removed) gateway route, and one a namespace-wide
+  # ingress CNP can't close (NodePort SNATs LAN clients to the node/host
+  # identity). Pin it to ClusterIP so the dashboard has NO LAN-reachable path;
+  # access is kubectl port-forward only.
+  service:
+    type: ClusterIP
 
 controllerManager:
   leaderElection:
