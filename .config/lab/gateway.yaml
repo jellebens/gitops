@@ -62,13 +62,12 @@ routes:
       name: argocd-server
       port: 80
 
-  - name: chaos-mesh
-    namespace: chaos-mesh
-    hostnames:
-      - chaos-mesh.lab.local
-    backend:
-      name: chaos-dashboard
-      port: 2333
+  # chaos-mesh route removed (#189): the chaos dashboard is an active,
+  # destructive capability (pod-kill / network / IO fault) and must not be
+  # LAN-reachable. It is now ClusterIP + port-forward-only, securityMode on,
+  # and namespace-policed by an ingress-only CNP (platform/chaos-mesh-config).
+  # The chaos-mesh.lab.local A record is left in place (harmless: resolves to
+  # the gateway VIP but has no route -> 404).
 
   - name: grafana
     namespace: observability
