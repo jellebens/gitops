@@ -17,7 +17,15 @@
 # outside the cluster". The Cilium `cluster` entity covers all cluster pods
 # AND the local-host/remote-node entities, so kubelet probes, apiserver
 # webhook calls and node-initiated attach traffic keep working while `world`
-# (the LAN — Longhorn has no LB/gateway exposure) is denied.
+# (the LAN) is denied.
+#
+# The reserved `ingress` (gateway Envoy) identity is intentionally NOT admitted
+# (#193, security review 2026-07-12): the Longhorn UI is unauthenticated admin
+# and its gateway HTTPRoute was removed (.config/lab/gateway.yaml), so there is
+# no gateway path to admit and this policy honestly reads "nothing from outside
+# the cluster". The UI is reached via `kubectl port-forward` (cluster-RBAC
+# gated). If a gateway route is ever restored behind oauth2-proxy, re-add
+# `- ingress` here.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -31,9 +39,4 @@ spec:
   ingress:
     - fromEntities:
         - cluster
-        # Gateway traffic (the longhorn.lab.local UI HTTPRoute) arrives with
-        # the reserved `ingress` identity, not as a cluster pod — without this
-        # the UI would be silently dropped (the #145 Hubble finding). The LAN
-        # (`world`) stays denied; only the gateway's Envoy carries `ingress`.
-        - ingress
 {{- end }}
