@@ -28,13 +28,32 @@ pilot migration (phase 3 of #176) proves it in anger.
 | `forecast-artifacts` | jupiter-central | 1Gi | LAR forecast artifacts; small, valuable for the savings audit trail. |
 | `alertmanager-…-db` | observability | 5Gi | Silences/notification state; tiny. |
 | `prometheus-…-db` | observability | 25Gi | Debatable (rebuildable metrics, largest volume). Migrate LAST, only if rebuild traffic proves benign; losing 107d of history on a node death is the argument for. |
+| `influxdb-influxdb2` | influxdb | 10Gi | **Owner override (#182).** Moved off the "do NOT migrate" list — see the note below. Runbook: [`platform/influxdb-config/RUNBOOK-longhorn-migration.md`](../platform/influxdb-config/RUNBOOK-longhorn-migration.md). Owner-scheduled, release-gated; **after** the hermes pilot. |
+
+**On `influxdb-influxdb2` (#182 override of the #176 decision).** #176 left this
+on local-path as "large, write-heavy TSDB; 3× sync replication on 1 GbE is the
+wrong trade." Read-only investigation (2026-07-15) found the real dataset is
+**~80 MiB, growing ~5 MiB/day** (the kubelet "used" of ~24 GiB is node03's whole
+root fs — a local-path reporting artifact, not the claim). At that size the
+replica cost (10Gi×3 = ~30 GiB provisioned, ~1.7 % of the Longhorn pool) and
+replication/rebuild traffic are trivial, so the owner's node/disk-failure
+resilience argument wins. It is a **standalone Helm-managed PVC** (not a
+volumeClaimTemplate), so the swap is clean. **The manifest is gated inert**:
+`.config/lab/influxdb.yaml` keeps `storageClass: local-path` with `longhorn`
+documented-but-commented — merging does NOT migrate; the owner flips it only
+inside the runbook's window.
+
+> **Sequencing.** The `hermes-cortana-state` phase-3 pilot (5Gi, small,
+> low-stakes) proves the backup→Retain→swap→restore runbook FIRST. InfluxDB is
+> the **big fish after** — it backs LIVE savings/telemetry history and is also
+> gated on the Longhorn NAS backup target existing. Do not run #182 before the
+> pilot succeeds.
 
 ### Do NOT migrate
 
 | PVC | NS | Size | Why not |
 |---|---|---|---|
 | `data-mqtt-{0,1,2}` | mqtt | 3×1Gi | EMQX replicates its own state (mnesia, 3 nodes). Longhorn under it = redundancy² and rebuild noise for nothing. |
-| `influxdb-influxdb2` | influxdb | 10Gi | Large, write-heavy TSDB; app-level backup path exists (daily backups to the NAS via `smb`). 3× synchronous replication of every write on 1 GbE Pis is the wrong trade. |
 | `influxdb-backups` | influxdb | 10Gi | Already ON the NAS (`smb`) — that's the off-cluster copy. |
 | `zeus-reports` | zeus | 1Gi | Already on the NAS (`smb`), deliberately off-cluster. |
 | `hermes-backup` | hermes | 10Gi | Already on the NAS (`smb-cortana`) — it's the backup of the state PVC. |
