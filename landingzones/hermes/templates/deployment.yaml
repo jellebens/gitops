@@ -35,6 +35,12 @@ spec:
         {{- if .Values.hebe.soul }}
         checksum/hebe-soul: {{ include (print $.Template.BasePath "/hebe-soul-configmap.yaml") . | sha256sum }}
         {{- end }}
+        {{- if .Values.plutus.soul }}
+        checksum/plutus-soul: {{ include (print $.Template.BasePath "/plutus-soul-configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if or (and .Values.plutus.anthropic.enabled .Values.plutus.anthropic.sealedSecret.encryptedAdminKey) (and .Values.plutus.openai.enabled .Values.plutus.openai.sealedSecret.encryptedAdminKey) }}
+        checksum/plutus-admin: {{ include (print $.Template.BasePath "/plutus-admin-sealed-secrets.yaml") . | sha256sum }}
+        {{- end }}
         {{- if .Values.openai.enabled }}
         checksum/openai-api-key: {{ include (print $.Template.BasePath "/openai-sealed-secret.yaml") . | sha256sum }}
         {{- end }}
@@ -207,6 +213,26 @@ spec:
             - name: GIT_SSH_COMMAND
               value: "ssh -i /opt/data/.ssh/id_ed25519 -o UserKnownHostsFile=/opt/data/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
             {{- end }}
+            {{- if and .Values.plutus.anthropic.enabled .Values.plutus.anthropic.sealedSecret.encryptedAdminKey }}
+            # Anthropic Admin API key for the Plutus cost tracker (#41) — READ-ONLY
+            # usage & cost report only. Distinct from the inference key; absent ->
+            # Plutus reports the Anthropic provider as "unconfigured".
+            - name: PLUTUS_ANTHROPIC_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.plutus.anthropic.secretName | quote }}
+                  key: {{ .Values.plutus.anthropic.adminKeyKey | quote }}
+            {{- end }}
+            {{- if and .Values.plutus.openai.enabled .Values.plutus.openai.sealedSecret.encryptedAdminKey }}
+            # OpenAI Admin key for the Plutus cost tracker (#41) — READ-ONLY org
+            # usage & costs only. Distinct from the project inference key; absent ->
+            # Plutus reports the OpenAI provider as "unconfigured".
+            - name: PLUTUS_OPENAI_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.plutus.openai.secretName | quote }}
+                  key: {{ .Values.plutus.openai.adminKeyKey | quote }}
+            {{- end }}
           ports:
             {{- if .Values.dashboard.enabled }}
             - name: http
@@ -233,6 +259,12 @@ spec:
             {{- if .Values.hebe.soul }}
             - name: hebe-soul
               mountPath: {{ .Values.hebe.soulPath }}
+              subPath: SOUL.md
+              readOnly: true
+            {{- end }}
+            {{- if .Values.plutus.soul }}
+            - name: plutus-soul
+              mountPath: {{ .Values.plutus.soulPath }}
               subPath: SOUL.md
               readOnly: true
             {{- end }}
@@ -267,6 +299,11 @@ spec:
         - name: hebe-soul
           configMap:
             name: hermes-hebe-soul
+        {{- end }}
+        {{- if .Values.plutus.soul }}
+        - name: plutus-soul
+          configMap:
+            name: hermes-plutus-soul
         {{- end }}
         {{- if .Values.git.enabled }}
         - name: git-ssh

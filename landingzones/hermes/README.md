@@ -5,8 +5,10 @@ A single [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 **Cortana**, a voice-first personal assistant on Discord. Cortana delegates
 specialised work to short-lived subagents: **Calliope** (writes articles/blog
 posts and commits them to a git repo), **Aetos** (a read-only energy/battery
-analyst that reports on the Zeus optimizer), and **Hebe** (a dependency-update
-watcher that opens draft bump PRs against this gitops repo).
+analyst that reports on the Zeus optimizer), **Hebe** (a dependency-update
+watcher that opens draft bump PRs against this gitops repo), and **Plutus** (a
+read-only AI-subscription cost tracker that posts a daily token/spend digest to
+Discord).
 
 Namespace: `hermes`. Deployed by Argo CD (`applications/templates/hermes`,
 sync-wave 30) from this chart, with values layered as:
@@ -35,11 +37,16 @@ cortana ── the single agent (Deployment "hermes")
         │                     toolsets: terminal, web, search, memory
         │                     queries the Zeus optimizer read-only (Prometheus +
         │                     zeus-metrics) and reports charge/mode/price/savings
-        └─ delegate_task ─▶ Hebe (ephemeral dependency-update watcher)
-                              toolsets: terminal, web, search, memory (+ git)
-                              enumerates pinned versions in this gitops repo,
-                              opens one DRAFT bump PR per update into develop
-                              (arm64-only; never merges)
+        ├─ delegate_task ─▶ Hebe (ephemeral dependency-update watcher)
+        │                     toolsets: terminal, web, search, memory (+ git)
+        │                     enumerates pinned versions in this gitops repo,
+        │                     opens one DRAFT bump PR per update into develop
+        │                     (arm64-only; never merges)
+        └─ delegate_task ─▶ Plutus (ephemeral AI-cost tracker, daily)
+                              toolsets: terminal, web, search, memory
+                              GETs each AI provider's usage/cost API read-only
+                              (Anthropic Admin + OpenAI org usage), posts a daily
+                              spend digest to Discord (never mutates anything)
   nightly CronJob ── sqlite3 .backup ──▶ SMB share (smb-cortana StorageClass)
 ```
 
@@ -174,6 +181,63 @@ present; otherwise she pushes the branch and reports a ready-to-paste PR body.
 Trigger is **on-demand** via Cortana `delegate_task`; a nightly CronJob (cf. the
 sqlite backup CronJob) is a possible future alternative.
 
+## The Plutus subagent
+
+Same delegation pattern as Calliope/Aetos/Hebe. **Plutus** (Ploutos, the Greek
+god of wealth) is a **read-only AI-subscription cost tracker**. Once a day
+Cortana delegates to him; he pulls yesterday's token usage and spend from each
+configured AI provider's **official usage/cost API** and hands Cortana a compact
+money digest that she posts to her **Discord** home channel. Persona + operating
+manual live in `.Values.plutus.soul` → `hermes-plutus-soul` ConfigMap → mounted
+at `.Values.plutus.soulPath` (`/opt/plutus/SOUL.md`). He is **strictly
+READ-ONLY** — GET requests to documented cost APIs only; he never changes a plan,
+buys credits, rotates a key, or mutates billing/cluster/git/battery, and he
+**never invents a number** (an unconfigured provider is reported as such).
+
+### Data sources (documented provider APIs — no dashboard scraping)
+
+| Provider | Endpoints (GET) | Credential |
+|---|---|---|
+| Anthropic (Claude) | `…/v1/organizations/cost_report` (USD) · `…/v1/organizations/usage_report/messages` (tokens), host `api.anthropic.com` | **Admin API key** `sk-ant-admin…` in the `x-api-key` header + `anthropic-version: 2023-06-01` |
+| OpenAI | `…/v1/organization/costs` (USD) · `…/v1/organization/usage/completions` (tokens), host `api.openai.com` | **Admin key** `sk-admin…` as `Authorization: Bearer` |
+
+Both credentials are **admin-scoped and distinct from the normal inference key** —
+a plain `sk-ant-api…` key or the project OpenAI key hermes already holds **cannot**
+read the org usage/cost report. The Anthropic admin key is created by an org admin
+in the Anthropic Console; the OpenAI admin key by an org owner in the org
+settings. Egress is to `api.anthropic.com` / `api.openai.com` over the pod's open
+egress (the CNP is ingress-only; both hosts are pre-listed in its egress comment
+for a future allow-list).
+
+### Turning Plutus on (owner action — gated + inert by default)
+
+Both providers ship **disabled** (`plutus.<provider>.enabled: false`, empty
+sealed key). The SOUL, the schedule, the ConfigMap and the delegation block all
+render regardless, so Plutus exists as soon as this merges — but with no admin
+key he will report every provider as "unconfigured" and post an all-quiet digest.
+To activate a provider the owner must (1) mint the **admin** key in that
+provider's console, (2) `kubeseal` it, (3) paste the sealed value into
+`.config/lab/hermes.yaml`, and (4) flip that provider's `enabled: true`:
+
+```sh
+# Anthropic (repeat with the OpenAI admin key + hermes-plutus-openai-admin)
+printf '%s' 'sk-ant-admin-...' | kubeseal --raw \
+  --controller-name sealed-secrets --controller-namespace argocd \
+  --namespace hermes --name hermes-plutus-anthropic-admin --from-file=/dev/stdin
+# -> paste into .config/lab/hermes.yaml:
+#      plutus.anthropic.enabled: true
+#      plutus.anthropic.sealedSecret.encryptedAdminKey: <sealed value>
+```
+
+The env var (`PLUTUS_ANTHROPIC_ADMIN_KEY` / `PLUTUS_OPENAI_ADMIN_KEY`) and the
+SealedSecret only render when that provider is both `enabled` and has a non-empty
+sealed key, so a half-configured provider never produces a broken Secret ref.
+
+**Schedule / delivery:** one daily delegation at `plutus.digest.schedule`
+(`0 8 * * *`, Europe/Brussels), delivery channel Discord — Cortana enforces it in
+her `system_prompt` (mirrors the Cerberus digest pattern). Kept off Cerberus's
+18:00 slot so the two daily posts don't collide.
+
 ## Storage & backups
 
 State (`state.db`, `kanban.db`, memory, profile, MS365 token) is **SQLite in WAL
@@ -246,6 +310,8 @@ PVC (or straight from the share) back into `hermes-cortana-state`, scale up.
 | `hermes-cortana-discord-token` | Cortana's Discord bot token |
 | `hermes-writer-git-ssh` | writer's git deploy key (blog repo) |
 | `hermes-hebe-git-ssh` | Hebe's git deploy key (gitops repo, write) — only when `hebe.git.enabled` |
+| `hermes-plutus-anthropic-admin` | Anthropic **Admin** API key for Plutus (read-only usage/cost) — only when `plutus.anthropic.enabled` |
+| `hermes-plutus-openai-admin` | OpenAI **Admin** key for Plutus (read-only org usage/costs) — only when `plutus.openai.enabled` |
 
 ## Common operations
 
