@@ -6,8 +6,14 @@
 # Cilium, a policy that specifies only `ingress` rules puts the selected
 # endpoint into default-deny for INGRESS only; its EGRESS stays fully open.
 # That is deliberate — hermes egresses to Discord, OpenAI, Microsoft 365,
-# GitHub (SSH), in-cluster Prometheus (Aetos) and the SMB NAS backup share; an
-# egress lockdown is a later, human-reviewed step. Replies to those outbound
+# GitHub (SSH), in-cluster Prometheus (Aetos + Cerberus), the Trello REST API
+# (api.trello.com — Cerberus files/dedups cards, card #187), the AI provider
+# admin/billing APIs api.anthropic.com + api.openai.com (Plutus cost tracker,
+# card #41) and the SMB NAS backup share; an egress lockdown is a later,
+# human-reviewed step. When that egress allow-list is authored, it MUST include
+# the in-cluster Prometheus service and api.trello.com for the Cerberus watchdog,
+# and api.anthropic.com + api.openai.com for the Plutus daily cost digest. Replies
+# to those outbound
 # connections are stateful (conntrack) and unaffected by ingress default-deny.
 #
 # Inbound allowed:
