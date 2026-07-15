@@ -18,6 +18,21 @@ adminUser:
 
 persistence:
   enabled: true
+  # STORAGE CLASS — migration to `longhorn` is PLANNED but deliberately INERT
+  # here (card #182). Do NOT simply change this to `longhorn`:
+  #   * `influxdb-influxdb2` is a standalone, already-Bound PVC and
+  #     `storageClassName` on a bound PVC is IMMUTABLE — Argo/ServerSideApply
+  #     would reject the in-place edit (the influxdb app goes OutOfSync/errored)
+  #     and NO data would move.
+  #   * The class is switched only as ONE step of the owner-scheduled maintenance
+  #     window, AFTER a fresh `influx backup` + the old PV is Retain'd + the old
+  #     PVC is deleted, so Argo provisions a fresh empty Longhorn PVC to restore
+  #     into.
+  # Full procedure + rollback + downtime window:
+  #   platform/influxdb-config/RUNBOOK-longhorn-migration.md
+  # Migration target (owner uncomments/flips this at the runbook's flip step —
+  # NOT before, and only with the runbook's PVC delete/recreate around it):
+  #   storageClass: longhorn
   storageClass: local-path
   accessMode: ReadWriteOnce
   size: 10Gi

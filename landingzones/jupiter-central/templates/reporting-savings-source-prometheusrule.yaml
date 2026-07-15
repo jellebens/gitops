@@ -1,0 +1,72 @@
+{{- if .Values.reporting.savingsSource.enabled }}
+# reporting-service SAVINGS-SOURCE guard (jupiter reporting, gitops card #181,
+# from Clio's #164 soak finding). A SEPARATE, SMALL PrometheusRule
+# (name reporting-savings-source) that watches the enum-gauge
+# jupiter_reporting_savings_source and fires when the savings pipeline is NOT
+# producing an independently-computed number.
+#
+# WHY THIS EXISTS — the wedge it makes visible:
+#   On reporting-service 0.8.0, at its FIRST midnight rollover (2026-07-07T22:00Z)
+#   jupiter_reporting_savings_source flipped to "insufficient_history" and LATCHED
+#   there for ~68h, freezing jupiter_savings_today_eur at EUR0.2375. It was
+#   invisible for 3 days: publish_metrics intentionally leaves the jupiter_savings_*
+#   gauges at their last value when savings is None (never emit a wrong number), so
+#   a sustained fallback silently holds a STALE figure while the parity dashboard
+#   still looks plausible. jupiter root-cause fixed the latch (card #170 sourced the
+#   derivation inputs from jupiter's own plan+price-service instead of a stale
+#   zeus_state re-read), but the freeze-when-fallback behaviour is BY DESIGN — so
+#   the durable protection is this alert, not code that forces the gauge.
+#
+# LIFECYCLE — deliberately its OWN gate (not the savingsParity one): the parity
+# cross-check joins against zeus_savings_* and MUST be retired at zeus
+# decommission (#169), but this source-flag guard is jupiter-only and should keep
+# watching after zeus is gone. Keeping it in a separate file with its own
+# reporting.savingsSource.enabled flag lets the two be turned off independently.
+#
+# EXPR: jupiter_reporting_savings_source{site_id,source} is an enum-gauge — exactly
+# one series per site is 1 (the active source: independent | insufficient_history).
+# So `...{source="independent"} == 0` means "some non-independent source is active"
+# for a site that IS exporting. When reporting is fully down the series is absent
+# and this does NOT fire (that gap is covered by the reporting ServiceMonitor /
+# target-down + the JupiterReportingSavingsParityNoData alert) — this rule is
+# specifically "the pipeline is up but not producing an independent number".
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: reporting-savings-source
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: reporting-service
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.reporting.savingsSource.releaseLabel | quote }}
+spec:
+  groups:
+    - name: jupiter-reporting-savings-source-alerts
+      rules:
+        - alert: JupiterSavingsNotIndependent
+          # The independent-source flag is 0 for a scraped site: the savings
+          # pipeline is running but falling back (insufficient_history / other),
+          # so jupiter_savings_today_eur is FROZEN at its last value rather than
+          # tracking. `for:` is long enough that a normal cold start / just-past-
+          # midnight refresh (briefly insufficient until >=2 today points land)
+          # does not page, but the 68h wedge would have fired within 30m.
+          expr: max by (site_id) (jupiter_reporting_savings_source{source="independent"}) == 0
+          for: {{ .Values.reporting.savingsSource.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter savings are not independently computed (frozen figure)
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the reporting-service savings
+              source has been non-"independent"
+              (jupiter_reporting_savings_source{source="independent"} == 0) for
+              {{ .Values.reporting.savingsSource.for }}. The derivation is falling
+              back (insufficient_history), so jupiter_savings_today_eur is HELD at
+              its last value and is not tracking — the #164 soak's 68h wedge
+              (card #181). Check the reporting-service pod: is jupiter_state being
+              written each refresh (energy_stored_kwh + import_price_eur_per_kwh
+              from the lar plan + price-service)? A brief fire right after a
+              restart or local midnight is benign; a sustained one means the
+              savings figure is stale.
+{{- end }}
