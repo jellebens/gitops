@@ -509,3 +509,21 @@ reporting:
     # bank/refresh their daily figures independently, so a short window would
     # page on benign end-of-cycle boundary blips.
     for: 2h
+
+  # ---------------------------------------------------------------------------
+  # SAVINGS-SOURCE guard (gitops card #181, from Clio's #164 soak finding).
+  # A small, SEPARATE PrometheusRule (JupiterSavingsNotIndependent) that watches
+  # jupiter_reporting_savings_source and fires when the savings pipeline is up but
+  # NOT producing an independent number (source != independent for > `for`), i.e.
+  # jupiter_savings_today_eur is FROZEN at its last value — the failure mode that
+  # was invisible for 68h in the soak. Deliberately its OWN gate, not
+  # savingsParity's: the parity cross-check joins against zeus_* and retires at
+  # zeus decommission (#169), but this jupiter-only guard should keep watching.
+  savingsSource:
+    enabled: true
+    releaseLabel: kube-prometheus-stack
+    # Sustained window before the guard fires. Long enough that a normal cold
+    # start / just-past-local-midnight refresh (briefly insufficient_history until
+    # the new day has >=2 jupiter_state points) does not page, but well under the
+    # 68h wedge — 30m per the card.
+    for: 30m
