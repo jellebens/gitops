@@ -30,7 +30,10 @@ image:
   # guard target never drops to floor on a single None (over-protect only, never
   # under-protect; re-baselines on the billing-month rollover). Runtime-behaviour
   # fix only — no config-shape change vs 0.12.0.
-  tag: "0.13.0"
+  # 0.13.2 (#190): lar poll-path HA reads — dedicated 4s poll-timeout on failsafe-covered
+  # reads + DEBUG dedup logging + pooled Session. I/O-scheduling only, ZERO control-flow
+  # change (753 tests); deferred the 3 fixes touching actuation/#155 lock.
+  tag: "0.13.2"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
