@@ -213,6 +213,17 @@ Order matters: zeus first (image must exist before the tag bump deploys), then
 gitops. If only gitops cards are pending, step 2 alone is the release (and
 step 4 is skipped — no new app tag).
 
+**Tag every jupiter/zeus `master` merge (owner, 2026-07-14).** Every
+`develop` → `master` release PR gets a `v<version>` tag — including a
+docs-only release — so `master` is fully traceable and no version is left
+untagged (the state that let CHANGELOG.md sit on `master` unversioned). The
+jupiter CI `tag-scope` job diffs the new tag against the previous one and, when
+the change is docs-only (`*.md`, `docs/`, `CHANGELOG.md`, `LICENSE`), sets
+`docs_only=true` so the arm64 `image` build is skipped — the tag still exists,
+CI is green, no images rebuild. A code change (anything else, incl. `ci.yml`)
+builds normally. So: bump the version + tag for docs-only releases too; don't
+wait on an image job that intentionally won't run.
+
 ## Agent prompt template
 
 Fill in `{{CARD_NAME}}`, `{{CARD_SHORT_ID}}`, `{{CARD_DESC}}`, `{{CARD_ID}}`:
