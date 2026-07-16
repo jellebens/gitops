@@ -114,6 +114,91 @@ description points at the #147 strict/per-input series for attribution),
 default 0.5 kW), `JupiterShadowGuardConflict` (#147: now fires on a REAL live-lar
 guard veto conflicting with the zeus cross-check plan).
 
+Plus, in its own file/flag, `JupiterShadowLogicGateBlind` — see below.
+
+## ⚠ A blind gate is not a passing gate (card #196)
+
+`jupiter_shadow_logic_divergence` is a **product**:
+
+```
+logic_divergence = divergence * inputs_source_match
+```
+
+When `inputs_source_match` is `0`, that product is identically `0` **no matter
+how far the two controllers' intents actually diverge**. The gate then does not
+report "no logic divergence" — it reports **nothing**. Read off a dashboard the
+two states are indistinguishable: both are a flat green `0`.
+
+**This is the live state, and has been since the series was born.** Measured
+2026-07-16 against the in-cluster Prometheus:
+
+| query | result |
+| --- | --- |
+| `max_over_time(jupiter_shadow_inputs_source_match[15d])` | `0` — never once 1; first sample 2026-07-05T21:31Z |
+| `max_over_time(jupiter_shadow_logic_divergence[92h])` | `0` — structurally, not empirically |
+| `avg_over_time(jupiter_shadow_divergence[92h])` | `0.149` — the controllers really do disagree ~1 sample in 6 |
+| `avg_over_time(jupiter_shadow_inputs_divergence[92h])` | `0.149` — i.e. **100%** of it filed as "inputs" |
+| `zeus_price_source` / `zeus_forecast_source` | `4` (partial) / `1` (fallback) |
+| `jupiter_lar_price_source` / `jupiter_lar_forecast_source` | `0` / `0` (primary) |
+
+Because the two stacks sit on different feed **classes** (one primary, one
+degraded), both source-class match terms are `0`, so the multiplier is `0`, so
+the gate is pinned. **`jupiter_shadow_logic_divergence` has never carried
+information.** Same class of defect as the 68h reporting wedge (#181): a
+green-looking number that validates nothing.
+
+Note also that the whole ~15% raw divergence lands in
+`jupiter_shadow_inputs_divergence`, which this README labels *expected/benign*
+above — a label that assumes the mismatch is **transient**. Here it is
+**permanent**, so that label is doing work it was never designed for.
+
+**The guard:** `JupiterShadowLogicGateBlind`
+(`templates/gate-blind-prometheusrule.yaml`, `values.yaml
+prometheusRule.gateBlind`, default `for: 30m`) fires whenever
+`inputs_source_match == 0` for a site that is being compared, so a blind gate is
+**loud instead of green**. It is a separate PrometheusRule with its own
+`enabled` flag because it guards the *validity* of the harness rather than being
+part of it, and it retires on a different schedule (moot once zeus is
+decommissioned, #169). A both-sides-down gap makes the join **absent**, which
+does not match `== 0` — that case stays covered by `JupiterShadowHarnessNoData`.
+
+**Do not sign off a soak or a P4 cutover on `logic_divergence = 0` while this
+alert is firing.** To clear it, the two stacks must be put back on the same feed
+class (the root cause — zeus's price/forecast feeds — is card #196 part b, held
+off under the jupiter-tervuren deploy freeze). To see the real disagreement
+meanwhile, read `jupiter_shadow_divergence` and the
+`jupiter_shadow_inputs_divergence_{price,forecast,soc,peak}` split.
+
+### Why `JupiterShadowSetpointDelta` was left at 0.5 kW (card #196)
+
+The #164 pre-check flagged this rule as noise: `setpoint_abs_delta_kw` runs p95
+~1.29 kW against a 0.5 kW threshold and is over it ~30% of the time, yet the
+alert last fired 07-12T11:05Z and otherwise only flaps in pending. The
+threshold was nevertheless **kept as-is** — the data supports neither retuning
+nor retiring:
+
+- **It is not structurally dead** (unlike the gate above). The rule needs a
+  **2h continuous** breach, and over 15d the worst 2h-window minimum reached
+  **2.458 kW** — it *did* clear the bar, and it *did* fire. It is a working rule
+  that correctly stays quiet when the disagreement is transient.
+- **The p95-vs-threshold comparison mixes two different quantities.** p95 is an
+  *instantaneous* quantile; the rule keys on *sustained* breach. Over the last
+  92h the worst 2h-window minimum was **0.335 kW** — under 0.5 — which is why it
+  is silent. The delta is spiky, not high: it sits at ~0 for **30%** of samples
+  (both sides idle). That is the signal doing its job, not a mis-set threshold.
+- **This window is contaminated by the blindness above.** zeus has been on
+  partial price / fallback forecast for the entire life of the series while the
+  lar ran primary — *different inputs produce different setpoints*. Retuning
+  "to observed reality" would bake a degraded-feed artefact into the threshold
+  permanently, and the distribution will move once the feeds are fixed. Setting
+  a threshold from data this very card exists to distrust would be the same
+  mistake one level down.
+
+Re-evaluate after #196 part b lands and a clean same-feed window exists. If the
+flapping-in-pending is itself judged noisy, the honest fix is a duty-cycle expr
+(breach *fraction* over a window) rather than a higher bar — a separate change,
+not a silent threshold bump.
+
 ## Tolerances (`values.yaml prometheusRule.*`, card #147)
 
 | knob | default | rationale |
