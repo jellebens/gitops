@@ -1,0 +1,100 @@
+{{- if .Values.prometheusRule.gateBlind.enabled }}
+# jupiter-shadow GATE-BLINDNESS guard (gitops card #196, from Clio's #164 soak
+# pre-check). A SEPARATE, SMALL PrometheusRule (name jupiter-shadow-gate-blind)
+# that watches jupiter_shadow_inputs_source_match and fires when the shadow
+# LOGIC-divergence gate is structurally incapable of firing.
+#
+# WHY THIS EXISTS — the blindness it makes visible:
+#   The gate signal is a PRODUCT:
+#     jupiter_shadow_logic_divergence
+#       = jupiter_shadow_divergence * jupiter_shadow_inputs_source_match
+#   When inputs_source_match is 0, that product is identically 0 REGARDLESS of
+#   how much the two controllers actually disagree. The gate does not report
+#   "no logic divergence" — it reports NOTHING. A reader (or a soak sign-off)
+#   that sees a flat green 0 cannot tell the two apart.
+#
+#   This is not hypothetical. Measured 2026-07-16 against the live Prometheus:
+#     max_over_time(jupiter_shadow_inputs_source_match[15d]) = 0
+#   i.e. the multiplier has been 0 for the ENTIRE lifetime of the series
+#   (first sample 2026-07-05T21:31Z) — it has never once been 1. Cause: zeus
+#   and the lar run on different feeds — zeus_price_source=4 (partial) and
+#   zeus_forecast_source=1 (fallback) vs jupiter_lar_{price,forecast}_source=0
+#   (primary). Both source-CLASS match terms are therefore 0.
+#   Meanwhile the RAW intent divergence over the same window is real and large:
+#     avg_over_time(jupiter_shadow_divergence[92h]) = 0.149 (~1 sample in 6),
+#   100% of it filed as jupiter_shadow_inputs_divergence — which the harness
+#   README labels "expected/benign", a label that assumes the mismatch is
+#   TRANSIENT. Here it is PERMANENT, so the benign label is doing work it was
+#   never designed to do and the logic gate is carrying no signal at all.
+#
+#   Same class of defect as the 68h reporting wedge (card #181): a green-looking
+#   number that validates nothing. The durable protection is this alert.
+#
+# LIFECYCLE — deliberately its OWN gate (not folded into the main
+# jupiter-shadow rule): it guards the VALIDITY of the harness rather than being
+# part of the harness, and it should be retired on a different schedule (it
+# becomes moot when zeus is decommissioned, #169, and the cross-check goes away
+# with it). Its own file + gateBlind.enabled flag lets the two be turned off
+# independently.
+#
+# EXPR: jupiter_shadow_inputs_source_match is 1 iff BOTH the price and forecast
+# source-CLASSES agree across the two stacks; the recording rule is a join, so
+# when either stack stops being scraped the series goes ABSENT rather than 0.
+# `== 0` therefore means "both stacks ARE exporting and their feed classes
+# disagree" — the specific blind-gate condition. A both-sides-down gap is
+# absent, does NOT match here, and is covered by JupiterShadowHarnessNoData.
+#
+# SCOPE (card #196): monitoring-only, and deliberately so. Fixing zeus's feeds
+# so the multiplier CAN be 1 is the root cause (#196 part b) and is out of
+# scope under the jupiter-tervuren deploy freeze that runs to the #164 soak
+# sign-off — changing zeus/lar feeds would change the soak subject and reset the
+# clean-day clock. This rule adds no workload and restarts no pod, so it is
+# safe to land under that freeze.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jupiter-shadow-gate-blind
+  namespace: jupiter-shadow
+  labels:
+    app.kubernetes.io/name: jupiter-shadow
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.gateBlind.releaseLabel | quote }}
+spec:
+  groups:
+    - name: jupiter-shadow-gate-blind-alerts
+      rules:
+        - alert: JupiterShadowLogicGateBlind
+          # The inputs source-class multiplier is 0 for a site that IS being
+          # compared: jupiter_shadow_logic_divergence is pinned to 0 by
+          # construction and proves nothing. `for:` is long enough that a brief
+          # feed blip during a normal refresh (one side momentarily on cache
+          # while the other is primary) does not page, but the permanent
+          # mismatch observed since 2026-07-05 fires within 30m.
+          expr: max by (site_id) (jupiter_shadow_inputs_source_match) == 0
+          for: {{ .Values.prometheusRule.gateBlind.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: jupiter shadow logic-divergence gate is BLIND (proves nothing)
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — jupiter_shadow_inputs_source_match
+              has been 0 for {{ .Values.prometheusRule.gateBlind.for }}: zeus and the
+              lar are on different price/forecast source-CLASSES (one primary, one
+              degraded). WHILE THIS ALERT IS FIRING, jupiter_shadow_logic_divergence
+              PROVES NOTHING — it is the product
+              (divergence * inputs_source_match), so a 0 multiplier pins it to 0 no
+              matter how far the two controllers' intents actually diverge. A BLIND
+              GATE IS NOT A PASSING GATE: do NOT read the flat 0 as parity and do
+              NOT sign off a soak / P4 cutover on it (card #196; the #164 soak
+              pre-check found the multiplier had never once been 1). To see the real
+              disagreement while the gate is blind, read jupiter_shadow_divergence
+              (raw intent mismatch) and the
+              jupiter_shadow_inputs_divergence_{price,forecast,soc,peak} split —
+              note that "inputs_divergence" is labelled expected/benign on the
+              assumption the mismatch is TRANSIENT, which does not hold here. To
+              CLEAR this alert, the two stacks must be put back on the same feed
+              class: compare zeus_price_source (0=primary 1=fallback 2=cache 3=none
+              4=partial) and zeus_forecast_source against jupiter_lar_price_source /
+              jupiter_lar_forecast_source (0=primary 1=cache 2=none).
+{{- end }}
