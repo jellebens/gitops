@@ -33,7 +33,7 @@ image:
   # 0.13.2 (#190): lar poll-path HA reads — dedicated 4s poll-timeout on failsafe-covered
   # reads + DEBUG dedup logging + pooled Session. I/O-scheduling only, ZERO control-flow
   # change (753 tests); deferred the 3 fixes touching actuation/#155 lock.
-  tag: "0.13.2"
+  tag: "0.14.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
