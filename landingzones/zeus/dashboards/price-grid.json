@@ -118,7 +118,7 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_import_price_eur_per_kwh)" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_reporting_import_price_eur_per_kwh)" } ]
     },
     {
       "id": 5,
@@ -140,7 +140,7 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_position_pct)" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_reporting_price_position_pct)" } ]
     },
     {
       "id": 6,
@@ -292,7 +292,7 @@
         "overrides": []
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "mergeValues": true, "rowHeight": 0.9, "showValue": "never", "tooltip": { "mode": "single", "sort": "none" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "floor(max(zeus_price_position_pct) / 20)", "legendFormat": "price window" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "floor(max(jupiter_reporting_price_position_pct) / 20)", "legendFormat": "price window" } ]
     },
     {
       "id": 12,
@@ -333,7 +333,7 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_quarter_mean_kw)" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_quarter_mean_kw)" } ]
     },
     {
       "id": 14,
@@ -355,7 +355,7 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_quarter_headroom_kw)" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_quarter_headroom_kw)" } ]
     },
     {
       "id": 15,
@@ -377,7 +377,7 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_capacity_peak_kw)" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_reporting_capacity_peak_kw)" } ]
     },
     {
       "id": 16,
@@ -399,7 +399,7 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_charge_guard_trips_total[$__range]))" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(jupiter_charge_guard_trips_total[$__range]))" } ]
     },
     {
       "id": 17,
@@ -434,8 +434,8 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [ "max" ] }, "tooltip": { "mode": "multi", "sort": "none" } },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000", "legendFormat": "15-min avg import" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_quarter_mean_kw)", "legendFormat": "clock-quarter mean" },
-        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_capacity_peak_kw)", "legendFormat": "billed peak (month)" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_quarter_mean_kw)", "legendFormat": "clock-quarter mean" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_reporting_capacity_peak_kw)", "legendFormat": "billed peak (month)" },
         { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_predicted_peak_kw)", "legendFormat": "predicted horizon peak" }
       ]
     },
@@ -460,7 +460,7 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] }, "tooltip": { "mode": "multi", "sort": "none" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_charge_guard_trips_total[1h]))", "legendFormat": "guard trips / h" },
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(jupiter_charge_guard_trips_total[1h]))", "legendFormat": "guard trips / h" },
         { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(zeus_shaving_miss_total[1h]))", "legendFormat": "shaving misses / h" }
       ]
     },

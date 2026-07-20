@@ -79,7 +79,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_soc_percent)",
+          "expr": "max(jupiter_lar_soc_pct)",
           "refId": "A"
         }
       ]
@@ -142,7 +142,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_savings_today_eur)",
+          "expr": "max(jupiter_savings_today_eur)",
           "refId": "A"
         }
       ]
@@ -555,7 +555,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_soc_percent)",
+          "expr": "max(jupiter_lar_soc_pct)",
           "legendFormat": "SoC",
           "refId": "A"
         }
@@ -610,7 +610,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_import_price_eur_per_kwh)",
+          "expr": "max(jupiter_reporting_import_price_eur_per_kwh)",
           "legendFormat": "import price",
           "refId": "A"
         }
@@ -900,7 +900,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_savings_today_eur)",
+          "expr": "max(jupiter_savings_today_eur)",
           "legendFormat": "savings",
           "refId": "A"
         }
@@ -1116,7 +1116,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_capacity_peak_kw)",
+          "expr": "max(jupiter_reporting_capacity_peak_kw)",
           "refId": "A"
         }
       ]
@@ -1298,7 +1298,7 @@
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "max(zeus_capacity_peak_kw)",
+          "expr": "max(jupiter_reporting_capacity_peak_kw)",
           "legendFormat": "Fluvius billed peak (month)",
           "refId": "B"
         }

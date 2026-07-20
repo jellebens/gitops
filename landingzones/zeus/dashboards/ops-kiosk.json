@@ -319,7 +319,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(label_replace((100000 + max(zeus_actual_mode_code)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(zeus_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(zeus_soc_percent)), \"k\", \"SoC %\", \"\", \"\"))",
+          "expr": "(label_replace((100000 + max(jupiter_lar_actual_mode)), \"k\", \"Mode\", \"\", \"\")) or (label_replace((max(jupiter_reporting_price_position_pct)), \"k\", \"Cheap → Expensive %\", \"\", \"\")) or (label_replace((max(jupiter_lar_soc_pct)), \"k\", \"SoC %\", \"\", \"\"))",
           "format": "table",
           "instant": true
         }
@@ -505,7 +505,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_capacity_peak_kw)",
+          "expr": "max(jupiter_reporting_capacity_peak_kw)",
           "legendFormat": "Capacity peak",
           "range": true,
           "instant": false
@@ -1143,7 +1143,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_capacity_peak_kw) * 1000",
+          "expr": "max(jupiter_reporting_capacity_peak_kw) * 1000",
           "instant": true
         }
       ]
