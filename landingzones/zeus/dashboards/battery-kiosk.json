@@ -594,7 +594,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_charge_kw) - max(zeus_target_discharge_kw)",
+          "expr": "max(jupiter_lar_target_charge_kw) - max(jupiter_lar_target_discharge_kw)",
           "refId": "A"
         }
       ]
@@ -661,7 +661,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "time() - max(zeus_last_cycle_timestamp_seconds)",
+          "expr": "time() - max(jupiter_lar_last_cycle_timestamp_seconds)",
           "refId": "A"
         }
       ]

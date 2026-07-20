@@ -99,7 +99,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "((max(zeus_control_available) < bool 1) * 2) or vector(2)",
+          "expr": "((max(jupiter_lar_control_available) < bool 1) * 2) or vector(2)",
           "legendFormat": "Home Assistant",
           "instant": true
         },
@@ -119,7 +119,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "((time() - max(zeus_last_cycle_timestamp_seconds) > bool 900) + (time() - max(zeus_last_cycle_timestamp_seconds) > bool 1800)) or vector(2)",
+          "expr": "((time() - max(jupiter_lar_last_cycle_timestamp_seconds) > bool 900) + (time() - max(jupiter_lar_last_cycle_timestamp_seconds) > bool 1800)) or vector(2)",
           "legendFormat": "Last cycle",
           "instant": true
         },

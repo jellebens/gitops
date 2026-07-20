@@ -275,7 +275,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_charge_kw) - max(zeus_target_discharge_kw)",
+          "expr": "max(jupiter_lar_target_charge_kw) - max(jupiter_lar_target_discharge_kw)",
           "refId": "A"
         }
       ]
