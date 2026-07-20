@@ -340,7 +340,7 @@ reporting:
     # sourced entirely from jupiter's own inputs (lar MQTT + price-service), ZERO
     # zeus_state reads (#163/#170/#171). Makes the #164 parity soak a true
     # independent cross-check.
-    tag: "0.13.0"
+    tag: "0.14.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the
