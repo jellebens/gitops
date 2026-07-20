@@ -68,7 +68,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_soc_percent)",
+          "expr": "max(jupiter_lar_soc_pct)",
           "refId": "A"
         }
       ]
@@ -157,7 +157,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_actual_mode_code)",
+          "expr": "max(jupiter_lar_actual_mode)",
           "refId": "A"
         }
       ]
@@ -208,7 +208,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_stored_kwh)",
+          "expr": "max(jupiter_reporting_energy_stored_kwh)",
           "refId": "A"
         }
       ]
@@ -275,7 +275,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_charge_kw) - max(zeus_target_discharge_kw)",
+          "expr": "max(jupiter_lar_target_charge_kw) - max(jupiter_lar_target_discharge_kw)",
           "refId": "A"
         }
       ]
@@ -398,7 +398,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_import_price_eur_per_kwh)",
+          "expr": "max(jupiter_reporting_import_price_eur_per_kwh)",
           "refId": "A"
         }
       ]
@@ -464,7 +464,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_price_position_pct)",
+          "expr": "max(jupiter_reporting_price_position_pct)",
           "refId": "A"
         }
       ]
@@ -636,7 +636,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_savings_today_eur)",
+          "expr": "max(jupiter_savings_today_eur)",
           "refId": "A"
         }
       ]
@@ -872,7 +872,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_capacity_peak_kw)",
+          "expr": "max(jupiter_reporting_capacity_peak_kw)",
           "refId": "A"
         }
       ]

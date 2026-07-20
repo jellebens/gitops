@@ -82,7 +82,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "zeus_savings_today_eur",
+          "expr": "jupiter_savings_today_eur",
           "legendFormat": "Savings today",
           "instant": true,
           "range": false
