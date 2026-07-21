@@ -172,7 +172,7 @@ forecast:
   image:
     repository: jellebens/jupiter-forecast
     # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-    tag: "0.13.0"
+    tag: "0.15.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, same reasoning as the price-service: the artifact PVC
