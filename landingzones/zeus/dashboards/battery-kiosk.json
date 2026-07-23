@@ -476,7 +476,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_charged_today_kwh)",
+          "expr": "max(jupiter_savings_charged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -527,7 +527,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_discharged_today_kwh)",
+          "expr": "max(jupiter_savings_discharged_today_kwh)",
           "refId": "A"
         }
       ]
