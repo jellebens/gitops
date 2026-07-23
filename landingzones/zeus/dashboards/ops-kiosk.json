@@ -494,7 +494,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_grid_power_w) / 1000",
+          "expr": "max(jupiter_reporting_grid_power_w) / 1000",
           "legendFormat": "Grid power",
           "range": true,
           "instant": false

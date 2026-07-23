@@ -481,7 +481,7 @@
               "type": "value",
               "options": {
                 "0": {
-                  "text": "JUPITER",
+                  "text": "PRIMARY",
                   "color": "green",
                   "index": 0
                 }
@@ -491,7 +491,7 @@
               "type": "value",
               "options": {
                 "1": {
-                  "text": "FALLBACK",
+                  "text": "CACHE",
                   "color": "yellow",
                   "index": 1
                 }
@@ -501,29 +501,9 @@
               "type": "value",
               "options": {
                 "2": {
-                  "text": "CACHE",
-                  "color": "orange",
-                  "index": 2
-                }
-              }
-            },
-            {
-              "type": "value",
-              "options": {
-                "3": {
                   "text": "SAFE-HOLD",
                   "color": "red",
-                  "index": 3
-                }
-              }
-            },
-            {
-              "type": "value",
-              "options": {
-                "4": {
-                  "text": "PARTIAL",
-                  "color": "red",
-                  "index": 4
+                  "index": 2
                 }
               }
             }
@@ -573,7 +553,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_price_source)",
+          "expr": "max(jupiter_lar_price_source)",
           "refId": "A"
         }
       ]
