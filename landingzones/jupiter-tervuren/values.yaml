@@ -189,12 +189,18 @@ siteConfig:
     base_temp_c: 21.0
     past_days: 14
     forecast_days: 2
-  # #177 reactive spike responder - OBSERVE phase (owner-approved 2026-07-09):
-  # logs would-have-triggered events + jupiter_lar_spike_* metrics, COMMANDS
-  # NOTHING. Flip mode: active only after threshold review on real data.
+  # #177 reactive spike responder - ACTIVE since 2026-07-23 (owner-approved).
+  # Observe phase ran 2026-07-10 -> 07-23 on the #178 CORRECTED signal
+  # max(0, import - battery_grid_input). Activation experiment:
+  # docs/analysis/2026-07-23-177-spike-activation.md — 14d of 1-min data showed
+  # the top-8 billed quarter-hours are ~50% BATTERY CHARGING, so the
+  # charge-stop is the real capacity lever. Sweep: trigger 2.0 cuts the peak
+  # quarter-hour 4.43 -> 3.41 kW (~EUR 49/yr @ EUR 4/kW/month) at 3.4 events/day.
+  # 2.0 chosen over 1.5 (EUR 69/yr) because the extra churn risks eating the
+  # LARGER arbitrage pool (~EUR 180/yr) via interrupted charging.
   spike_responder:
-    mode: observe
-    trigger_kw: 2.5
+    mode: active
+    trigger_kw: 2.0
     release_kw: 1.0
     trigger_consecutive: 2
     release_consecutive: 3
