@@ -35,7 +35,7 @@
       "id": 1,
       "type": "stat",
       "title": "Price feed status (this cycle)",
-      "description": "zeus_price_source: which tier served this cycle's price curve. Partial = the curve covers the horizon start but not its end, so the optimizer sees a LOCF-flat tail.",
+      "description": "jupiter_lar_price_source: how the live lar controller sourced this cycle's price curve (0 = primary, 1 = cache/last-good, 2 = none/safe-hold). Migrated off the legacy zeus price-source metric (#207) ahead of the zeus decommission; the lar collapses the price feed to these three states.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 5, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -45,18 +45,16 @@
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
           "mappings": [
             { "type": "value", "options": {
-              "0": { "text": "Healthy (jupiter / entsoe)", "color": "green" },
-              "1": { "text": "Fallback — direct entsoe", "color": "orange" },
-              "2": { "text": "Last-good cache", "color": "yellow" },
-              "3": { "text": "None — SAFE HOLD", "color": "red" },
-              "4": { "text": "Partial — LOCF flat tail", "color": "light-red" }
+              "0": { "text": "Primary", "color": "green" },
+              "1": { "text": "Cache — last-good", "color": "yellow" },
+              "2": { "text": "None — SAFE HOLD", "color": "red" }
             } }
           ]
         },
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_source)", "instant": true } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_lar_price_source)", "instant": true } ]
     },
     {
       "id": 2,
@@ -201,7 +199,7 @@
       "id": 8,
       "type": "state-timeline",
       "title": "Price source per cycle — #108 soak evidence",
-      "description": "zeus_price_source codes: 0 = healthy (jupiter-primary / entsoe primary / immutable cache-fresh), 1 = fallback (jupiter unreachable → direct entsoe, or HA fallback entity), 2 = last-good cache, 3 = none (safe hold), 4 = partial coverage (LOCF flat tail). Codes 0/1/2/4 fold jupiter and direct-entsoe serves together — the per-hour jupiter serve-label panel below tells them apart.",
+      "description": "jupiter_lar_price_source codes (live lar controller): 0 = primary, 1 = cache (last-good local fallback), 2 = none (safe hold). Migrated off the legacy zeus price-source metric (#207) ahead of the zeus decommission; the lar collapses the price feed to these three states. The per-hour jupiter serve-label panel below breaks the serve down further.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 14 },
       "fieldConfig": {
@@ -210,18 +208,16 @@
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
           "mappings": [
             { "type": "value", "options": {
-              "0": { "text": "healthy (jupiter/entsoe)", "color": "green" },
-              "1": { "text": "fallback — direct entsoe", "color": "orange" },
-              "2": { "text": "cache", "color": "yellow" },
-              "3": { "text": "SAFE HOLD", "color": "red" },
-              "4": { "text": "partial — flat tail", "color": "light-red" }
+              "0": { "text": "primary", "color": "green" },
+              "1": { "text": "cache — last-good", "color": "yellow" },
+              "2": { "text": "none — SAFE HOLD", "color": "red" }
             } }
           ]
         },
         "overrides": []
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "mergeValues": true, "rowHeight": 0.9, "showValue": "auto", "tooltip": { "mode": "single", "sort": "none" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_price_source)", "legendFormat": "price source" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_lar_price_source)", "legendFormat": "price source" } ]
     },
     {
       "id": 9,
@@ -298,7 +294,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "Whole-home grid power — + import / − export",
-      "description": "Live net grid power from the house meter (zeus_grid_power_w, ~10 s poll). For daily peak/cost analysis see the Consumption Analysis dashboard (link in the dashboard header).",
+      "description": "Live net grid power from the house meter (jupiter_reporting_grid_power_w, ~10 s poll). For daily peak/cost analysis see the Consumption Analysis dashboard (link in the dashboard header).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 32 },
       "fieldConfig": {
@@ -311,7 +307,7 @@
         "overrides": []
       },
       "options": { "legend": { "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_grid_power_w)", "legendFormat": "grid power" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_reporting_grid_power_w)", "legendFormat": "grid power" } ]
     },
     {
       "id": 13,
@@ -433,7 +429,7 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [ "max" ] }, "tooltip": { "mode": "multi", "sort": "none" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000", "legendFormat": "15-min avg import" },
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(clamp_min(max(jupiter_reporting_grid_power_w), 0)[15m:]) / 1000", "legendFormat": "15-min avg import" },
         { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_quarter_mean_kw)", "legendFormat": "clock-quarter mean" },
         { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(jupiter_reporting_capacity_peak_kw)", "legendFormat": "billed peak (month)" },
         { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(zeus_predicted_peak_kw)", "legendFormat": "predicted horizon peak" }
