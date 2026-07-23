@@ -687,7 +687,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_charged_today_kwh)",
+          "expr": "max(jupiter_savings_charged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -738,7 +738,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_discharged_today_kwh)",
+          "expr": "max(jupiter_savings_discharged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -805,7 +805,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000",
+          "expr": "avg_over_time(clamp_min(max(jupiter_reporting_grid_power_w), 0)[15m:]) / 1000",
           "refId": "A"
         }
       ]

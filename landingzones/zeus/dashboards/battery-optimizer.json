@@ -193,7 +193,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_charged_today_kwh)",
+          "expr": "max(jupiter_savings_charged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -244,7 +244,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_discharged_today_kwh)",
+          "expr": "max(jupiter_savings_discharged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -782,7 +782,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_baseline_cost_today_eur)",
+          "expr": "max(jupiter_savings_baseline_eur)",
           "legendFormat": "baseline (no battery)",
           "refId": "A"
         },
@@ -791,7 +791,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_actual_cost_today_eur)",
+          "expr": "max(jupiter_savings_actual_eur)",
           "legendFormat": "actual",
           "refId": "B"
         }
@@ -1173,7 +1173,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_grid_power_w)",
+          "expr": "max(jupiter_reporting_grid_power_w)",
           "legendFormat": "grid power (W)",
           "refId": "A"
         }
@@ -1241,7 +1241,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000",
+          "expr": "avg_over_time(clamp_min(max(jupiter_reporting_grid_power_w), 0)[15m:]) / 1000",
           "refId": "A"
         }
       ]
@@ -1292,7 +1292,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000",
+          "expr": "avg_over_time(clamp_min(max(jupiter_reporting_grid_power_w), 0)[15m:]) / 1000",
           "legendFormat": "Aeotec 15-min avg import",
           "refId": "A"
         },
