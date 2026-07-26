@@ -199,7 +199,7 @@ siteConfig:
   # 2.0 chosen over 1.5 (EUR 69/yr) because the extra churn risks eating the
   # LARGER arbitrage pool (~EUR 180/yr) via interrupted charging.
   spike_responder:
-    mode: observe
+    mode: active
     trigger_kw: 2.0
     release_kw: 1.0
     trigger_consecutive: 2
