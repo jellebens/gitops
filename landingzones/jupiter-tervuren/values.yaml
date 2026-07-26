@@ -206,6 +206,7 @@ siteConfig:
     release_consecutive: 3
     cooldown_seconds: 120
     discharge_min_soc_pct: 20   # #177: below this SoC a spike -> PASSTHROUGH (stop charge, no drain); at/above -> DISCHARGE
+    max_sample_age_seconds: 150   # #213: grid_input_power (Bluetti cloud) updates ~median 57s/p90 118s; 45s default flagged it stale 68% of the time (responder under-fired). HEM is poked every 15s so its check is unchanged in practice. Real freezes still flagged; #211 900s guard backstops.
 
   run:
     interval_minutes: 15
