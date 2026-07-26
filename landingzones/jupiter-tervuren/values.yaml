@@ -33,7 +33,7 @@ image:
   # 0.13.2 (#190): lar poll-path HA reads — dedicated 4s poll-timeout on failsafe-covered
   # reads + DEBUG dedup logging + pooled Session. I/O-scheduling only, ZERO control-flow
   # change (753 tests); deferred the 3 fixes touching actuation/#155 lock.
-  tag: "0.16.4"
+  tag: "0.16.5"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -199,12 +199,13 @@ siteConfig:
   # 2.0 chosen over 1.5 (EUR 69/yr) because the extra churn risks eating the
   # LARGER arbitrage pool (~EUR 180/yr) via interrupted charging.
   spike_responder:
-    mode: observe
+    mode: active
     trigger_kw: 2.0
     release_kw: 1.0
     trigger_consecutive: 2
     release_consecutive: 3
     cooldown_seconds: 120
+    discharge_min_soc_pct: 20   # #177: below this SoC a spike -> PASSTHROUGH (stop charge, no drain); at/above -> DISCHARGE
 
   run:
     interval_minutes: 15
