@@ -1,0 +1,15 @@
+# Lab-CA TLS cert for the gateway's per-hostname HTTPS listener (grafana-https
+# in .config/lab/gateway.yaml) so https://grafana.lab.local terminates at the
+# gateway — same pattern as argocd/hermes/influxdb/jaeger. Secret lives in ns
+# observability; the gateway-config chart emits the ReferenceGrant automatically.
+tlsCertificate:
+  enabled: true
+  secretName: grafana-server-tls
+  commonName: grafana.lab.local
+  dnsNames:
+    - grafana.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
