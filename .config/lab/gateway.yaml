@@ -47,6 +47,16 @@ gateway:
             kind: Secret
             name: jaeger-server-tls
             namespace: jaeger
+    - name: grafana-https
+      port: 443
+      hostname: grafana.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: grafana-server-tls
+            namespace: observability
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -71,6 +81,11 @@ routes:
 
   - name: grafana
     namespace: observability
+    # http kept alongside https: the kiosk and existing bookmarks use plain
+    # http:// URLs (same both-listeners pattern as argocd/jaeger).
+    listeners:
+      - http
+      - grafana-https
     hostnames:
       - grafana.lab.local
     backend:
