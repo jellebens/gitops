@@ -340,6 +340,9 @@ reporting:
     # sourced entirely from jupiter's own inputs (lar MQTT + price-service), ZERO
     # zeus_state reads (#163/#170/#171). Makes the #164 parity soak a true
     # independent cross-check.
+    # 0.17.0 (#209): jupiter_reporting_forecast_source now classifies the lar's
+    # service:-prefixed sources onto a `service` bucket instead of collapsing to
+    # `other` (mirrors the 0.16.3 price_source fix). Also carries #210 ruff reformat.
     tag: "0.17.0"
     pullPolicy: IfNotPresent
 
