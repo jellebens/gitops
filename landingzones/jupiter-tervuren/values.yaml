@@ -33,6 +33,16 @@ image:
   # 0.13.2 (#190): lar poll-path HA reads — dedicated 4s poll-timeout on failsafe-covered
   # reads + DEBUG dedup logging + pooled Session. I/O-scheduling only, ZERO control-flow
   # change (753 tests); deferred the 3 fixes touching actuation/#155 lock.
+  # 0.16.4 (#211): fail-safe + alert on STALE battery telemetry — frozen HA reads
+  # (last_updated age > threshold) -> PASSTHROUGH hold + jupiter_lar_battery_telemetry_stale
+  # gauge (shipped during the 2026-07-26 Bluetti-integration incident).
+  # 0.16.5 (#177): SoC-staged spike responder — below discharge_min_soc_pct a spike ->
+  # PASSTHROUGH (no drain), at/above -> DISCHARGE; + freshness-guarded correction subtrahend.
+  # 0.17.0 (#214): OBSERVE-FIRST plausibility guard — implausible reads (all-zeros
+  # conjunction / SoC out of range) -> jupiter_lar_battery_telemetry_implausible gauge;
+  # PASSTHROUGH hold gated behind ha.battery_implausible_enforce (default FALSE ->
+  # metric-only, actuation byte-identical). Also carries #210 whole-repo ruff reformat
+  # (mechanical, no behaviour change). Enforce flip is a human-gated Phase 2.
   tag: "0.17.0"
   pullPolicy: IfNotPresent
 
