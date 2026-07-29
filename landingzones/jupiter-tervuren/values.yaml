@@ -33,7 +33,21 @@ image:
   # 0.13.2 (#190): lar poll-path HA reads — dedicated 4s poll-timeout on failsafe-covered
   # reads + DEBUG dedup logging + pooled Session. I/O-scheduling only, ZERO control-flow
   # change (753 tests); deferred the 3 fixes touching actuation/#155 lock.
-  tag: "0.17.0"
+  # 0.16.4 (#211): fail-safe + alert on STALE battery telemetry — frozen HA reads
+  # (last_updated age > threshold) -> PASSTHROUGH hold + jupiter_lar_battery_telemetry_stale
+  # gauge (shipped during the 2026-07-26 Bluetti-integration incident).
+  # 0.16.5 (#177): SoC-staged spike responder — below discharge_min_soc_pct a spike ->
+  # PASSTHROUGH (no drain), at/above -> DISCHARGE; + freshness-guarded correction subtrahend.
+  # 0.17.0 (#214): OBSERVE-FIRST plausibility guard — implausible reads (all-zeros
+  # conjunction / SoC out of range) -> jupiter_lar_battery_telemetry_implausible gauge;
+  # PASSTHROUGH hold gated behind ha.battery_implausible_enforce (default FALSE ->
+  # metric-only, actuation byte-identical). Also carries #210 whole-repo ruff reformat
+  # (mechanical, no behaviour change). Enforce flip is a human-gated Phase 2.
+  # 0.18.0 (#169): interlock gains `interlock.zeus_decommissioned` — with zeus
+  # retired (2026-07-29) and no longer publishing its commander heartbeat, this
+  # lets the single-controller interlock treat an absent/stale commander as CLEAR
+  # (a live commander==1 still REFUSES). Activated by siteConfig.interlock below.
+  tag: "0.18.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -74,6 +88,16 @@ siteConfig:
   # controller interlock gates EVERY command on that signal (refuses unless it
   # sees a fresh commander==0). ROLLBACK: set back to shadow (+ re-arm zeus).
   controller: live
+  # #169 zeus DECOMMISSION (2026-07-29): zeus is retired and no longer publishes
+  # its retained `zeus/tervuren/commander` heartbeat, so that signal ages out and
+  # the interlock would otherwise REFUSE -> safe-hold the battery. This opt-in tells
+  # the single-controller interlock to treat an ABSENT/STALE/UNKNOWN commander as
+  # CLEAR. A present commander==1 STILL REFUSES (hard-invariant-1 preserved: an
+  # active claimant always wins), so this cannot enable double-control. Requires
+  # lar image >= 0.18.0 (#114). ROLLBACK: set false + redeploy zeus (landing zone
+  # is retained in git for exactly this).
+  interlock:
+    zeus_decommissioned: true
   battery:
     usable_capacity_kwh: 13.0
     max_charge_kw: 2.2

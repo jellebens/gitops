@@ -285,6 +285,14 @@ forecast:
       timezone: Europe/Brussels
       base_temp_c: 21.0
       include_untagged: true
+      # #169 zeus DECOMMISSION (2026-07-29): zeus stopped writing zeus_load_history /
+      # zeus_state, so the trainer's load sources go stale. Flip the unions ON so the
+      # trainer reads jupiter's own series instead (jupiter_load_history + jupiter
+      # whole-home). whole_home was proven byte-identical (#202); critical_load
+      # (#203 Path B) verified same-cadence in InfluxDB before this flip. Historical
+      # zeus_* remains in the bucket (union still reads it for pre-cutover history).
+      whole_home_union_jupiter: true
+      critical_load_union_jupiter: true
 
   # InfluxDB token for the trainer, injected via envFrom (optional: true so
   # the chart deploys before the seal exists — the trainer is suspended until
@@ -340,6 +348,9 @@ reporting:
     # sourced entirely from jupiter's own inputs (lar MQTT + price-service), ZERO
     # zeus_state reads (#163/#170/#171). Makes the #164 parity soak a true
     # independent cross-check.
+    # 0.17.0 (#209): jupiter_reporting_forecast_source now classifies the lar's
+    # service:-prefixed sources onto a `service` bucket instead of collapsing to
+    # `other` (mirrors the 0.16.3 price_source fix). Also carries #210 ruff reformat.
     tag: "0.17.0"
     pullPolicy: IfNotPresent
 
