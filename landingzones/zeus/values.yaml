@@ -6,7 +6,14 @@ image:
   tag: "0.8.1"
   pullPolicy: IfNotPresent
 
-replicaCount: 1
+# #169 zeus DECOMMISSION (2026-07-30): scaled to 0 — jupiter-lar is the sole live
+# battery controller. Prereqs shipped first: lar interlock.zeus_decommissioned=true
+# (jupiter v0.18.0, so the interlock CLEARs on the now-absent zeus commander instead
+# of safe-holding) + forecast trainer flipped to jupiter unions (no longer reads the
+# now-static zeus_* series). InfluxDB zeus bucket RETAINED (#199 no-delete gate) and
+# this landing zone stays in git. ROLLBACK: set replicaCount back to 1 (+ revert the
+# lar interlock flag) to redeploy zeus instantly.
+replicaCount: 0
 
 # Scoped CiliumNetworkPolicy for the zeus namespace. INGRESS-ONLY by design:
 # a Cilium policy with only `ingress` rules default-denies inbound to the zeus
