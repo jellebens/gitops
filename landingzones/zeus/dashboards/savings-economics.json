@@ -1185,6 +1185,152 @@
           "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nslots = from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"jupiter_state\" and (r._field == \"import_price_eur_per_kwh\" or r._field == \"mode_code\"))\n  |> aggregateWindow(every: 15m, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ _time: r._time, day: date.truncate(t: r._time, unit: 1d), price: r.import_price_eur_per_kwh, mode: r.mode_code }))\np80 = slots\n  |> group(columns: [\"day\"])\n  |> quantile(column: \"price\", q: 0.8, method: \"estimate_tdigest\")\n  |> map(fn: (r) => ({ day: r.day, p80: r.price }))\n  |> group()\njoin(tables: {s: slots, t: p80}, on: [\"day\"])\n  |> filter(fn: (r) => r.mode == 2.0)\n  |> map(fn: (r) => ({ _time: r._time, _value: r.p80 - r.price }))\n  |> sort(columns: [\"_time\"])\n  |> rename(columns: {_value: \"Discharge miss — €/kWh below expensive band\"})"
         }
       ]
+    },
+    {
+      "id": 106,
+      "type": "row",
+      "title": "Market opportunity vs realized savings (#227)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Daily price spread vs daily savings — market opportunity next to realized return (#227)",
+      "description": "Correlates the day's MARKET OPPORTUNITY with the REALIZED RETURN so a low-savings day can be read as either market-limited or an optimizer miss (card #227). Month-to-date via the dashboard time range (default now-30d, which covers the current month).\n\n- **Blue bars — Daily price SPREAD (€/kWh, left axis):** per local calendar day (Europe/Brussels), p90 − p10 of the import price. p90−p10 is used instead of max−min so a single-slot price outlier can't inflate the bar. Source: InfluxDB `zeus` bucket, `jupiter_state.import_price_eur_per_kwh` (jupiter-lar, the sole live controller since the 2026-07-30 zeus decommission); per-day quantiles via Flux `aggregateWindow(every: 1d)` + `quantile`.\n- **Green bars — Daily SAVINGS (€, right axis):** `jupiter_daily_savings.eur`, last value per local day (`aggregateWindow(every: 1d, fn: last)`, which also dedups the site_id-rollout duplicate points).\n\nBoth series are bucketed to the same local-midnight day boundaries, so each day's two bars sit side-by-side. **How to read:** low spread tracking low savings = market-limited (fine); a LOW-savings bar on a WIDE-spread day = the red flag (optimizer left arbitrage on the table). History begins 2026-07-06 (start of the jupiter_state series).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "barAlignment": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Price spread (€/kWh)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Price spread p90−p10 (€/kWh)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Daily savings (€)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Daily savings (€)"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "min",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nbase = from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"jupiter_state\" and r._field == \"import_price_eur_per_kwh\")\n  |> group()\np90 = base\n  |> aggregateWindow(every: 1d, fn: (tables=<-, column) => tables |> quantile(q: 0.90, column: column), createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"p90\"})\np10 = base\n  |> aggregateWindow(every: 1d, fn: (tables=<-, column) => tables |> quantile(q: 0.10, column: column), createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"p10\"})\njoin(tables: {p90: p90, p10: p10}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.p90 - r.p10}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sort(columns: [\"_time\"])\n  |> rename(columns: {_value: \"Price spread (€/kWh)\"})"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"jupiter_daily_savings\" and r._field == \"eur\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: last, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sort(columns: [\"_time\"])\n  |> rename(columns: {_value: \"Daily savings (€)\"})"
+        }
+      ]
     }
   ],
   "refresh": "5m",
