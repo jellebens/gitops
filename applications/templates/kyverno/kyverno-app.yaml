@@ -22,6 +22,12 @@ spec:
         values: |
           crds:
             install: true
+          # The kyverno-api subchart renders `labels: {}` on its CRDs; the API
+          # server prunes the empty map, leaving the app forever OutOfSync.
+          # A non-empty label map keeps desired == live.
+          kyverno-api:
+            labels:
+              app.kubernetes.io/part-of: kyverno
           admissionController:
             replicas: 1
           backgroundController:
