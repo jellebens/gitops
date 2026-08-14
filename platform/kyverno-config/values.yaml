@@ -1,0 +1,14 @@
+policies:
+  # Audit-only by default: this cluster runs a LIVE battery controller
+  # (jupiter-lar). Promoting any policy to Enforce is a deliberate,
+  # per-policy decision — never flip this default.
+  failureAction: Audit
+  # Never block API admissions when the Kyverno webhook is unavailable.
+  failurePolicy: Ignore
+
+  disallowPrivilegedContainers:
+    enabled: true
+  disallowHostNamespaces:
+    enabled: true
+  disallowLatestTag:
+    enabled: true
