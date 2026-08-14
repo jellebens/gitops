@@ -27,12 +27,12 @@ the note in [`platform/longhorn/README.md`](../platform/longhorn/README.md).
 | PVC | NS | Size | Why |
 |---|---|---|---|
 | `hermes-cortana-state` | hermes | 5Gi | **MIGRATED 2026-08-14 (#238).** The #175 scar (Cortana's irreplaceable state) — was the pilot candidate; landed in the same series wave as the rest. State copied cold; old PV Retain'd. |
-| `kube-prometheus-stack-grafana` | observability | 10Gi | Dashboards/users are partly in git, but plugin state/annotations aren't; cheap to protect. |
+| `kube-prometheus-stack-grafana` | observability | 10Gi | **MIGRATED 2026-08-14 (#237).** Plugin state/annotations copied from the old local-path PV (Retain'd as rollback anchor). |
 | `price-service-cache` | jupiter-central | 1Gi | **MIGRATED 2026-08-14 (#238).** A lost node during a price-API outage would have hurt the LIVE optimizer; node pin gone. |
 | `forecast-artifacts` | jupiter-central | 1Gi | **MIGRATED 2026-08-14 (#238).** Trainer/serving pods no longer node-pinned to the volume. |
 | `jaeger-badger` | jaeger | 5Gi | **MIGRATED 2026-08-14 (#238).** Trace history (badger) copied cold; POSIX/block semantics preserved on longhorn (ext4-on-iSCSI). |
-| `alertmanager-…-db` | observability | 5Gi | Silences/notification state; tiny. |
-| `prometheus-…-db` | observability | 25Gi | Debatable (rebuildable metrics, largest volume). Migrate LAST, only if rebuild traffic proves benign; losing 107d of history on a node death is the argument for. |
+| `alertmanager-…-db` | observability | 5Gi | **MIGRATED 2026-08-14 (#237).** Old volume was empty (no active silences) — fresh longhorn volume, no copy. |
+| `prometheus-…-db` | observability | 25Gi | **MIGRATED 2026-08-14 (#237).** 11.9G of history (15d retention) copied cold to longhorn; old PV Retain'd. The "migrate LAST" caveat was honored within the wave; rebuild traffic bounded by the 2-concurrent-rebuilds/node cap. |
 | `influxdb-influxdb2` | influxdb | 10Gi | **MIGRATED 2026-08-14 (#235).** Runbook: [`platform/influxdb-config/RUNBOOK-longhorn-migration.md`](../platform/influxdb-config/RUNBOOK-longhorn-migration.md) (#182), executed as part of the #235–#238 series. Owner ordered InfluxDB first, ahead of the hermes pilot the runbook originally sequenced. Old local-path PV Retain'd on node03 as rollback anchor (cool-down, then clean up). |
 
 **On `influxdb-influxdb2` (#182 override of the #176 decision).** #176 left this
