@@ -19,9 +19,17 @@
 # local-path remains the cluster default StorageClass.
 
 persistence:
-  # local-path stays the default StorageClass — Longhorn is opt-in per PVC
-  # until the phase-3 pilot migration proves it.
-  defaultClass: false
+  # longhorn is the cluster default StorageClass since #236 (2026-08-14, owner
+  # call as part of the #235–#238 migration series): new state must never land
+  # on node-pinned local-path by accident again.
+  # ⚠ k3s gotcha: the bundled local-storage addon re-asserts local-path's
+  # is-default-class=true annotation on every k3s restart/upgrade, so two
+  # defaults can coexist afterwards. Kubernetes then binds new PVCs to the
+  # NEWEST default SC — longhorn (created 2026-07-11) wins over local-path
+  # (cluster-install age) — but re-run
+  #   kubectl annotate sc local-path storageclass.kubernetes.io/is-default-class=false --overwrite
+  # after node/k3s maintenance to keep `kubectl get sc` honest.
+  defaultClass: true
   # 3 synchronous replicas on 3 distinct nodes: survives one node/disk loss
   # with redundancy left over during the rebuild.
   defaultClassReplicaCount: 3

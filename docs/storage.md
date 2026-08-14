@@ -8,13 +8,17 @@ a Synology DS918 (`nas001.lab.local`, 192.168.50.144).
 
 | Class | Provisioner | Durability | Use for |
 |---|---|---|---|
-| `local-path` (default) | rancher.io/local-path | **None — node-pinned.** Data lives in one node's filesystem; a node/disk loss loses it (#175). | Scratch, caches, anything an app can rebuild, and state with its own replication (EMQX) |
-| `longhorn` (card #176) | driver.longhorn.io | 3 synchronous replicas on 3 distinct nodes; survives one node/disk loss. `reclaimPolicy: Retain`. | Irreplaceable single-instance state that must survive a node failure |
+| `local-path` | rancher.io/local-path | **None — node-pinned.** Data lives in one node's filesystem; a node/disk loss loses it (#175). | Scratch, caches, anything an app can rebuild — and only by explicit `storageClassName` (no longer the default) |
+| `longhorn` (**default** since #236) | driver.longhorn.io | 3 synchronous replicas on 3 distinct nodes; survives one node/disk loss. `reclaimPolicy: Retain`. | Irreplaceable single-instance state that must survive a node failure; the default for anything that doesn't pick a class |
 | `smb` | smb.csi.k8s.io | On the NAS (its own RAID + lifecycle). Flaky under load; NOT for hot data paths. | Off-cluster backup/export targets (influxdb backups, zeus reports) |
 | `smb-cortana` | smb.csi.k8s.io | Dedicated NAS share + NAS user for Cortana backups (strict separation) | hermes/Cortana backups only |
 
-`local-path` **stays the default**. Longhorn is opt-in per PVC until the
-pilot migration (phase 3 of #176) proves it in anger.
+`longhorn` **is the default** since #236 (2026-08-14, owner call in the
+#235–#238 migration series). The flip is two-sided — chart value
+(`persistence.defaultClass: true`) plus a manual annotate on the k3s-bundled
+`local-path` SC; k3s re-asserts local-path's default annotation on restart,
+in which case Kubernetes still binds to the newest default (longhorn) — see
+the note in [`platform/longhorn/README.md`](../platform/longhorn/README.md).
 
 ## Current PVCs and the Longhorn migration split (sizes = claims, 2026-07-10)
 
@@ -28,7 +32,7 @@ pilot migration (phase 3 of #176) proves it in anger.
 | `forecast-artifacts` | jupiter-central | 1Gi | LAR forecast artifacts; small, valuable for the savings audit trail. |
 | `alertmanager-…-db` | observability | 5Gi | Silences/notification state; tiny. |
 | `prometheus-…-db` | observability | 25Gi | Debatable (rebuildable metrics, largest volume). Migrate LAST, only if rebuild traffic proves benign; losing 107d of history on a node death is the argument for. |
-| `influxdb-influxdb2` | influxdb | 10Gi | **Owner override (#182).** Moved off the "do NOT migrate" list — see the note below. Runbook: [`platform/influxdb-config/RUNBOOK-longhorn-migration.md`](../platform/influxdb-config/RUNBOOK-longhorn-migration.md). Owner-scheduled, release-gated; **after** the hermes pilot. |
+| `influxdb-influxdb2` | influxdb | 10Gi | **MIGRATED 2026-08-14 (#235).** Runbook: [`platform/influxdb-config/RUNBOOK-longhorn-migration.md`](../platform/influxdb-config/RUNBOOK-longhorn-migration.md) (#182), executed as part of the #235–#238 series. Owner ordered InfluxDB first, ahead of the hermes pilot the runbook originally sequenced. Old local-path PV Retain'd on node03 as rollback anchor (cool-down, then clean up). |
 
 **On `influxdb-influxdb2` (#182 override of the #176 decision).** #176 left this
 on local-path as "large, write-heavy TSDB; 3× sync replication on 1 GbE is the
@@ -38,10 +42,9 @@ root fs — a local-path reporting artifact, not the claim). At that size the
 replica cost (10Gi×3 = ~30 GiB provisioned, ~1.7 % of the Longhorn pool) and
 replication/rebuild traffic are trivial, so the owner's node/disk-failure
 resilience argument wins. It is a **standalone Helm-managed PVC** (not a
-volumeClaimTemplate), so the swap is clean. **The manifest is gated inert**:
-`.config/lab/influxdb.yaml` keeps `storageClass: local-path` with `longhorn`
-documented-but-commented — merging does NOT migrate; the owner flips it only
-inside the runbook's window.
+volumeClaimTemplate), so the swap is clean. Executed 2026-08-14 in the #235
+window: `.config/lab/influxdb.yaml` now says `storageClass: longhorn`; the NAS
+`influx backup` CronJobs stay (replication is not backup).
 
 > **Sequencing.** The `hermes-cortana-state` phase-3 pilot (5Gi, small,
 > low-stakes) proves the backup→Retain→swap→restore runbook FIRST. InfluxDB is
