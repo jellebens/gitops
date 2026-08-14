@@ -28,7 +28,7 @@ pilot migration (phase 3 of #176) proves it in anger.
 | `forecast-artifacts` | jupiter-central | 1Gi | LAR forecast artifacts; small, valuable for the savings audit trail. |
 | `alertmanager-…-db` | observability | 5Gi | Silences/notification state; tiny. |
 | `prometheus-…-db` | observability | 25Gi | Debatable (rebuildable metrics, largest volume). Migrate LAST, only if rebuild traffic proves benign; losing 107d of history on a node death is the argument for. |
-| `influxdb-influxdb2` | influxdb | 10Gi | **Owner override (#182).** Moved off the "do NOT migrate" list — see the note below. Runbook: [`platform/influxdb-config/RUNBOOK-longhorn-migration.md`](../platform/influxdb-config/RUNBOOK-longhorn-migration.md). Owner-scheduled, release-gated; **after** the hermes pilot. |
+| `influxdb-influxdb2` | influxdb | 10Gi | **MIGRATED 2026-08-14 (#235).** Runbook: [`platform/influxdb-config/RUNBOOK-longhorn-migration.md`](../platform/influxdb-config/RUNBOOK-longhorn-migration.md) (#182), executed as part of the #235–#238 series. Owner ordered InfluxDB first, ahead of the hermes pilot the runbook originally sequenced. Old local-path PV Retain'd on node03 as rollback anchor (cool-down, then clean up). |
 
 **On `influxdb-influxdb2` (#182 override of the #176 decision).** #176 left this
 on local-path as "large, write-heavy TSDB; 3× sync replication on 1 GbE is the
@@ -38,10 +38,9 @@ root fs — a local-path reporting artifact, not the claim). At that size the
 replica cost (10Gi×3 = ~30 GiB provisioned, ~1.7 % of the Longhorn pool) and
 replication/rebuild traffic are trivial, so the owner's node/disk-failure
 resilience argument wins. It is a **standalone Helm-managed PVC** (not a
-volumeClaimTemplate), so the swap is clean. **The manifest is gated inert**:
-`.config/lab/influxdb.yaml` keeps `storageClass: local-path` with `longhorn`
-documented-but-commented — merging does NOT migrate; the owner flips it only
-inside the runbook's window.
+volumeClaimTemplate), so the swap is clean. Executed 2026-08-14 in the #235
+window: `.config/lab/influxdb.yaml` now says `storageClass: longhorn`; the NAS
+`influx backup` CronJobs stay (replication is not backup).
 
 > **Sequencing.** The `hermes-cortana-state` phase-3 pilot (5Gi, small,
 > low-stakes) proves the backup→Retain→swap→restore runbook FIRST. InfluxDB is

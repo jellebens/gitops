@@ -1,10 +1,12 @@
 # InfluxDB 2.x (influxdata influxdb2 chart) — durable time-series store for
 # zeus savings/forecast history, long-term sensor history, capacity tracking.
 #
-# DB files live on NODE-LOCAL storage (local-path), NOT the SMB share: databases
-# need block/POSIX semantics (mmap, flock, fsync) that SMB doesn't provide, and
-# the share has proven flaky. Durability/migration comes from scheduled backups
-# to the NAS (follow-up), and the future Proxmox+Ceph move is a StorageClass swap.
+# DB files live on Longhorn (#235, 2026-08-14): 3 synchronous replicas on
+# distinct wired nodes — survives a node/disk loss (the #175 failure class that
+# node-pinned local-path could not). NOT the SMB share: databases need
+# block/POSIX semantics (mmap, flock, fsync) that SMB doesn't provide.
+# Longhorn is redundancy, not backup — the NAS backup CronJobs (influxdb-config)
+# remain the disaster-recovery path.
 #
 # Admin password + token come from the influxdb-auth SealedSecret (see the
 # influxdb-config app). InfluxDB will stay Pending until that secret exists.
@@ -18,22 +20,14 @@ adminUser:
 
 persistence:
   enabled: true
-  # STORAGE CLASS — migration to `longhorn` is PLANNED but deliberately INERT
-  # here (card #182). Do NOT simply change this to `longhorn`:
-  #   * `influxdb-influxdb2` is a standalone, already-Bound PVC and
-  #     `storageClassName` on a bound PVC is IMMUTABLE — Argo/ServerSideApply
-  #     would reject the in-place edit (the influxdb app goes OutOfSync/errored)
-  #     and NO data would move.
-  #   * The class is switched only as ONE step of the owner-scheduled maintenance
-  #     window, AFTER a fresh `influx backup` + the old PV is Retain'd + the old
-  #     PVC is deleted, so Argo provisions a fresh empty Longhorn PVC to restore
-  #     into.
-  # Full procedure + rollback + downtime window:
-  #   platform/influxdb-config/RUNBOOK-longhorn-migration.md
-  # Migration target (owner uncomments/flips this at the runbook's flip step —
-  # NOT before, and only with the runbook's PVC delete/recreate around it):
-  #   storageClass: longhorn
-  storageClass: local-path
+  # Flipped local-path -> longhorn during the #235 migration window (2026-08-14)
+  # per platform/influxdb-config/RUNBOOK-longhorn-migration.md (#182): old PV
+  # Retain'd, old PVC deleted while the STS was scaled to 0, this merge made
+  # Argo provision a fresh Longhorn PVC, then `influx restore` from the NAS
+  # full backup repopulated it. Do NOT flip this back to local-path in place —
+  # storageClassName on a bound PVC is immutable; any change here needs the
+  # runbook's scale-down/PVC-recreate dance around it.
+  storageClass: longhorn
   accessMode: ReadWriteOnce
   size: 10Gi
 
