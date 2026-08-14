@@ -20,3 +20,8 @@ gateway:
 # List of HTTPRoutes to provision against the shared Gateway.
 # Each entry: name, namespace, hostnames[], backend.{name,port}, [path]
 routes: []
+
+# HTTP -> HTTPS 302 redirects on the shared plain `http` listener, for
+# services whose content route is HTTPS-only. Each entry: name, namespace,
+# hostnames[]. See templates/http-redirects.yaml.
+httpRedirects: []

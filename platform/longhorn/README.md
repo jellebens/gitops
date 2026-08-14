@@ -148,7 +148,9 @@ LAN source IP is already proxied away).
 re-added **HTTPS-only** as an interim: `https://longhorn.lab.local` (lab-CA
 cert `longhorn-server-tls` from `templates/certificate.yaml`, dedicated
 `longhorn-https` SNI listener in `.config/lab/gateway.yaml`, HTTPRoute
-parented ONLY to that listener — no plain-HTTP attach). The namespace CNP
+parented ONLY to that listener; `http://longhorn.lab.local` is answered by a
+redirect-only route that 302s to https — content is never served over plain
+HTTP). The namespace CNP
 re-admits the gateway `ingress` identity
 (`templates/ciliumnetworkpolicy.yaml`). This knowingly re-accepts the #193
 risk — any LAN host can reach an unauthenticated admin UI, now encrypted —
