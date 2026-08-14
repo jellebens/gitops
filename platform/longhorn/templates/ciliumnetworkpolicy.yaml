@@ -19,13 +19,13 @@
 # webhook calls and node-initiated attach traffic keep working while `world`
 # (the LAN) is denied.
 #
-# The reserved `ingress` (gateway Envoy) identity is intentionally NOT admitted
-# (#193, security review 2026-07-12): the Longhorn UI is unauthenticated admin
-# and its gateway HTTPRoute was removed (.config/lab/gateway.yaml), so there is
-# no gateway path to admit and this policy honestly reads "nothing from outside
-# the cluster". The UI is reached via `kubectl port-forward` (cluster-RBAC
-# gated). If a gateway route is ever restored behind oauth2-proxy, re-add
-# `- ingress` here.
+# The reserved `ingress` (gateway Envoy) identity is admitted again since #233
+# (owner decision 2026-08-14): the UI is re-exposed through the gateway's
+# HTTPS-only `longhorn-https` listener as an INTERIM measure — no SSO exists in
+# the lab yet. This partially rolls back #193 (security review 2026-07-12,
+# which removed the route because the UI is unauthenticated admin); the real
+# fix is the SSO rollout (card #232), after which this route goes behind auth.
+# `kubectl port-forward` remains the RBAC-gated alternative.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -39,4 +39,5 @@ spec:
   ingress:
     - fromEntities:
         - cluster
+        - ingress
 {{- end }}
