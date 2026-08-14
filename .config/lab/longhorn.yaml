@@ -66,8 +66,9 @@ defaultSettings:
   # backupTarget: "nfs://nas001.lab.local:/volume1/longhorn-backup"
   # backupTargetCredentialSecret: "longhorn-backup-credentials"
 
-# Stateless dashboard; one replica is enough on the arm64 nodes. Not exposed
-# outside the cluster (no LB/gateway) — see README for the port-forward.
+# Stateless dashboard; one replica is enough on the arm64 nodes. Exposed via
+# the gateway's HTTPS-only longhorn-https listener as an INTERIM until SSO
+# (#233/#232) — see platform/longhorn/README.md "UI".
 longhornUI:
   replicas: 1
 

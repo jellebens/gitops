@@ -57,6 +57,16 @@ gateway:
             kind: Secret
             name: grafana-server-tls
             namespace: observability
+    - name: longhorn-https
+      port: 443
+      hostname: longhorn.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: longhorn-server-tls
+            namespace: longhorn-system
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -113,26 +123,27 @@ routes:
       name: jaeger-query
       port: 16686
 
-  # Longhorn admin UI — NO gateway route on purpose (#193, security review
-  # 2026-07-12). The Longhorn UI has NO built-in auth and can delete
-  # volumes/replicas, so any LAN host that could resolve+reach longhorn.lab.local
-  # would be able to wipe block storage. This is a HARD GATE before #176 phase-3
-  # (migrating the hermes/Cortana state PVC, later InfluxDB #182 onto Longhorn):
-  # once real state lives on Longhorn an unauthenticated LAN UI is MED-HIGH risk.
-  #
-  # Rather than TLS-only theater (a lab-CA HTTPS listener adds encryption, not
-  # auth) or an unsupported per-route source allow-list (gateway traffic reaches
-  # the backend as the reserved `ingress` identity — the LAN source IP is already
-  # proxied away — and the gateway VIP/Service is shared across every route), the
-  # UI is PORT-FORWARD-ONLY: `kubectl -n longhorn-system port-forward
-  # svc/longhorn-frontend 8080:80`. That path is gated by cluster RBAC/kubeconfig
-  # = real authentication. The longhorn-system CNP no longer admits the gateway
-  # `ingress` identity (platform/longhorn/templates/ciliumnetworkpolicy.yaml).
-  #
-  # Follow-up (owner-gated, heavier): if browser access from the LAN is wanted,
-  # stand up oauth2-proxy (real SSO) in front of a re-added route + a lab-CA
-  # HTTPS listener — see platform/longhorn/README.md "UI".
-  #
-  # NOTE: the longhorn.lab.local A record in .config/lab/coredns-lab.yaml is left
-  # in place deliberately (DNS zone is fragile/load-bearing); with no HTTPRoute
-  # claiming the hostname the gateway simply returns no route, so it fails clean.
+  # Longhorn admin UI — HTTPS-ONLY route, INTERIM (#233, owner decision
+  # 2026-08-14). This partially rolls back #193 (security review 2026-07-12),
+  # which removed the route entirely because the UI is UNAUTHENTICATED admin
+  # (can delete volumes/replicas) and TLS alone is encryption, not auth. The
+  # owner accepted that risk as an interim because no SSO exists in the lab
+  # yet; the durable fix is the SSO rollout (card #232), after which this
+  # route moves behind real authentication. Until then:
+  #   - parented ONLY to the longhorn-https SNI listener (no plain-HTTP attach,
+  #     unlike jaeger/grafana — don't add `http` here);
+  #   - cert: longhorn-server-tls from lab-ca-issuer
+  #     (platform/longhorn/templates/certificate.yaml);
+  #   - the longhorn-system CNP re-admits the gateway `ingress` identity
+  #     (platform/longhorn/templates/ciliumnetworkpolicy.yaml);
+  #   - `kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80`
+  #     remains the RBAC-gated alternative.
+  - name: longhorn
+    namespace: longhorn-system
+    listeners:
+      - longhorn-https
+    hostnames:
+      - longhorn.lab.local
+    backend:
+      name: longhorn-frontend
+      port: 80
