@@ -28,14 +28,32 @@ spec:
           kyverno-api:
             labels:
               app.kubernetes.io/part-of: kyverno
+          # ServiceMonitors labeled for kube-prometheus-stack (repo
+          # convention) — feeds the kyverno Grafana dashboard (#234).
           admissionController:
             replicas: 1
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: kube-prometheus-stack
           backgroundController:
             replicas: 1
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: kube-prometheus-stack
           reportsController:
             replicas: 1
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: kube-prometheus-stack
           cleanupController:
             replicas: 1
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: kube-prometheus-stack
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
       ref: values

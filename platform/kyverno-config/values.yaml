@@ -12,3 +12,9 @@ policies:
     enabled: true
   disallowLatestTag:
     enabled: true
+
+# Upstream Kyverno dashboard (grafana.com id 15987) provisioned as a
+# ConfigMap for the kube-prometheus-stack Grafana sidecar (#234).
+dashboard:
+  enabled: true
+  sidecarLabel: grafana_dashboard
