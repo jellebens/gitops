@@ -14,10 +14,18 @@ Two Argo apps (same split as `csi-driver-smb` / `csi-driver-smb-config`):
 | `longhorn-config` | this chart (`platform/longhorn`) | 13 | CNP, PrometheusRule, Grafana dashboard, sealed backup-creds placeholder |
 
 **Deploying this is deliberately inert:** it adds the `longhorn`
-StorageClass (NOT the default — `local-path` stays default) and the control
-plane, but **zero storage capacity exists until the owner labels nodes**
-(`createDefaultDiskLabeledNodes: true`). No data moves automatically; the
-pilot migration (hermes state) is phase 3, a separate card.
+StorageClass and the control plane, but **zero storage capacity exists until
+the owner labels nodes** (`createDefaultDiskLabeledNodes: true`). No data
+moves automatically; migrations are per-PVC cards (#235–#238 series).
+
+**Default StorageClass: `longhorn` since #236 (2026-08-14).** The flip is
+two-sided: `persistence.defaultClass: true` here, plus a manual
+`kubectl annotate sc local-path storageclass.kubernetes.io/is-default-class=false --overwrite`
+(local-path is a k3s-bundled addon object, not in git). ⚠ k3s re-asserts
+local-path's default annotation on k3s restart/upgrade; if both SCs claim
+default, Kubernetes binds new PVCs to the **newest** default SC — longhorn —
+so behaviour stays correct, but re-run the annotate command after k3s
+maintenance so `kubectl get sc` shows a single `(default)`.
 
 ## Phase-1 findings (2026-07-10, read-only: node_exporter + kubectl)
 
