@@ -1,0 +1,45 @@
+{{- if .Values.policies.disallowLatestTag.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Mutable image tags make rollbacks and audits unreliable. Images
+      must carry an explicit tag that is not 'latest'.
+spec:
+  background: true
+  webhookConfiguration:
+    failurePolicy: {{ .Values.policies.failurePolicy }}
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: {{ .Values.policies.failureAction }}
+        message: An image tag is required.
+        pattern:
+          spec:
+            containers:
+              - image: "*:*"
+    - name: validate-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: {{ .Values.policies.failureAction }}
+        message: Using a mutable image tag e.g. 'latest' is not allowed.
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+{{- end }}
