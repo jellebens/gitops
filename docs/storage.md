@@ -8,13 +8,17 @@ a Synology DS918 (`nas001.lab.local`, 192.168.50.144).
 
 | Class | Provisioner | Durability | Use for |
 |---|---|---|---|
-| `local-path` (default) | rancher.io/local-path | **None — node-pinned.** Data lives in one node's filesystem; a node/disk loss loses it (#175). | Scratch, caches, anything an app can rebuild, and state with its own replication (EMQX) |
-| `longhorn` (card #176) | driver.longhorn.io | 3 synchronous replicas on 3 distinct nodes; survives one node/disk loss. `reclaimPolicy: Retain`. | Irreplaceable single-instance state that must survive a node failure |
+| `local-path` | rancher.io/local-path | **None — node-pinned.** Data lives in one node's filesystem; a node/disk loss loses it (#175). | Scratch, caches, anything an app can rebuild — and only by explicit `storageClassName` (no longer the default) |
+| `longhorn` (**default** since #236) | driver.longhorn.io | 3 synchronous replicas on 3 distinct nodes; survives one node/disk loss. `reclaimPolicy: Retain`. | Irreplaceable single-instance state that must survive a node failure; the default for anything that doesn't pick a class |
 | `smb` | smb.csi.k8s.io | On the NAS (its own RAID + lifecycle). Flaky under load; NOT for hot data paths. | Off-cluster backup/export targets (influxdb backups, zeus reports) |
 | `smb-cortana` | smb.csi.k8s.io | Dedicated NAS share + NAS user for Cortana backups (strict separation) | hermes/Cortana backups only |
 
-`local-path` **stays the default**. Longhorn is opt-in per PVC until the
-pilot migration (phase 3 of #176) proves it in anger.
+`longhorn` **is the default** since #236 (2026-08-14, owner call in the
+#235–#238 migration series). The flip is two-sided — chart value
+(`persistence.defaultClass: true`) plus a manual annotate on the k3s-bundled
+`local-path` SC; k3s re-asserts local-path's default annotation on restart,
+in which case Kubernetes still binds to the newest default (longhorn) — see
+the note in [`platform/longhorn/README.md`](../platform/longhorn/README.md).
 
 ## Current PVCs and the Longhorn migration split (sizes = claims, 2026-07-10)
 
