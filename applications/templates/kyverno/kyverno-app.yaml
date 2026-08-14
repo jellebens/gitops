@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  sources:
+    - repoURL: {{ .Values.repos.kyverno.url | quote }}
+      chart: kyverno
+      targetRevision: {{ .Values.repos.kyverno.targetRevision | quote }}
+      helm:
+        releaseName: kyverno
+        ignoreMissingValueFiles: true
+        values: |
+          crds:
+            install: true
+          admissionController:
+            replicas: 1
+          backgroundController:
+            replicas: 1
+          reportsController:
+            replicas: 1
+          cleanupController:
+            replicas: 1
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

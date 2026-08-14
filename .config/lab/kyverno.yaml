@@ -1,0 +1,5 @@
+# Lab overrides for platform/kyverno-config.
+# Keep Audit/Ignore — this cluster runs the live battery controller.
+policies:
+  failureAction: Audit
+  failurePolicy: Ignore
