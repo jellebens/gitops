@@ -130,8 +130,9 @@ routes:
   # owner accepted that risk as an interim because no SSO exists in the lab
   # yet; the durable fix is the SSO rollout (card #232), after which this
   # route moves behind real authentication. Until then:
-  #   - parented ONLY to the longhorn-https SNI listener (no plain-HTTP attach,
-  #     unlike jaeger/grafana — don't add `http` here);
+  #   - CONTENT is served only via the longhorn-https SNI listener; the plain
+  #     `http` hostname is claimed by a redirect-only route (httpRedirects
+  #     below) that 302s to https — never attach `http` to THIS route;
   #   - cert: longhorn-server-tls from lab-ca-issuer
   #     (platform/longhorn/templates/certificate.yaml);
   #   - the longhorn-system CNP re-admits the gateway `ingress` identity
@@ -147,3 +148,12 @@ routes:
     backend:
       name: longhorn-frontend
       port: 80
+
+# HTTP -> HTTPS 302 redirects (redirect-only routes on the shared `http`
+# listener; the RequestRedirect is answered by the gateway Envoy itself, no
+# backend involved — same pattern as hermes' hermes-http-to-https).
+httpRedirects:
+  - name: longhorn
+    namespace: longhorn-system
+    hostnames:
+      - longhorn.lab.local
