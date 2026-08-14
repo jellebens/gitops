@@ -27,11 +27,12 @@ jaeger:
       cpu: 500m
       memory: 1Gi
   persistence:
-    # Badger needs POSIX/block semantics -> node-local storage (same reasoning
-    # as InfluxDB and EMQX), NOT the SMB share. RWO pins the pod to one node;
-    # the Deployment uses strategy Recreate so upgrades don't deadlock on the
-    # single-attach volume (and Badger's directory lock).
-    storageClassName: local-path
+    # Badger needs POSIX/block semantics -> block storage (longhorn since #238,
+    # 2026-08-14; previously node-local local-path), NOT the SMB share. RWO
+    # single-attach; the Deployment uses strategy Recreate so upgrades don't
+    # deadlock on the volume (and Badger's directory lock). Trace history was
+    # copied from the old local-path PV in the #238 window (PV Retain'd).
+    storageClassName: longhorn
     size: 5Gi
 
 # Lab-CA TLS cert for the gateway's per-hostname HTTPS listener (jaeger-https
