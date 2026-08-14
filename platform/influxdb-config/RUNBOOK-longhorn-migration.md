@@ -1,9 +1,19 @@
 # RUNBOOK — Migrate the InfluxDB data volume to Longhorn (card #182)
 
-**Status:** PREPARED, not executed. Owner-run, **release-gated maintenance
-window**. Nothing in here was executed by the agent that wrote it — the
-investigation below was read-only (Prometheus/`kubectl get`, no `exec`, no
-scale, no PVC mutation). The live migration is a separate owner-scheduled step.
+**Status:** ✅ **EXECUTED 2026-08-14 as card #235** (~17:41–17:55 UTC, write
+gap ≈13 min). Owner ordered InfluxDB first, ahead of the hermes pilot this
+runbook originally sequenced. Outcome: fresh full backup
+`influxdb-20260814-174056` → old PV `pvc-0936a72a…` Retain'd (node03,
+rollback anchor, cool-down then clean up) → fresh longhorn PVC
+`pvc-9445b71d…` (3 replicas node01/04/05) → `influx restore --full` →
+verified (409k points/30d in `zeus`, writes resumed, apps Synced/Healthy).
+
+**Execution lesson (applies to ANY future PVC swap):** pausing only the
+target app is NOT enough — the `bootstrap` app-of-apps (automated+selfHeal)
+restores the child's sync policy and Argo re-provisions the PVC mid-window.
+**Pause `bootstrap` FIRST, verify it stuck, then pause the children.** (~3 min
+of writes landed in an interloper local-path PVC and were discarded with it.)
+The rest of this document is the plan as prepared, kept for reference.
 
 **Goal:** move the `influxdb-influxdb2` PVC off `local-path` (node-pinned to
 `k3s-node03`, no restore path if that node/disk dies — the #175 failure class)

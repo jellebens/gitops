@@ -76,9 +76,11 @@ window: `.config/lab/influxdb.yaml` now says `storageClass: longhorn`; the NAS
   (RAID/versioning/Hyper Backup). In-cluster PV/PVC objects are `Retain` and
   re-bindable.
 - **`local-path` PVCs**: no restore path — that's the #175 lesson and why
-  this page exists. Anything on local-path must be rebuildable or have an
-  app-level backup (EMQX: mnesia peers; InfluxDB: daily NAS backups;
-  Prometheus/Alertmanager: accepted-loss until migrated).
+  this page exists. Since the #235–#238 series only the `data-mqtt-{0,1,2}`
+  volumes remain on local-path (EMQX replicates its own state across the 3
+  brokers). The old local-path PVs of every migrated volume are **Retain'd
+  as rollback anchors** — delete them (PV + node directory) only after the
+  cool-down.
 
 ## Operational rules
 
@@ -88,6 +90,23 @@ window: `.config/lab/influxdb.yaml` now says `storageClass: longhorn`; the NAS
   AiMesh wireless backhaul must never carry replica traffic).
 - Pre-deploy node checklist (open-iscsi etc.):
   [`platform/longhorn/README.md`](../platform/longhorn/README.md).
-- Migration protocol per PVC (phase 3): backup current data → create
-  longhorn PVC → copy → verify app healthy → keep old PV `Retain`ed for a
-  cool-down before cleanup. Each migration is its own card/PR.
+- Migration protocol per PVC (proven in the #235–#238 series): backup current
+  data → create temp longhorn PVC → scale consumer to 0 → copy (Job pinned to
+  the old PV's node) → `Retain` the old PV → delete old + temp PVCs → clear
+  the longhorn PV's `claimRef` uid and pre-bind it to the final claim name →
+  merge the release → let Argo create the chart's PVC (binder binds it) →
+  verify. Each migration is its own card/PR.
+- **PVC-swap lessons (#235–#238, 2026-08-14):**
+  1. **Pause `bootstrap` FIRST**, verify it stuck, then pause the child apps —
+     bootstrap's selfHeal restores children's sync policies and Argo will
+     re-provision the PVC mid-window (bit #235: ~3 min of writes discarded).
+  2. **Never hand-create the final PVC with `volumeName`** — Argo
+     ServerSideApply fights the pinned field ("spec is immutable"). Pre-bind
+     on the **PV side** (`claimRef` with name+namespace, uid cleared) and let
+     Argo create the chart's PVC.
+  3. **Hard-refresh apps before unpausing** (`argocd.argoproj.io/refresh:
+     hard`) — an app unpaused seconds after a release merge can sync a stale
+     cached revision and create the PVC with the OLD storage class (bit #238;
+     claimRef pre-binding still binds across a class mismatch, hiding it).
+  4. Completed Job/CronJob pods pin PVCs (`pvc-protection`) — delete them
+     before deleting a PVC or the delete hangs.
