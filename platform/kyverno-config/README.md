@@ -52,3 +52,20 @@ kubectl -n kyverno get pods
 
 The Kyverno images are multi-arch (arm64 OK for this cluster). All controllers
 run single-replica; the chart's defaults are otherwise untouched.
+
+## Monitoring (#234)
+
+- **ServiceMonitors**: the upstream kyverno chart's per-controller monitors
+  (admission/background/cleanup/reports), enabled in the kyverno app's inline
+  values with the repo-convention `release: kube-prometheus-stack` label.
+- **Dashboard**: `dashboards/kyverno.json` (upstream grafana.com **15987**,
+  47 panels — policy results pass/fail, per-policy/rule breakdowns, admission
+  review latency), datasource pinned to `prometheus` and uid `kyverno` per
+  repo convention, shipped as a sidecar ConfigMap
+  (`templates/dashboard.yaml`). Find it in Grafana as **"Kyverno"**.
+- Key metric: `kyverno_policy_results_total{policy_validation_mode="audit"}` —
+  what audit would have blocked; review this (or the PolicyReports) before any
+  Enforce promotion.
+- Kyverno has **no UI of its own**; the Policy Reporter UI was deliberately
+  skipped (another unauthenticated web UI — revisit within the SSO rollout,
+  card #232, if a browsable violations view is wanted).
