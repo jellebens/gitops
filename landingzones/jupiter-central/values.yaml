@@ -175,7 +175,7 @@ forecast:
     pullPolicy: IfNotPresent
 
   # Central singleton, same reasoning as the price-service: the artifact PVC
-  # is RWO on local-path (node-pinned) and one instance serves every site.
+  # is RWO (one node at a time) and one instance serves every site.
   replicaCount: 1
 
   service:
@@ -185,21 +185,26 @@ forecast:
 
   # Shared artifact volume (FORECAST_ARTIFACT_DIR): the trainer WRITES
   # <site>/<target>.json here, the server READS it (mounted read-only).
-  # local-path (k3s default) is fine for v1: artifacts are fully regenerated
-  # by every trainer run, so losing the node only costs one training run —
-  # NAS durability (zeus's smb class) is not warranted. local-path is RWO and
-  # node-pinned, but its volumeBindingMode is WaitForFirstConsumer: the PV is
-  # created on the first consumer's node and carries node affinity, and the
-  # scheduler honors PV node affinity for every later pod — so the serving
-  # pod and the trainer Jobs co-locate on that node automatically, no
-  # nodeSelector needed. (If that node dies, pods go Pending and the artifact
-  # is rebuilt on the next trainer run once rescheduled — accepted for v1;
-  # RWX via the smb class is the later option if this ever hurts.)
+  #
+  # The volume is RWO and therefore attaches to exactly ONE node at a time.
+  # The serving Deployment holds it permanently, so the trainer Job MUST land
+  # on the serving pod's node — see trainer.coLocateWithServer below. That is
+  # a hard requirement of this writer/reader pair, not a preference:
+  #
+  #   - Under local-path it was satisfied silently. WaitForFirstConsumer
+  #     created the PV on the first consumer's node with node affinity, and
+  #     the scheduler honoured that affinity for every later pod.
+  #   - Under longhorn (#238) it is NOT. Longhorn attaches anywhere, so the
+  #     trainer can be scheduled onto a node that cannot bind the volume; it
+  #     then fails with "Multi-Attach error" and the server keeps serving a
+  #     stale artifact with a green /healthz. That regression cost five days
+  #     of bakes before #240 caught it.
   persistence:
     enabled: true
-    # longhorn since #238 (2026-08-14): artifacts survive a node loss and the
-    # trainer/serving pods are no longer pinned to the volume's node (the
-    # co-location note above becomes moot — longhorn attaches anywhere).
+    # longhorn since #238 (2026-08-14): artifacts survive a node loss, rather
+    # than dying with the node the way a local-path PV did (#175). Node-loss
+    # durability is the whole point of the class change — the earlier claim
+    # that it also freed the pods from co-locating was wrong (see #240).
     storageClassName: "longhorn"
     accessMode: ReadWriteOnce
     size: 1Gi
@@ -255,6 +260,18 @@ forecast:
     # A run is minutes of work; hard-kill anything wedged well before the
     # next 6h window.
     activeDeadlineSeconds: 1800
+    # Pin each trainer Job to the node the serving pod runs on (podAffinity,
+    # topologyKey kubernetes.io/hostname). REQUIRED while the artifact PVC is
+    # RWO — see the persistence block above for why, and #240 for what happens
+    # without it. Only turn this off if the volume moves to a genuinely
+    # multi-node access mode (RWX via the smb class, or Longhorn RWX): with
+    # RWO, a job that lands elsewhere cannot bind and every bake fails.
+    #
+    # Cost of the pin: if the serving pod is momentarily absent (a Recreate
+    # rollout, a node drain) the Job sits Pending and is reaped by
+    # activeDeadlineSeconds above; the next 6h run picks it up, and a run of
+    # bad luck long enough to matter surfaces as JupiterForecastArtifactStale.
+    coLocateWithServer: true
     successfulJobsHistoryLimit: 3
     failedJobsHistoryLimit: 3
     # Fitting/baking with pandas over 30d of history — modest but real.
