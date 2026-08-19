@@ -167,6 +167,15 @@ siteConfig:
     token: ${HA_TOKEN}
     verify_ssl: true
     timeout_seconds: 10.0
+    # #214 ENFORCE (owner 2026-08-19): flip the implausible-telemetry guard from
+    # observe→enforce. When a reading is implausible (all-zeros conjunction / SoC
+    # out of range — e.g. the Bluetti firmware-crash spurious-0), the lar HOLDS
+    # PASSTHROUGH instead of acting on / going Infeasible on the garbage. Safety-
+    # additive (only ever removes actuation). Observe window false-positive rate
+    # was 2.68%/14d (fires only on real glitches). Does NOT itself refill an empty
+    # battery — a real/stuck low still needs a reading clear + the Infeasible-on-0
+    # optimizer fix (separate follow-up).
+    battery_implausible_enforce: true
   # HA entity ids — value-for-value from the LIVE zeus config
   # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA
   # read path once the lar reads them; carried here so the read wiring is
