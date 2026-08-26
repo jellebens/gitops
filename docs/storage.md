@@ -29,7 +29,7 @@ the note in [`platform/longhorn/README.md`](../platform/longhorn/README.md).
 | `hermes-cortana-state` | hermes | 5Gi | **MIGRATED 2026-08-14 (#238).** The #175 scar (Cortana's irreplaceable state) — was the pilot candidate; landed in the same series wave as the rest. State copied cold; old PV Retain'd. |
 | `kube-prometheus-stack-grafana` | observability | 10Gi | **MIGRATED 2026-08-14 (#237).** Plugin state/annotations copied from the old local-path PV (Retain'd as rollback anchor). |
 | `price-service-cache` | jupiter-central | 1Gi | **MIGRATED 2026-08-14 (#238).** A lost node during a price-API outage would have hurt the LIVE optimizer; node pin gone. |
-| `forecast-artifacts` | jupiter-central | 1Gi | **MIGRATED 2026-08-14 (#238).** Trainer/serving pods no longer node-pinned to the volume. |
+| `forecast-artifacts` | jupiter-central | 1Gi | **MIGRATED 2026-08-14 (#238).** Artifacts survive a node loss. ⚠ #238 also claimed the trainer/serving pods were no longer node-pinned — wrong, the claim is RWO; it broke every bake for 5 days until #240 re-pinned them with `podAffinity`. See "RWO is a per-node lock" below. |
 | `jaeger-badger` | jaeger | 5Gi | **MIGRATED 2026-08-14 (#238).** Trace history (badger) copied cold; POSIX/block semantics preserved on longhorn (ext4-on-iSCSI). |
 | `alertmanager-…-db` | observability | 5Gi | **MIGRATED 2026-08-14 (#237).** Old volume was empty (no active silences) — fresh longhorn volume, no copy. |
 | `prometheus-…-db` | observability | 25Gi | **MIGRATED 2026-08-14 (#237).** 11.9G of history (15d retention) copied cold to longhorn; old PV Retain'd. The "migrate LAST" caveat was honored within the wave; rebuild traffic bounded by the 2-concurrent-rebuilds/node cap. |
@@ -76,9 +76,11 @@ window: `.config/lab/influxdb.yaml` now says `storageClass: longhorn`; the NAS
   (RAID/versioning/Hyper Backup). In-cluster PV/PVC objects are `Retain` and
   re-bindable.
 - **`local-path` PVCs**: no restore path — that's the #175 lesson and why
-  this page exists. Anything on local-path must be rebuildable or have an
-  app-level backup (EMQX: mnesia peers; InfluxDB: daily NAS backups;
-  Prometheus/Alertmanager: accepted-loss until migrated).
+  this page exists. Since the #235–#238 series only the `data-mqtt-{0,1,2}`
+  volumes remain on local-path (EMQX replicates its own state across the 3
+  brokers). The old local-path PVs of every migrated volume are **Retain'd
+  as rollback anchors** — delete them (PV + node directory) only after the
+  cool-down.
 
 ## Operational rules
 
@@ -88,6 +90,73 @@ window: `.config/lab/influxdb.yaml` now says `storageClass: longhorn`; the NAS
   AiMesh wireless backhaul must never carry replica traffic).
 - Pre-deploy node checklist (open-iscsi etc.):
   [`platform/longhorn/README.md`](../platform/longhorn/README.md).
-- Migration protocol per PVC (phase 3): backup current data → create
-  longhorn PVC → copy → verify app healthy → keep old PV `Retain`ed for a
-  cool-down before cleanup. Each migration is its own card/PR.
+- Migration protocol per PVC (proven in the #235–#238 series): backup current
+  data → create temp longhorn PVC → scale consumer to 0 → copy (Job pinned to
+  the old PV's node) → `Retain` the old PV → delete old + temp PVCs → clear
+  the longhorn PV's `claimRef` uid and pre-bind it to the final claim name →
+  merge the release → let Argo create the chart's PVC (binder binds it) →
+  verify. Each migration is its own card/PR.
+- **PVC-swap lessons (#235–#238, 2026-08-14):**
+  1. **Pause `bootstrap` FIRST**, verify it stuck, then pause the child apps —
+     bootstrap's selfHeal restores children's sync policies and Argo will
+     re-provision the PVC mid-window (bit #235: ~3 min of writes discarded).
+  2. **Never hand-create the final PVC with `volumeName`** — Argo
+     ServerSideApply fights the pinned field ("spec is immutable"). Pre-bind
+     on the **PV side** (`claimRef` with name+namespace, uid cleared) and let
+     Argo create the chart's PVC.
+  3. **Hard-refresh apps before unpausing** (`argocd.argoproj.io/refresh:
+     hard`) — an app unpaused seconds after a release merge can sync a stale
+     cached revision and create the PVC with the OLD storage class (bit #238;
+     claimRef pre-binding still binds across a class mismatch, hiding it).
+  4. Completed Job/CronJob pods pin PVCs (`pvc-protection`) — delete them
+     before deleting a PVC or the delete hangs.
+
+## RWO is a per-node lock — check the consumers before leaving local-path
+
+**Moving a PVC from `local-path` to `longhorn` does not free its pods to
+schedule anywhere.** The access mode does that, and every volume in the
+#235–#238 series stayed `ReadWriteOnce`. RWO means *one node at a time*:
+several pods on the **same** node may share the volume, a pod on any **other**
+node cannot bind it at all and fails with `Multi-Attach error`.
+
+What changes with the class is only *who enforces the co-location*:
+
+| | `local-path` | `longhorn` |
+|---|---|---|
+| Binding mode | `WaitForFirstConsumer` | `Immediate` |
+| Node choice | PV is created on the first consumer's node and **carries node affinity** | volume attaches wherever the first consumer happens to land |
+| Later pods | scheduler honours the PV's node affinity → co-location for free | scheduler is unconstrained → **any other node fails to bind** |
+
+So `local-path` silently satisfies the writer/reader pattern (one long-lived
+pod holding the volume plus a periodic Job writing to it), and `longhorn`
+silently breaks it. #240 is the worked example: the `forecast-artifacts`
+migration in #238 dropped the implicit pin, and every `forecast-train` run for
+the next five days died on `Multi-Attach` → `DeadlineExceeded` while the
+serving pod's `/healthz` stayed green and the LIVE optimizer planned on
+increasingly stale models.
+
+**Before migrating a PVC off `local-path`, list every pod that mounts it.**
+More than one consumer, and the claim is RWO? Then either:
+
+- pin the extra consumers to the holder's node with a
+  `requiredDuringSchedulingIgnoredDuringExecution` **`podAffinity`** on the
+  holding pod's labels, `topologyKey: kubernetes.io/hostname` — what
+  `landingzones/jupiter-central` does via `forecast.trainer.coLocateWithServer`;
+  or
+- move the claim to a real multi-node access mode (RWX via `smb`, or Longhorn
+  RWX) — worth it only when the consumers genuinely need different nodes; a
+  Longhorn RWX volume adds a share-manager NFS pod as a new SPOF, which is a
+  poor trade for data the app can regenerate.
+
+**Note the failure is silent at the pod level by construction.** The reader
+keeps serving its last-written data and stays Ready; only the writer fails.
+Any such pair needs a *staleness* alert on the data itself, not just liveness
+on the pods.
+
+In #240 those alerts did their job on time — `JupiterForecastTrainingFailing`
+within 15 min of the first failed Job (2026-08-14 22:47) and
+`JupiterForecastArtifactStale` once the age crossed 24 h (2026-08-16). Neither
+was acted on for five days, and the migration series that caused it was
+already closed. **A PVC migration is not done when Argo goes green** — check
+the alerts of every workload that touches the volume for at least one full
+period of the slowest consumer (here: one 6 h CronJob cycle).

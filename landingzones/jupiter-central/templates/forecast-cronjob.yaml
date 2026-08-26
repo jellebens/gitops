@@ -42,6 +42,30 @@ spec:
             app.kubernetes.io/part-of: jupiter
         spec:
           restartPolicy: Never
+          {{- if and .Values.forecast.persistence.enabled .Values.forecast.trainer.coLocateWithServer }}
+          # CO-LOCATION WITH THE SERVING POD (card #240). The artifact PVC is
+          # RWO, and RWO is a per-NODE lock, not a per-pod one: the volume
+          # attaches to exactly one node at a time and the serving Deployment
+          # holds it permanently. A trainer Job scheduled on any other node
+          # therefore never binds — "Multi-Attach error", then
+          # DeadlineExceeded — and the artifacts silently rot while the
+          # server's /healthz stays green. Two pods on the SAME node may both
+          # mount an RWO volume, so pinning the trainer to the serving pod's
+          # node is what makes the shared mount work.
+          #
+          # local-path used to give this for free: WaitForFirstConsumer put
+          # node affinity on the PV and the scheduler honoured it for every
+          # later pod. longhorn (#238) attaches anywhere, so the constraint
+          # that used to be implicit has to be stated — omitting it is what
+          # broke five days of bakes (#240).
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: forecast-service
+          {{- end }}
           securityContext:
             runAsNonRoot: true
             runAsUser: {{ .Values.runtime.uid }}
