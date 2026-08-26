@@ -54,6 +54,11 @@ This repository manages Argo CD app-of-apps and platform service configuration v
   - `automated.selfHeal: true`
   - `syncOptions`: `CreateNamespace=true`, `ServerSideApply=true`
 - Use sync waves for ordering (for example config apps before dependent apps).
+- **Conventional Commits (owner directive, 2026-08-26):** every commit — in this
+  repo and the sibling repos (pomona, jupiter/zeus, home-assitant) — uses
+  `type(scope): subject`, e.g. `feat(firmware): …`, `fix(dashboards): …`,
+  `docs(runbook): …`, `chore(release): …`. Applies to agents too; PR titles keep
+  the `#NN card name` convention.
 
 ## Known Pitfalls
 - **Gateway UI exposure is HTTP-only unless a per-hostname HTTPS listener exists.** Web UIs are exposed via the shared Cilium gateway (VIP `192.168.50.200`, `gateway-config`): an A record + **zone serial bump** in `.config/lab/coredns-lab.yaml` plus an HTTPRoute. The shared `http` listener (port 80) serves any `*.lab.local` hostname, but **HTTPS needs its own listener + lab-CA certificate per hostname** (the argocd/hermes/influxdb pattern: a `tlsCertificate` from `lab-ca-issuer` + a dedicated `<name>-https` listener the HTTPRoute parents to via `sectionName`). A service without one is reachable ONLY at `http://<name>.lab.local` — browsers auto-upgrading to `https://` make it look down (connection refused on 443) even though the pod, route, and DNS are all healthy. (As of #233 every routed UI has an HTTPS listener; longhorn is HTTPS-ONLY — plain `http` hits a redirect-only 302 route, `httpRedirects` in `.config/lab/gateway.yaml`, interim until SSO #232 — and chaos-mesh has no route at all, port-forward only per #189.) When adding a UI, either ship the HTTPS listener+cert with it or state `http://` explicitly in its README.
