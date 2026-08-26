@@ -144,7 +144,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nhist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 1000.0 }))\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Daily peak (kW)\"})\n  |> sort(columns: [\"_time\"])"
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nhist = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => (r._measurement == \"zeus_state\" or r._measurement == \"jupiter_state\") and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 1000.0 }))\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Daily peak (kW)\"})\n  |> sort(columns: [\"_time\"])"
         },
         {
           "refId": "B",
@@ -306,7 +306,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nbase = from(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\")\ngs = base\n  |> filter(fn: (r) => r._field == \"grid_power_w\" or r._field == \"soc_pct\")\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\nmd = base\n  |> filter(fn: (r) => r._field == \"mode_code\")\n  |> aggregateWindow(every: 15m, fn: last, createEmpty: false)\nunion(tables: [gs, md])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.grid_power_w)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      kW: r.grid_power_w / 1000.0,\n      soc: r.soc_pct,\n      mode: r.mode_code\n    }))\n  |> group()\n  |> top(n: 10, columns: [\"kW\"])\n  |> sort(columns: [\"kW\"], desc: true)\n  |> keep(columns: [\"_time\", \"kW\", \"soc\", \"mode\"])\n  |> rename(columns: {_time: \"Time\", kW: \"Draw (kW)\", soc: \"SoC (%)\", mode: \"Mode\"})"
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nbase = from(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" or r._measurement == \"jupiter_state\")\ngs = base\n  |> filter(fn: (r) => r._field == \"grid_power_w\" or r._field == \"soc_pct\")\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\nmd = base\n  |> filter(fn: (r) => r._field == \"mode_code\")\n  |> aggregateWindow(every: 15m, fn: last, createEmpty: false)\nunion(tables: [gs, md])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.grid_power_w)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      kW: r.grid_power_w / 1000.0,\n      soc: r.soc_pct,\n      mode: r.mode_code\n    }))\n  |> group()\n  |> top(n: 10, columns: [\"kW\"])\n  |> sort(columns: [\"kW\"], desc: true)\n  |> keep(columns: [\"_time\", \"kW\", \"soc\", \"mode\"])\n  |> rename(columns: {_time: \"Time\", kW: \"Draw (kW)\", soc: \"SoC (%)\", mode: \"Mode\"})"
         }
       ]
     },
@@ -384,7 +384,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nhist = from(bucket: \"zeus\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ kW: r._value / 1000.0 }))\n  |> group()\n  |> sort(columns: [\"kW\"], desc: true)\n  |> keep(columns: [\"kW\"])"
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nhist = from(bucket: \"zeus\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"zeus_grid_power_w\" and r._field == \"value\")\nlive = from(bucket: \"zeus\") |> range(start: -30d) |> filter(fn: (r) => (r._measurement == \"zeus_state\" or r._measurement == \"jupiter_state\") and r._field == \"grid_power_w\")\nunion(tables: [hist, live])\n  |> group()\n  |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ kW: r._value / 1000.0 }))\n  |> group()\n  |> sort(columns: [\"kW\"], desc: true)\n  |> keep(columns: [\"kW\"])"
         }
       ]
     },
@@ -497,7 +497,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 1000.0 }))\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Consumption (kWh)\"})\n  |> sort(columns: [\"_time\"])"
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => (r._measurement == \"zeus_state\" or r._measurement == \"jupiter_state\") and r._field == \"grid_power_w\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 1000.0 }))\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Consumption (kWh)\"})\n  |> sort(columns: [\"_time\"])"
         },
         {
           "refId": "B",
