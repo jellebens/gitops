@@ -105,7 +105,7 @@
     {
       "id": 11,
       "type": "state-timeline",
-      "title": "zeus (live) intent  —  0 idle · 1 charge · 2 discharge",
+      "title": "zeus intent (retired)  —  0 idle · 1 charge · 2 discharge",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 7 },
       "fieldConfig": {
@@ -255,7 +255,7 @@
       "id": 31,
       "type": "stat",
       "title": "Intent-match fraction (window)",
-      "description": "Share of the selected window where zeus and lar intents matched. Cutover target: sustained ~1.0.",
+      "description": "Share of the selected window where zeus and lar intents matched. The cutover target was a sustained ~1.0; tervuren was cut over 2026-07-06, and this reads no-data since zeus stopped emitting on 2026-07-30.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 33 },
       "fieldConfig": {
@@ -317,7 +317,7 @@
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 39 },
       "options": {
         "mode": "markdown",
-        "content": "**What this harness proves (per cycle, from Prometheus only):** intent-match (charge/discharge/idle), setpoint delta (kW), source-class inputs parity (primary vs degraded), and charge-guard conflict — joining zeus's LIVE `zeus_*` against the tervuren lar's SHADOW `jupiter_lar_*`, keyed on `site_id`.\n\n**`jupiter_shadow_logic_divergence` is the P4 cutover gate:** intents differ *while metric-visible inputs agree*. Sustained 0 across a soak = the shadow logic matches the live logic = safe to flip the site live.\n\n**Partial — `inputs_equal` attribution:** only the source *class* is compared here (the zeus enum has 5 codes, the lar 3, so raw-code equality would be wrong). The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`, `running_peak_kw`, and SoC equality — lives ONLY in the retained MQTT plan doc `jupiter/<site>/plan`, which is not scraped. So a \"logic\" flag here means *logic OR a same-class-but-different-curve/SoC input*. Tightening to full inputs-equality needs an MQTT consumer (follow-up).\n\n**One-sided signals:** the lar exposes no guard-trip or SoC metric yet (guard counters land with jupiter #137; SoC is MQTT-only). Guard-conflict is inferred from zeus's guard trips vs the lar's charge intent."
+        "content": "**RETIRED — this harness is history.** It gated the tervuren cutover, which happened 2026-07-06; the `jupiter-shadow` namespace runs no workloads and `JupiterShadowHarnessNoData` has been firing since 2026-07-29. zeus was decommissioned 2026-07-30 (#169), so both sides of every comparison below are empty. Kept as the audit trail of how the flip was justified.\n\n**What it proved (per cycle, from Prometheus only):** intent-match (charge/discharge/idle), setpoint delta (kW), source-class inputs parity (primary vs degraded), and charge-guard conflict — joining zeus's `zeus_*` against the tervuren lar's shadow `jupiter_lar_*`, keyed on `site_id`.\n\n**`jupiter_shadow_logic_divergence` was the P4 cutover gate:** intents differ *while metric-visible inputs agree*. Sustained 0 across the soak meant the shadow logic matched the live logic, and the site was safe to flip.\n\n**Partial — `inputs_equal` attribution:** only the source *class* was compared here (the zeus enum has 5 codes, the lar 3, so raw-code equality would have been wrong). The fine-grained fingerprint — `price_curve_etag`, `forecast_trained_at`, `running_peak_kw`, and SoC equality — lived ONLY in the retained MQTT plan doc `jupiter/<site>/plan`, which was never scraped. So a \"logic\" flag here meant *logic OR a same-class-but-different-curve/SoC input* — the same blind-gate caveat that rides on the #164 sign-off, which certifies savings-parity and not logic-equivalence.\n\n**One-sided signals:** the lar exposed no guard-trip or SoC metric at the time (guard counters landed with jupiter #137; SoC was MQTT-only). Guard-conflict was inferred from zeus's guard trips vs the lar's charge intent."
       }
     }
   ],
