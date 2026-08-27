@@ -30,13 +30,13 @@
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
       "options": {
         "mode": "markdown",
-        "content": "**Jupiter reporting-service validation** — visually confirm the new `reporting-service` (jupiter-central) series track reality, WITHOUT touching the kiosk. Left = jupiter (`jupiter_savings_*` / `jupiter_reporting_*`), right/overlay = the live incumbent (`zeus_*`), keyed on `site_id`.\n\n**CROSS-CHECK — independence pending.** During the soak `jupiter_savings_*` currently RE-READS zeus's banked savings result, so the parity here is ~trivially exact RIGHT NOW. The meaningful divergence test only begins once the *savings-independence* refinement lands (jupiter computing from its own `jupiter_state` history). Read a green parity now as \"pipeline wired\", NOT as \"logic validated\"."
+        "content": "**Jupiter reporting-service validation** — visually confirm the `reporting-service` (jupiter-central) series track reality. Shows jupiter's own `jupiter_savings_*` / `jupiter_reporting_*` / `jupiter_lar_*` series, keyed on `site_id`.\n\n**Cross-check retired (zeus decommission 2026-07-30, #245).** The original jupiter-vs-zeus parity overlays were removed once zeus was scaled to 0 — the `zeus_*` incumbent no longer emits. This view now tracks the live jupiter reporting pipeline on its own; the standalone cutover-gate tile was removed with it."
       }
     },
     {
       "id": 1,
       "type": "row",
-      "title": "Savings parity  —  jupiter vs zeus (cross-check, independence pending)",
+      "title": "Savings  —  jupiter (post-decommission)",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
       "collapsed": false,
       "panels": []
@@ -44,7 +44,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Savings today (EUR)  —  jupiter vs zeus",
+      "title": "Savings today (EUR)  —  jupiter",
       "description": "Side-by-side. During the soak jupiter re-reads zeus's banked value, so these should match near-exactly. A gap here is the signal once savings-independence lands.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 5 },
@@ -62,29 +62,8 @@
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "value_and_name", "orientation": "horizontal" },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter", "instant": true },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_savings_today_eur)", "legendFormat": "zeus", "instant": true }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter", "instant": true }
       ]
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "|savings delta| today (EUR)  —  cutover gate",
-      "description": "abs(jupiter_savings_today_eur - zeus_savings_today_eur). The ADR-0022 gate: must read unbroken (near-zero) through the soak before any kiosk savings-panel migration. NOTE: exact-by-construction until savings-independence lands.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 5 },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyEUR",
-          "decimals": 4,
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.05 }, { "color": "red", "value": 0.25 } ] },
-          "noValue": "no data"
-        },
-        "overrides": []
-      },
-      "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "jupiter_savings_parity_abs_eur{site_id=~\"$site_id\"} or abs(max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"}) - max by (site_id) (zeus_savings_today_eur))", "legendFormat": "{{site_id}}", "instant": true } ]
     },
     {
       "id": 4,
@@ -109,7 +88,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Savings today over time (EUR)  —  jupiter vs zeus",
+      "title": "Savings today over time (EUR)  —  jupiter",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
       "fieldConfig": {
@@ -125,8 +104,7 @@
       },
       "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter {{site_id}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_savings_today_eur)", "legendFormat": "zeus (live)" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_savings_today_eur{site_id=~\"$site_id\"})", "legendFormat": "jupiter {{site_id}}" }
       ]
     },
     {
@@ -164,8 +142,8 @@
     {
       "id": 11,
       "type": "timeseries",
-      "title": "SoC (%)  —  reporting vs lar vs zeus",
-      "description": "jupiter_reporting_soc_percent (what the service re-exposes) against the lar's own jupiter_lar_soc_percent and zeus's live SoC — all three should overlay.",
+      "title": "SoC (%)  —  reporting vs lar",
+      "description": "jupiter_reporting_soc_percent (what the service re-exposes) against the lar's own jupiter_lar_soc_pct — both should overlay.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "fieldConfig": {
@@ -185,8 +163,7 @@
       "options": { "tooltip": { "mode": "multi", "sort": "none" }, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_reporting_soc_percent{site_id=~\"$site_id\"})", "legendFormat": "reporting" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_lar_soc_percent{site_id=~\"$site_id\"})", "legendFormat": "lar" },
-        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (zeus_soc_percent)", "legendFormat": "zeus (live)" }
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (site_id) (jupiter_lar_soc_pct{site_id=~\"$site_id\"})", "legendFormat": "lar" }
       ]
     },
     {

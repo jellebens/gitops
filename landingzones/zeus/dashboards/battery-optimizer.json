@@ -311,70 +311,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "time() - max(zeus_last_cycle_timestamp_seconds)",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 0
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "10.0.0",
-      "title": "Cycle failures (total)",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_cycle_failures_total)",
+          "expr": "time() - max(jupiter_lar_last_cycle_timestamp_seconds)",
           "refId": "A"
         }
       ]
@@ -500,7 +437,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max by (mode) (zeus_working_mode)",
+          "expr": "label_replace((max(jupiter_lar_actual_mode) == bool 1), \"mode\", \"charging\", \"\", \"\") or label_replace((max(jupiter_lar_actual_mode) == bool 2), \"mode\", \"discharging\", \"\", \"\") or label_replace((max(jupiter_lar_actual_mode) == bool 0), \"mode\", \"passthrough\", \"\", \"\")",
           "legendFormat": "{{mode}}",
           "refId": "A"
         }
@@ -692,7 +629,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_charge_kw)",
+          "expr": "max(jupiter_lar_target_charge_kw)",
           "legendFormat": "charge",
           "refId": "A"
         },
@@ -701,7 +638,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_discharge_kw)",
+          "expr": "max(jupiter_lar_target_discharge_kw)",
           "legendFormat": "discharge",
           "refId": "B"
         }
@@ -845,7 +782,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_plan_cost_eur)",
+          "expr": "max(jupiter_lar_plan_cost_eur)",
           "legendFormat": "plan cost",
           "refId": "A"
         }
@@ -903,154 +840,6 @@
           "expr": "max(jupiter_savings_today_eur)",
           "legendFormat": "savings",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyEUR",
-          "decimals": 3,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 20
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 90,
-            "gradientMode": "none",
-            "axisPlacement": "auto",
-            "axisLabel": ""
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "now"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 100
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 34
-      },
-      "id": 14,
-      "options": {
-        "orientation": "vertical",
-        "xField": "slot",
-        "showValue": "never",
-        "stacking": "normal",
-        "barWidth": 0.98,
-        "groupWidth": 1,
-        "fullHighlight": true,
-        "xTickLabelSpacing": 100,
-        "xTickLabelRotation": -45,
-        "legend": {
-          "showLegend": false,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.0.0",
-      "title": "Today €/kWh by 15-min slot — green = cheapest 20%, orange = mid, red = priciest 20%, blue = now",
-      "type": "barchart",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max by (slot) (zeus_price_today_eur_per_kwh unless on (slot) zeus_price_now_marker_eur_per_kwh)",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max by (slot) (zeus_price_now_marker_eur_per_kwh)",
-          "format": "table",
-          "instant": true,
-          "refId": "B"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "joinByField",
-          "options": {
-            "byField": "slot",
-            "mode": "outer"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Time 1": true,
-              "Time 2": true
-            },
-            "indexByName": {},
-            "renameByName": {
-              "Value #A": "€/kWh",
-              "Value #B": "now"
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "field": "slot"
-              }
-            ]
-          }
         }
       ]
     },
