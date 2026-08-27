@@ -593,6 +593,57 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Wall-clock of the last successful data refresh. Re-queried each ~30s refresh; if the kiosk browser tab freezes this stamp stops advancing = instant visual freeze detector. Prometheus time() is in seconds; *1000 converts to the epoch-millis the dateTime unit expects.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsLocal",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "pluginVersion": "10.0.0",
+      "title": "Last refreshed",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() * 1000",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "refresh": "5s",
