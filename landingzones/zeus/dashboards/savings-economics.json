@@ -149,7 +149,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sum()\n  |> rename(columns: {_value: \"Last 7 days\"})"
+          "query": "from(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => (r._measurement == \"zeus_daily_savings\" or r._measurement == \"jupiter_daily_savings\") and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sum()\n  |> rename(columns: {_value: \"Last 7 days\"})"
         }
       ]
     },
@@ -213,7 +213,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: date.truncate(t: now(), unit: 1mo))\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sum()\n  |> rename(columns: {_value: \"Month to date\"})"
+          "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\nfrom(bucket: \"zeus\")\n  |> range(start: date.truncate(t: now(), unit: 1mo))\n  |> filter(fn: (r) => (r._measurement == \"zeus_daily_savings\" or r._measurement == \"jupiter_daily_savings\") and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sum()\n  |> rename(columns: {_value: \"Month to date\"})"
         }
       ]
     },
@@ -277,7 +277,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"zeus\")\n  |> range(start: 0)\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sum()\n  |> rename(columns: {_value: \"Cumulative\"})"
+          "query": "from(bucket: \"zeus\")\n  |> range(start: 0)\n  |> filter(fn: (r) => (r._measurement == \"zeus_daily_savings\" or r._measurement == \"jupiter_daily_savings\") and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> sum()\n  |> rename(columns: {_value: \"Cumulative\"})"
         }
       ]
     },
@@ -696,7 +696,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Daily savings (€)\"})"
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => (r._measurement == \"zeus_daily_savings\" or r._measurement == \"jupiter_daily_savings\") and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Daily savings (€)\"})"
         },
         {
           "refId": "B",
@@ -704,7 +704,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zeus_daily_savings\" and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1d, period: 30d)\n  |> group(columns: [\"_time\"])\n  |> first()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"30d moving average\"})"
+          "query": "from(bucket: \"zeus\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => (r._measurement == \"zeus_daily_savings\" or r._measurement == \"jupiter_daily_savings\") and r._field == \"eur\")\n  |> group(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> timedMovingAverage(every: 1d, period: 30d)\n  |> group(columns: [\"_time\"])\n  |> first()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"30d moving average\"})"
         }
       ]
     },

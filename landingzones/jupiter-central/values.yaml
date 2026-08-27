@@ -370,7 +370,10 @@ reporting:
     # 0.17.0 (#209): jupiter_reporting_forecast_source now classifies the lar's
     # service:-prefixed sources onto a `service` bucket instead of collapsing to
     # `other` (mirrors the 0.16.3 price_source fix). Also carries #210 ruff reformat.
-    tag: "0.17.0"
+    # 0.18.2 (#247): self-heal the MQTT consumer on unreachable-broker-at-startup
+    #   (connect_async + backoff reconnect, re-subscribe on reconnect) so a boot-time
+    #   broker outage no longer wedges the writer; adds jupiter_reporting_broker_connected.
+    tag: "0.18.2"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the

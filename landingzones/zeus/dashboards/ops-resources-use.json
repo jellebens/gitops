@@ -89,7 +89,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "((max(up{namespace=\"zeus\", job=\"zeus-metrics\"}) < bool 1) * 2) or vector(2)",
+          "expr": "((max(up{namespace=\"jupiter-tervuren\", job=\"jupiter-cell\"}) < bool 1) * 2) or vector(2)",
           "legendFormat": "zeus",
           "instant": true
         },
@@ -129,7 +129,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "((sum(increase(zeus_cycle_failures_total[15m])) > bool 0) * 2) or vector(2)",
+          "expr": "vector(0)",
           "legendFormat": "Failed cycles",
           "instant": true
         },
@@ -139,7 +139,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "((max(zeus_solver_optimal) < bool 1) * 1) or vector(2)",
+          "expr": "vector(0)",
           "legendFormat": "Solver",
           "instant": true
         },
@@ -149,7 +149,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(((100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"zeus\", container!=\"\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"cpu\"})) > bool 70) + ((100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"zeus\", container!=\"\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"cpu\"})) > bool 90)) or vector(2)",
+          "expr": "(((100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"jupiter-tervuren\", container!=\"\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"cpu\"})) > bool 70) + ((100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"jupiter-tervuren\", container!=\"\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"cpu\"})) > bool 90)) or vector(2)",
           "legendFormat": "zeus CPU",
           "instant": true
         },
@@ -159,7 +159,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(((100 * sum(container_memory_working_set_bytes{namespace=\"zeus\", container!=\"\"}) / sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"memory\"})) > bool 75) + ((100 * sum(container_memory_working_set_bytes{namespace=\"zeus\", container!=\"\"}) / sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"memory\"})) > bool 90)) or vector(2)",
+          "expr": "(((100 * sum(container_memory_working_set_bytes{namespace=\"jupiter-tervuren\", container!=\"\"}) / sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"memory\"})) > bool 75) + ((100 * sum(container_memory_working_set_bytes{namespace=\"jupiter-tervuren\", container!=\"\"}) / sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"memory\"})) > bool 90)) or vector(2)",
           "legendFormat": "zeus Mem",
           "instant": true
         },
@@ -169,7 +169,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "((sum(kube_pod_container_status_restarts_total{namespace=\"zeus\"}) > bool 0) * 1) or vector(2)",
+          "expr": "((sum(kube_pod_container_status_restarts_total{namespace=\"jupiter-tervuren\"}) > bool 0) * 1) or vector(2)",
           "legendFormat": "zeus restarts",
           "instant": true
         },
@@ -218,7 +218,7 @@
     {
       "id": 100,
       "type": "row",
-      "title": "zeus  —  U(tilization) · S(aturation) · E(rrors)",
+      "title": "jupiter  —  U(tilization) · S(aturation) · E(rrors)",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -297,7 +297,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(up{namespace=\"zeus\", job=\"zeus-metrics\"})",
+          "expr": "max(up{namespace=\"jupiter-tervuren\", job=\"jupiter-cell\"})",
           "instant": true
         }
       ]
@@ -361,7 +361,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"zeus\", container!=\"\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"cpu\"})",
+          "expr": "100 * sum(rate(container_cpu_usage_seconds_total{namespace=\"jupiter-tervuren\", container!=\"\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"cpu\"})",
           "instant": true
         }
       ]
@@ -424,7 +424,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * sum(container_memory_working_set_bytes{namespace=\"zeus\", container!=\"\"}) / sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"memory\"})",
+          "expr": "100 * sum(container_memory_working_set_bytes{namespace=\"jupiter-tervuren\", container!=\"\"}) / sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"memory\"})",
           "instant": true
         }
       ]
@@ -488,7 +488,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"zeus\"}[5m]))",
+          "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"jupiter-tervuren\"}[5m]))",
           "instant": true
         }
       ]
@@ -548,67 +548,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"zeus\"})",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Failed cycles — Errors",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 9
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_cycle_failures_total)",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"jupiter-tervuren\"})",
           "instant": true
         }
       ]
@@ -616,7 +556,7 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "zeus CPU (cores: used vs limit)",
+      "title": "jupiter CPU (cores: used vs limit)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -695,7 +635,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"zeus\", container!=\"\"}[5m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"jupiter-tervuren\", container!=\"\"}[5m]))",
           "legendFormat": "used",
           "range": true
         },
@@ -705,7 +645,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"cpu\"})",
+          "expr": "sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"cpu\"})",
           "legendFormat": "limit",
           "range": true
         }
@@ -714,7 +654,7 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "zeus Memory (used vs limit)",
+      "title": "jupiter Memory (used vs limit)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -793,7 +733,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(container_memory_working_set_bytes{namespace=\"zeus\", container!=\"\"})",
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"jupiter-tervuren\", container!=\"\"})",
           "legendFormat": "used",
           "range": true
         },
@@ -803,7 +743,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(kube_pod_container_resource_limits{namespace=\"zeus\", resource=\"memory\"})",
+          "expr": "sum(kube_pod_container_resource_limits{namespace=\"jupiter-tervuren\", resource=\"memory\"})",
           "legendFormat": "limit",
           "range": true
         }
