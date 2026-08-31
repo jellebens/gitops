@@ -224,6 +224,16 @@ CI is green, no images rebuild. A code change (anything else, incl. `ci.yml`)
 builds normally. So: bump the version + tag for docs-only releases too; don't
 wait on an image job that intentionally won't run.
 
+**Bump chart versions on every gitops deploy (owner, 2026-08-31).** Every
+gitops release bumps the `version` in the `Chart.yaml` of each landing-zone /
+platform chart it changes — **patch** for every deploy (fixes, docs, reports,
+chores — nothing ships unbumped), **minor** when the release adds features.
+`appVersion` keeps tracking the deployed app/firmware version and only moves
+when that moves. A release touching only files outside any chart (e.g. this
+skill) needs no chart bump. Baseline: pomona trued up to 0.2.1 on 2026-08-31
+(#222 feature → 0.2.0, #261 fix → 0.2.1); zeus stays frozen at 0.1.0
+(decommissioned rollback artifact).
+
 ## Agent prompt template
 
 Fill in `{{CARD_NAME}}`, `{{CARD_SHORT_ID}}`, `{{CARD_DESC}}`, `{{CARD_ID}}`:
