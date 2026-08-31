@@ -52,7 +52,12 @@ image:
   # last_updated — a live-but-constant idle feed is no longer falsely flagged
   # stale, so the charge plan stops being suppressed into a passthrough deadlock.
   # Genuine-freeze detection preserved; opt-in max-hold backstop (default off).
-  tag: "0.18.3"
+  # 0.18.4 (#259 permanent fix): the guard now reads an HA-side liveness entity
+  # (ha.battery_liveness_entity below) instead of REST timestamps — HA REST serves
+  # a cache-frozen last_reported, so 0.18.3's heartbeat approach could not see the
+  # true poll. The HA template binary_sensor.bluetti_integration_alive exposes the
+  # real liveness as an on/off STATE the lar reads correctly over REST.
+  tag: "0.18.4"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -189,6 +194,14 @@ siteConfig:
     # releases, the lar actuates the charge, SoC moves and the flag clears.
     # Interim only — REMOVE when the read-liveness fix (card-259-liveness) ships.
     battery_stale_max_hold_seconds: 300
+    # 0.18.4 (#259 permanent fix): point the staleness guard at the HA-side
+    # liveness verdict. binary_sensor.bluetti_integration_alive (home-assitant
+    # bluetti_selfheal.yaml, applied to vesta) is `on` while the integration polls
+    # (computed via HA template, which sees the true last_reported heartbeat REST
+    # hides), `off` on a genuine freeze. When it affirmatively reads alive the lar
+    # clears the false stale-hold and actuates; a real freeze still holds. Once
+    # confirmed working, the battery_stale_max_hold_seconds stopgap above can go to 0.
+    battery_liveness_entity: binary_sensor.bluetti_integration_alive
   # HA entity ids — value-for-value from the LIVE zeus config
   # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA
   # read path once the lar reads them; carried here so the read wiring is
