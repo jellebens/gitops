@@ -1,0 +1,98 @@
+# pomona-ingest: Telegraf bridging MQTT (pomona/#) -> InfluxDB (pomona bucket).
+#
+# PURE CONSUMER on the telemetry path (jupiter reporting-service discipline):
+# it subscribes and writes time series; it publishes nothing and actuates
+# nothing. A broker or InfluxDB outage degrades ingestion only — Telegraf
+# buffers and reconnects; the pod never needs to crash for it.
+#
+# Single replica + Recreate: two consumers would double-ingest every point
+# (same timestamps -> overwrites in InfluxDB, so no corruption, but a second
+# writer is pointless). Same single-writer discipline as zeus/jupiter.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pomona-ingest
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona
+    app.kubernetes.io/part-of: pomona
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pomona
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pomona
+        app.kubernetes.io/part-of: pomona
+      annotations:
+        # Roll the pod when the telegraf config changes.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.secret.sealedSecret.enabled .Values.secret.sealedSecret.encryptedData }}
+        # Roll the pod when the sealed creds change (picked up without a manual
+        # restart).
+        checksum/secret: {{ include (print $.Template.BasePath "/sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: telegraf
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # MQTT_USER / MQTT_PASS / INFLUX_TOKEN, expanded by Telegraf's native
+          # ${VAR} config substitution. optional: true so the chart deploys
+          # before the owner seals real creds — until then the MQTT connect and
+          # Influx writes just fail-and-retry (no data flows, pod stays up).
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secret.name }}
+                optional: true
+          {{- if .Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/telegraf/telegraf.conf
+              subPath: telegraf.conf
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: pomona-telegraf

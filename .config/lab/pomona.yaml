@@ -1,0 +1,20 @@
+# Pomona ingestion bridge — lab overrides.
+#
+# OWNER PRE-DEPLOY (see landingzones/pomona/README.md "Owner runbook" for the
+# full steps): create the EMQX `pomona-ingest` user + subscribe-only ACL on
+# pomona/#, create the InfluxDB `pomona` bucket (365d retention) + a scoped
+# write token, then seal all three values below. Until real blobs are pasted
+# here the SealedSecret is not rendered and the pod idles (envFrom optional).
+#
+# Seal each value (namespace + name scoped — ns pomona / secret pomona-secrets):
+#   printf '%s' "$VALUE" | kubeseal --raw \
+#     --controller-name sealed-secrets --controller-namespace argocd \
+#     --namespace pomona --name pomona-secrets
+secret:
+  sealedSecret:
+    enabled: true
+    encryptedData: {}
+    # encryptedData:
+    #   MQTT_USER: "Ag..."
+    #   MQTT_PASS: "Ag..."
+    #   INFLUX_TOKEN: "Ag..."

@@ -1,0 +1,19 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: pomona-metrics
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona
+    app.kubernetes.io/part-of: pomona
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: pomona
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}

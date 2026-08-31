@@ -1,0 +1,23 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pomona-dashboard
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona
+    app.kubernetes.io/part-of: pomona
+    # Picked up by the kube-prometheus-stack Grafana dashboard sidecar (NAMESPACE=ALL).
+    {{ .Values.dashboard.sidecarLabel }}: "1"
+  {{- if .Values.dashboard.folder }}
+  annotations:
+    # Grafana folder placement: the sidecar (FOLDER_ANNOTATION=grafana_folder)
+    # files every dashboard in this ConfigMap under this Grafana folder.
+    {{ .Values.dashboard.folderAnnotation }}: {{ .Values.dashboard.folder | quote }}
+  {{- end }}
+data:
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+{{- end }}
