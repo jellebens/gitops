@@ -186,21 +186,22 @@ siteConfig:
     # battery — a real/stuck low still needs a reading clear + the Infeasible-on-0
     # optimizer fix (separate follow-up).
     battery_implausible_enforce: true
-    # STOPGAP (2026-08-31, #259): the telemetry staleness guard false-flags an
-    # IDLE-CONSTANT SoC as stale — an idle battery's SoC does not change, so HA's
-    # last_updated freezes, the 900s guard trips, and the (valid) charge plan is
-    # suppressed into a passthrough deadlock. Owner CONFIRMED the feed is LIVE, so
-    # releasing the hold is safe: after 300s of continuous "stale" the guard
-    # releases, the lar actuates the charge, SoC moves and the flag clears.
-    # Interim only — REMOVE when the read-liveness fix (card-259-liveness) ships.
-    battery_stale_max_hold_seconds: 300
+    # #259 REVERTED (owner, 2026-08-31): the 300s battery_stale_max_hold_seconds
+    # STOPGAP is removed (back to the 0/disabled default) — it was a BLIND timer
+    # that would also have released a GENUINE freeze onto a frozen SoC. The clean
+    # mechanisms below + on vesta now carry it, both proven live 2026-08-31:
+    # the HA-side bluetti_force_refresh_values automation keeps REST timestamps
+    # fresh (reloads the entry after >10 min of unchanged values; self-healed a
+    # wedged-at-boot integration with no human action), and the liveness override
+    # below clears any residual false stale. A genuine freeze holds, as designed.
     # 0.18.4 (#259 permanent fix): point the staleness guard at the HA-side
     # liveness verdict. binary_sensor.bluetti_integration_alive (home-assitant
     # bluetti_selfheal.yaml, applied to vesta) is `on` while the integration polls
     # (computed via HA template, which sees the true last_reported heartbeat REST
     # hides), `off` on a genuine freeze. When it affirmatively reads alive the lar
-    # clears the false stale-hold and actuates; a real freeze still holds. Once
-    # confirmed working, the battery_stale_max_hold_seconds stopgap above can go to 0.
+    # clears the false stale-hold and actuates; a real freeze still holds. Its
+    # `heartbeat` attribute is now()-driven ON PURPOSE (the lar's 300s freshness
+    # gate reads the sensor's own REST last_updated) — never remove it.
     battery_liveness_entity: binary_sensor.bluetti_integration_alive
   # HA entity ids — value-for-value from the LIVE zeus config
   # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA
