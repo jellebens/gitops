@@ -36,7 +36,7 @@
         {
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"pomona\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"pomona_meta\" and r.metric == \"status\" and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Unit\"})"
+          "query": "from(bucket: \"pomona\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"pomona_meta\" and r.metric == \"status\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"Unit\"})"
         }
       ]
     },
@@ -67,7 +67,7 @@
         {
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"pomona\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"pomona_meta\" and r.metric == \"fw_version\" and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Firmware\"})"
+          "query": "from(bucket: \"pomona\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"pomona_meta\" and r.metric == \"fw_version\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"Firmware\"})"
         }
       ]
     },
