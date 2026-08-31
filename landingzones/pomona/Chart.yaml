@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pomona
+version: 0.1.0
+type: application
+appVersion: "1.0.0"
+description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf) + Grafana dashboard

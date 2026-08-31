@@ -1,0 +1,36 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for pomona (zeus pattern).
+#
+# Why ingress-only: a Cilium policy with only `ingress` rules default-denies
+# inbound to the pod while leaving EGRESS fully open — the bridge must reach
+# the EMQX broker (mqtt.lab.local VIP) and in-cluster InfluxDB, and locking
+# egress down is a separate, human-reviewed step.
+#
+# Effect: the only ingress allowed is the Prometheus scrape of the metrics
+# port from the observability namespace.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pomona
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona
+    app.kubernetes.io/part-of: pomona
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: pomona
+  ingress:
+    {{- if .Values.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.metrics.port | quote }}
+              protocol: TCP
+    {{- else }}
+    # Metrics disabled: no ingress is permitted (default-deny ingress).
+    []
+    {{- end }}
+{{- end }}

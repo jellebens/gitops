@@ -1,0 +1,22 @@
+# Pomona ingestion bridge — lab overrides.
+#
+# OWNER PRE-DEPLOY (see landingzones/pomona/README.md "Owner runbook" for the
+# full steps): create the EMQX `pomona-ingest` user + subscribe-only ACL on
+# pomona/#, create the InfluxDB `pomona` bucket (365d retention) + a scoped
+# write token, then seal all three values below. Until real blobs are pasted
+# here the SealedSecret is not rendered and the pod idles (envFrom optional).
+#
+# Seal each value (namespace + name scoped — ns pomona / secret pomona-secrets):
+#   printf '%s' "$VALUE" | kubeseal --raw \
+#     --controller-name sealed-secrets --controller-namespace argocd \
+#     --namespace pomona --name pomona-secrets
+# Pre-deploy steps completed 2026-08-31: EMQX user `pomona-ingest` created
+# (subscribe-only allow pomona/# / deny #), Influx bucket `pomona` (org zeus,
+# 8760h) + bucket-scoped RW token minted, all three values sealed below.
+secret:
+  sealedSecret:
+    enabled: true
+    encryptedData:
+      MQTT_USER: "AgB+CuaLA1ND5x5rGZLBU2jcQdbCeyz8rrATErswBgvIX5fZgQ7XcW4yENpXVU/4aV8HTdEtLd2mSZaziIbtYqXGxymUFjcFpr4yn19T/rpaCm1LUwOUYmDFS63YBw5q9/F6kYfyaAqoC5kuKGd5lFqTg+bw7sv4zPvstuOBl1Nn5XNC7jXHzwkmRFheZ+AAQymGrqO4xD7lB3ToTXCf5mjy+4bbp+4kwV5q2fdNUhnDGKZbgkylsf8I9pZNnVoLLmTEZ43InLT2kaZbI9tCyVO7Ig0ze2RmEhSy/qsqPKyrA6IGBs+xyUyiY+W4CRcwp7RrtDaAqYHyIwlh4ppbmSGxtoGz93PGZRLqXhcC0Y/X3rmMUwXVBMnJ4fciig8j+5hfOvm92Zd/ZQ9NEEZn3pDb1T1Dc/dQLtKxlp0uAhyOqf0HdM/xnSra0y37OQ3L4g6K6k+eF6VFhU+/ZfmpLUl1pgQhjxcCQe9qUm5i9w0gqf9h99/wgsrvA0lRoYiHB9YGOukh+Ml9I4NzgrcCLEdTP62kD6FVVzXfguWzH5ZbsQ48jA6jP0o6SbaKkVhsn9eNvdQVn+NQouDyl6PRknLuXQ5udPj2DyKO2s2SRtK9SEn08oF2snDxUp95YBjIEy4oeH/QQ0ACLoN1go++c3N2mNB2pj6JIIHJZewh6ozB+BdSJ0xK8W7SroIvTMnmqUMKGuIuIFP9u3WvWWUB"
+      MQTT_PASS: "AgCvV9ev9R7xGUjAN2QWJb6vKhdAgCouiuUZZboxU5uCwr9KRbV7jXBN7awpO0pmK8ng4IuxTfFfyJoippstcTcMghR6HHKlD+mdn7a7eQmiZ4LxtIp7nbYPiAKdzXwhmT7PPqoJ2K0UHW3HXJs5rgSnQ0jmGMdOyfsZjj5e90Z8shy7arRCPmkDv+LmeVbAmAETm9xv2SV45/7HPNk1+7MUxKMRgyy2bFzREpxOvALhV6Symm4Ks5egCm3F5ZF1/4t1nFYIhZMhstGcyu1UvwuTIVprwIdEiPYGTHsVV6Q6Rca/lRzJu4Ha4/aFwUpBbahZblYsMIht7J5liLMOTZdATlJPNsKbtIyDweX9ifXzBXleC8LC4eUj2kUbT8ve0xgvHNJqHwvx08zsgomtFiYU9fKxFRoWzGcW0CfsDpglqbWgkJI6eRlTFxv9Qq7PS+lD/qCYF6UelcAepzcrBPsw0CMWbuyyIh5cAmeEPjacjJ6p3g1NSYeb1XuOE0RnlgL+KD76P5AkLL7cDz4mvs6lF+NKQGFD9p3QIKIie0PGHI5PfgN6yMIB8Lk+IC7BB6A/R0NZnKtV88C8mUXhj69ja6MDYbNSkL3NJvy8wNdYkixMlRIDLabcQ75p5TA1l+Ao2+wDxABmbU4bPEW+WTbPFots3b57eOZj7plC2c7ctB//8JAhlJP9HzT3t3XOUQ7O/uQj5Vn3xUCNRsvpZQAtxsMJcw=="
+      INFLUX_TOKEN: "AgAfobzYmPN98cSUpmI/4zMF7fTM6EGBVr2ZeIBB0Guq3VWYYKDyOnO1Jd1r7YkTlZYavt375V2d3cgI0aanYK5NC91IQBCCSaB8EXjoEzRImjY2H1e7Fi2XdxA6Yg/r6XNhTg84IXkbYVjay5t6zJ6GFXDhlfTJdGHj3owQ2yMAUGEdQ0VJd/XSg15ufu0/QUSvSPRKXpwjURT32F8YJDZMoI8+186BBpC7x81ld93jiYWGlJRs0qmtj4bH/zYIuvo3ZyAdoAy53797VdEuO6I8jh1T1dHPMg82Ct+4Hsjq7fB+SLMKb3OrRDBNqXUQtgeJsOTLXa4aofSFqACBhDuqdjmLrHilQYsMkGOFeC7Dn7VhTWiqVzcUZRoFF5/kjw3TGqzWOE3IXptc0BBmSeFu1kzx58f9uGleQyf7ybYQNjVIRjQTw/cmoO3FAZf6F106hPfPEzzkrWsWGOTSoQukn88Ny8MCCXQk+pzm60IRxHxtAEg03HbUpPNK/p43udaLPZr0z8Hw42oHNqBs+fDge6Z4WKWFaO9o2TTKAL1AE0/MSm0ZIKFrcmhbkFyOW7gBnRCHsX/PrsMr3mI5q6/yXCDSXK25VxHzz/a1TCLErez/ARl/HlkRI0BudFt2iu4Lo61Ymi/FwoVrFVJENdnZMzO/OB4l9BKNq2X+vS/lUC0zaPKpUKdB1Tw+ZwkgQsDr14yvd2tzgmYU0hSNAlOWFxrcLFov8ybpv3HpTJs+uMHhHdYFyuSE/qvtjhWetkAppHq/Ly1oaXq9Ia8KZ+SfGYvtK41ar+5TcwwN/nSFBwnHE+6sNLxn"
