@@ -47,7 +47,12 @@ image:
   # retired (2026-07-29) and no longer publishing its commander heartbeat, this
   # lets the single-controller interlock treat an absent/stale commander as CLEAR
   # (a live commander==1 still REFUSES). Activated by siteConfig.interlock below.
-  tag: "0.18.0"
+  # 0.18.3 (#259): battery telemetry staleness guard now judges liveness by HA's
+  # last_reported heartbeat (freshest of last_reported/last_updated), not
+  # last_updated — a live-but-constant idle feed is no longer falsely flagged
+  # stale, so the charge plan stops being suppressed into a passthrough deadlock.
+  # Genuine-freeze detection preserved; opt-in max-hold backstop (default off).
+  tag: "0.18.3"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
