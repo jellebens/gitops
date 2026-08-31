@@ -181,6 +181,14 @@ siteConfig:
     # battery — a real/stuck low still needs a reading clear + the Infeasible-on-0
     # optimizer fix (separate follow-up).
     battery_implausible_enforce: true
+    # STOPGAP (2026-08-31, #259): the telemetry staleness guard false-flags an
+    # IDLE-CONSTANT SoC as stale — an idle battery's SoC does not change, so HA's
+    # last_updated freezes, the 900s guard trips, and the (valid) charge plan is
+    # suppressed into a passthrough deadlock. Owner CONFIRMED the feed is LIVE, so
+    # releasing the hold is safe: after 300s of continuous "stale" the guard
+    # releases, the lar actuates the charge, SoC moves and the flag clears.
+    # Interim only — REMOVE when the read-liveness fix (card-259-liveness) ships.
+    battery_stale_max_hold_seconds: 300
   # HA entity ids — value-for-value from the LIVE zeus config
   # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA
   # read path once the lar reads them; carried here so the read wiring is
