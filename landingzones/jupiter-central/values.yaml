@@ -1,16 +1,21 @@
 # jupiter-central landing zone — price-service (jupiter P1 card #106).
 #
-# The service is the central ENTSO-E price API (jupiter repo,
+# The service is the central day-ahead price API (jupiter repo,
 # services/price): GET /healthz + GET /v1/curve?zone=... per
 # zeus:.docs/jupiter/architecture.md. It is a CENTRAL SINGLETON — one
 # instance serves every bidding zone / site. Bidding zones are a PER-REQUEST
 # query parameter, not server config, so there is deliberately no ConfigMap
 # here: the only knobs the app reads are the env vars below (PORT,
-# PRICE_CACHE_DIR, ENTSOE_API_TOKEN, SITE_ID).
+# PRICE_CACHE_DIR, SITE_ID).
 image:
   repository: jellebens/jupiter-price
   # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-  tag: "0.13.0"
+  # 0.19.0 (#264): day-ahead source migrated ENTSO-E -> Nord Pool Data Portal
+  # (BE, EUR, 15-min MTU, public API — NO token). ENTSO-E fetcher + token
+  # removed (ADR-0025 supersedes ADR-0011). Validated 96/96 slots identical to
+  # the last ENTSO-E curve; /v1/curve contract unchanged (lar untouched).
+  # Jump from 0.13.0 is behaviorally just this migration (only reformats since).
+  tag: "0.19.0"
   pullPolicy: IfNotPresent
 
 # Central singleton. The last-good cache PVC is RWO (local-path pins it to a
@@ -144,19 +149,16 @@ runtime:
   uid: 1000
   gid: 1000
 
-# Secret injected as env via envFrom (optional: true, so the first sync does
-# not block on the seal). Key ENTSOE_API_TOKEN — the exact env var name
-# app.py reads (NOTE: zeus calls its key ENTSOE_TOKEN; this service does not).
-# The app tolerates an absent token: it still serves persisted last-good
-# curves, and a fetch without a token degrades exactly like an ENTSO-E outage.
-# Provide the sealed value in .config/<env>/jupiter-central.yaml (kubeseal —
-# see that file; sealed blobs are namespace-scoped, so zeus's sealed
-# ENTSOE_TOKEN can NOT be reused here).
+# Secret injected as env via envFrom (optional: true). Since 0.19.0 (#264) the
+# price-service needs NO secret at all — Nord Pool's Data Portal API is public
+# (the ENTSOE_API_TOKEN this block used to carry was removed with the ENTSO-E
+# fetcher). The envFrom mechanism is kept (optional + empty = renders nothing)
+# for any future secret need.
 secret:
   name: jupiter-central-secrets
   sealedSecret:
     enabled: true
-    encryptedData: {} # { ENTSOE_API_TOKEN: "Ag..." }
+    encryptedData: {}
 
 # ---------------------------------------------------------------------------
 # forecast-service (jupiter P2 cards #120/#121, deployed by gitops card #126).
