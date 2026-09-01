@@ -3,7 +3,7 @@ name: pomona
 # version: bump on EVERY release that touches this chart (owner rule 2026-08-31):
 # patch for fixes/docs/reports, minor for features. 0.2.1 = trued-up baseline
 # (0.1.0 shipped twice unbumped: #222 feature -> 0.2.0, #261 fix -> 0.2.1).
-version: 0.2.1
+version: 0.2.2
 type: application
 appVersion: "1.0.0"
 description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf) + Grafana dashboard

@@ -148,7 +148,7 @@
       "id": 5,
       "type": "stat",
       "title": "Reservoir",
-      "description": "pomona/water/level_points (0-4 probe points wet). >=3 OK, 1-2 top up soon, 0 CRIT — pump dry-run risk.",
+      "description": "pomona/water/level_points (0-4 probe points wet). 2 = OK (target fill), 1 = WRN low, 3-4 = WRN high, 0 CRIT — pump dry-run risk. Owner semantics 2026-09-01.",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
       "fieldConfig": {
@@ -161,9 +161,9 @@
               "options": {
                 "0": { "text": "CRIT — DRY", "color": "red", "index": 0 },
                 "1": { "text": "WRN — LOW (1/4)", "color": "orange", "index": 1 },
-                "2": { "text": "WRN — LOW (2/4)", "color": "orange", "index": 2 },
-                "3": { "text": "OK (3/4)", "color": "green", "index": 3 },
-                "4": { "text": "OK — FULL (4/4)", "color": "green", "index": 4 }
+                "2": { "text": "OK (2/4)", "color": "green", "index": 2 },
+                "3": { "text": "WRN — HIGH (3/4)", "color": "orange", "index": 3 },
+                "4": { "text": "WRN — HIGH (4/4)", "color": "orange", "index": 4 }
               }
             }
           ],
@@ -320,7 +320,7 @@
       "id": 9,
       "type": "state-timeline",
       "title": "Reservoir level",
-      "description": "pomona/water/level_points over time. >=3 OK (green), 1-2 top up soon (amber), 0 CRIT dry (red).",
+      "description": "pomona/water/level_points over time. 2 OK (green, target fill), 1 low / 3-4 high (amber), 0 CRIT dry (red). Owner semantics 2026-09-01.",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
       "fieldConfig": {
@@ -333,10 +333,10 @@
               "type": "value",
               "options": {
                 "0": { "text": "CRIT", "color": "red", "index": 0 },
-                "1": { "text": "WRN 1/4", "color": "orange", "index": 1 },
-                "2": { "text": "WRN 2/4", "color": "orange", "index": 2 },
-                "3": { "text": "OK 3/4", "color": "green", "index": 3 },
-                "4": { "text": "FULL", "color": "green", "index": 4 }
+                "1": { "text": "LOW 1/4", "color": "orange", "index": 1 },
+                "2": { "text": "OK 2/4", "color": "green", "index": 2 },
+                "3": { "text": "HIGH 3/4", "color": "orange", "index": 3 },
+                "4": { "text": "HIGH 4/4", "color": "orange", "index": 4 }
               }
             }
           ]
