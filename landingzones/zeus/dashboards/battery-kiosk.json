@@ -599,16 +599,68 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Wall-clock of the last successful data refresh. Re-queried each ~30s refresh; if the kiosk browser tab freezes this stamp stops advancing = instant visual freeze detector. Prometheus time() is in seconds; *1000 converts to the epoch-millis the dateTime unit expects.",
+      "description": "Per-component health for everything this kiosk depends on: one row per component, GREEN background = OK, RED = down/stale. The Grafana row keeps the #253 freeze-detector: its value is the wall-clock (time()*1000, re-queried each ~30s refresh) — if the kiosk browser tab freezes the stamp stops advancing while every other cell stays stale-but-green, so a non-moving time = frozen tab. OK conditions: mqtt >=1 EMQX node running; HA = no lar SoC read errors in 30m and jupiter-cell scrape up; Nordpool = price cache age < 26h (93600s, the JupiterPriceFeedDegraded threshold), no retry cooldown, price-service scrape up; forecast/reporting = scrape up; bluetti = jupiter_lar_battery_telemetry_stale == 0 (the #259 liveness-override verdict from binary_sensor.bluetti_integration_alive); lar cell = last cycle < 35 min old (2x the 15-min cycle interval + grace). Every row is wrapped in `or on() vector(0)` so a vanished series fails RED, never blank-green. jupiter_lar_ha_read_ok is deliberately NOT used for the HA row: its all-reads-succeeded gate is ~always 0 from routine flaky ac reads.",
       "fieldConfig": {
         "defaults": {
-          "unit": "dateTimeAsLocal",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                },
+                "1": {
+                  "text": "OK",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            }
+          ],
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Grafana"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocalNoDateIfToday"
+              },
+              {
+                "id": "mappings",
+                "value": []
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 10,
@@ -618,10 +670,10 @@
       },
       "id": 15,
       "options": {
-        "colorMode": "none",
+        "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center",
-        "orientation": "auto",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -629,10 +681,10 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value"
+        "textMode": "value_and_name"
       },
       "pluginVersion": "10.0.0",
-      "title": "Last refreshed",
+      "title": "Component health",
       "type": "stat",
       "targets": [
         {
@@ -640,8 +692,72 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "time() * 1000",
+          "expr": "(max(emqx_cluster_nodes_running{namespace=\"mqtt\"}) >= bool 1) or on() vector(0)",
+          "legendFormat": "mqtt",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(((sum(increase(jupiter_lar_ha_read_errors_total{read=\"soc\",namespace=\"jupiter-tervuren\"}[30m])) or on() vector(0)) == bool 0) * on() min(up{job=\"jupiter-cell\",namespace=\"jupiter-tervuren\"})) or on() vector(0)",
+          "legendFormat": "HA",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((max(jupiter_price_cache_age_seconds{namespace=\"jupiter-central\"}) < bool 93600) * (max(jupiter_price_cooldown_active{namespace=\"jupiter-central\"}) == bool 0) * min(up{job=\"price-service\",namespace=\"jupiter-central\"})) or on() vector(0)",
+          "legendFormat": "Nordpool",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() * 1000",
+          "legendFormat": "Grafana",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"forecast-service\",namespace=\"jupiter-central\"}) or on() vector(0)",
+          "legendFormat": "forecast",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(max(jupiter_lar_battery_telemetry_stale{namespace=\"jupiter-tervuren\"}) == bool 0) or on() vector(0)",
+          "legendFormat": "bluetti",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((time() - max(jupiter_lar_last_cycle_timestamp_seconds{namespace=\"jupiter-tervuren\"})) < bool 2100) or on() vector(0)",
+          "legendFormat": "lar cell",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"reporting-service\",namespace=\"jupiter-central\"}) or on() vector(0)",
+          "legendFormat": "reporting",
+          "refId": "H"
         }
       ]
     }

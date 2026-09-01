@@ -35,10 +35,10 @@ a single value instead of doubling.
 
 ```
 ┌────────┬───────┬───────┬───────┬──────────────┬──────────┐  row 1
-│        │  SoC  │ Mode  │Stored │ Cheap→Expens │          │  badge + live state
-│  ⚡ Zeus├───────┼───────┼───────┼──────────────┤   Last   │
-│  badge │Savings│Charged│Dischrg│  Target ±kW  │ refreshed│  today + health
-│        │       │       │       │  Last cycle  │  (clock) │
+│        │  SoC  │ Mode  │Stored │ Cheap→Expens │Component │  badge + live state
+│  ⚡ Zeus├───────┼───────┼───────┼──────────────┤  health  │
+│  badge │Savings│Charged│Dischrg│  Target ±kW  │ (8 rows +│  today + health
+│        │       │       │       │  Last cycle  │  clock)  │
 └────────┴───────┴───────┴───────┴──────────────┴──────────┘
  x=0     x=4     x=8     x=12    x=16           x=20  (24 wide)
 ```
@@ -47,9 +47,11 @@ The top-left tile is the Zeus avatar badge (a transparent text panel; the
 image is embedded as a base64 PNG so no external hosting is needed).
 
 The far-right **x=20** column (4 wide, full height) was freed by #245 (which
-removed the dead **Next** and **Fails** tiles) and now holds the **Last
-refreshed** clock (#253). The middle-left tiles were **not** moved — the
-no-reflow rule was honoured; only the empty column was filled.
+removed the dead **Next** and **Fails** tiles), got the **Last refreshed**
+clock in #253, and was upgraded to the **Component health** grid in #266
+(same panel id 15, same footprint — the clock lives on as the grid's
+**Grafana** row). The middle-left tiles were **not** moved — the no-reflow
+rule was honoured; only that column's content changed.
 
 ## Row 1 — live state (what it's doing now)
 
@@ -70,11 +72,29 @@ no-reflow rule was honoured; only the empty column was filled.
 | **Target ±kW** | The current-slot power setpoint as a single signed number: **positive = charging**, **negative = discharging**, 0 = idle/passthrough. | `jupiter_lar_target_charge_kw − jupiter_lar_target_discharge_kw` | blue > 0, green < 0 |
 | **Last cycle** | Time since the last completed optimizer cycle — a **freshness/health** signal. Healthy value is well under ~75 min. | `time() − jupiter_lar_last_cycle_timestamp_seconds` | green, orange > 75 min, red > 2 h |
 
-## Full-column tile — freeze detector
+## Full-column tile — Component health (freeze detector included)
 
-| Tile | Means | Metric | Notes |
-|------|-------|--------|-------|
-| **Last refreshed** | Wall-clock of the **last successful data refresh** (a stat panel, `dateTimeAsLocal` unit). Re-evaluated on every ~30 s refresh, so on a healthy kiosk it tracks real time; when the browser tab freezes the clock **stops advancing** = an at-a-glance freeze detector. | `time() * 1000` | Prometheus `time()` is in **seconds**; the `dateTime*` units expect **epoch-millis**, so the query multiplies by 1000. Without the `*1000` the tile renders 1970. Verified via `/api/ds/query`: the expr returns a 13-digit epoch-ms matching wall-clock. |
+One stat panel (id 15, x=20 w=4 h=10, #266) with eight horizontal rows —
+component name left, status right. **GREEN background + white letters = OK,
+RED = down/stale.** Each boolean row's PromQL is written to return exactly
+`1` (OK) or `0` (DOWN), and every row is wrapped in `or on() vector(0)` so a
+**vanished series fails RED** ("no data" can never render as green). All
+exprs were verified against the live Prometheus before shipping.
+
+| Row | OK means | Backing PromQL (OK condition) |
+|-----|----------|-------------------------------|
+| **mqtt** | ≥ 1 EMQX broker node running (same series as mission-control's "EMQX nodes up"). | `(max(emqx_cluster_nodes_running{namespace="mqtt"}) >= bool 1) or on() vector(0)` |
+| **HA** | Home Assistant answering the live lar's reads: **zero SoC read errors in 30 m** AND the jupiter-cell scrape is up. Deliberately **not** `jupiter_lar_ha_read_ok` — that gauge is 1 only when *every* read in the last cycle succeeded and routine flaky `ac` reads keep it ~always 0 (verified: 24 h avg = 0 while the system is healthy). The SoC read runs every 15-min cycle, so a truly unreachable HA turns this red within ~2 cycles. | `(((sum(increase(jupiter_lar_ha_read_errors_total{read="soc",namespace="jupiter-tervuren"}[30m])) or on() vector(0)) == bool 0) * on() min(up{job="jupiter-cell",namespace="jupiter-tervuren"})) or on() vector(0)` |
+| **Nordpool** | Day-ahead feed healthy: price cache age **< 26 h** (93600 s — the `JupiterPriceFeedDegraded` threshold; a healthy cache-first steady state can go ~23 h between real fetches), **no** retry cooldown, and the price-service scrape up. | `((max(jupiter_price_cache_age_seconds{namespace="jupiter-central"}) < bool 93600) * (max(jupiter_price_cooldown_active{namespace="jupiter-central"}) == bool 0) * min(up{job="price-service",namespace="jupiter-central"})) or on() vector(0)` |
+| **Grafana** | The #253 **freeze detector**, preserved: the row's *value is the wall-clock itself* (`dateTimeAsLocalNoDateIfToday`, epoch-ms), re-queried each ~30 s refresh. A frozen Chromium tab shows stale-but-green cells for every other row, so this row deliberately stays a **visible timestamp** (fixed green, never a plain dot): a non-advancing time = frozen tab. | `time() * 1000` (`time()` is seconds; `dateTime*` units expect epoch-millis, hence `*1000`) |
+| **forecast** | forecast-service scrape up (mirrors `JupiterForecastServiceDown`). | `min(up{job="forecast-service",namespace="jupiter-central"}) or on() vector(0)` |
+| **bluetti** | The HA Bluetti integration is alive: the lar's telemetry-staleness verdict is clean. Since lar v0.18.4 (#259) that verdict reads the HA liveness entity `binary_sensor.bluetti_integration_alive` (see `docs/incidents/2026-08-31-bluetti-staleness-deadlock.md`), so this row is the kiosk view of exactly that incident's failure mode. | `(max(jupiter_lar_battery_telemetry_stale{namespace="jupiter-tervuren"}) == bool 0) or on() vector(0)` |
+| **lar cell** | The live controller's heartbeat: last completed optimizer cycle **< 35 min** old (2 × the 15-min cycle interval + grace). | `((time() - max(jupiter_lar_last_cycle_timestamp_seconds{namespace="jupiter-tervuren"})) < bool 2100) or on() vector(0)` |
+| **reporting** | reporting-service scrape up (feeds the Savings/Stored/price-position tiles). | `min(up{job="reporting-service",namespace="jupiter-central"}) or on() vector(0)` |
+
+Not included: **InfluxDB** — this kiosk's panels are 100 % Prometheus-backed
+(verified: every target's datasource type is `prometheus`), so an Influx row
+would report on something the kiosk doesn't depend on.
 
 ## Prices
 
@@ -95,11 +115,14 @@ data-refresh rate.
 
 Two independent mitigations (owner's choice, Option 3):
 
-### 1. "Last refreshed" timestamp tile (shipped, GitOps)
+### 1. Wall-clock tile (shipped, GitOps — now the Component health "Grafana" row)
 
-The `Last refreshed` clock (above) makes any freeze **visible**: a stale clock
-on the TFT = the tab is stuck, regardless of anything else. This is the reliable
-detector and ships in the dashboard JSON, so it survives redeploys.
+The wall-clock (originally the #253 `Last refreshed` tile, since #266 the
+**Grafana** row of the Component health grid) makes any freeze **visible**: a
+stale clock on the TFT = the tab is stuck, regardless of anything else — the
+other health rows would sit stale-but-green in a frozen tab, which is exactly
+why the clock stayed a visible timestamp. This is the reliable detector and
+ships in the dashboard JSON, so it survives redeploys.
 
 ### 2. Grafana playlist auto-reload (live Grafana state — recreate below)
 
