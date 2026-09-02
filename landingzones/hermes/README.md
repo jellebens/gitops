@@ -404,7 +404,8 @@ kubectl -n hermes create job --from=cronjob/hermes-backup hermes-backup-manual
 
 ## Notable config
 
-- Model: `gpt-5.4-mini` via `openai-api` (`config.model`).
+- Model: `gpt-5.6-terra` via `openai-api` (`config.model`) — see
+  [ADR-0001](../../docs/adr/0001-cortana-model-gpt-5.6-terra.md) for why Terra.
 - Discord: `require_mention: false`, allow-listed channels, voice auto-TTS on.
 - MS365: `ms365-mcp` MCP server scoped to mail + calendar.
 - Toolsets: `hermes-cli`, `mcp`, `delegation`.
