@@ -61,11 +61,24 @@ see "ACL disaster recovery" below):
 
 | user            | allow                                                        | then |
 | --------------- | ------------------------------------------------------------ | ---- |
-| `homeassistant` | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
+| `homeassistant` | `all homeassistant/#` (own tree only — see note below)       | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
+
+`homeassistant` is scoped to **`homeassistant/#` only** (card #188 —
+least-privilege hardening). It previously also held `all zeus/#`, which was
+over-provisioning: HA never needs the `zeus/` tree because `zeus-mqtt` publishes
+HA discovery + state under `homeassistant/#` (that is how HA consumes zeus data).
+After the change, **publish under the `zeus/` tree — including the commander
+interlock topic — belongs to `zeus-mqtt` alone** (`cell-tervuren` is
+subscribe-only on that topic; `reporting` has no zeus grant). The larger 8883/TLS
+listener + bcrypt-hashed bootstrap passwords remain a separate follow-up (not
+addressed here). **The runtime step is owner-gated** — the live rule lives in
+mnesia; update the `homeassistant` user's live rules via the admin REST API to
+match this DR mirror so the two do not drift (see "ACL disaster recovery" and the
+per-client runbook above).
 
 `cell-tervuren`'s **`subscribe zeus/tervuren/commander`** grant is load-bearing:
 the single-controller interlock reads zeus's commander heartbeat from that topic

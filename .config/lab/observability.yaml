@@ -80,6 +80,11 @@ grafana:
     accessModes:
       - ReadWriteOnce
     size: 10Gi
+    # longhorn since #237 (2026-08-14): plugin state/annotations aren't in git;
+    # data was copied from the old local-path PV in the migration window (PV
+    # Retain'd as rollback anchor). Immutable on a bound PVC — changing this
+    # needs the scale-down/PVC-swap dance (see docs/storage.md).
+    storageClassName: longhorn
 
   service:
     type: ClusterIP
@@ -96,6 +101,10 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         spec:
+          # longhorn since #237 (2026-08-14). The 15d history was copied from
+          # the old local-path PV in the window; the operator recreated the STS
+          # around the pre-bound longhorn PVC (VCTs are immutable in place).
+          storageClassName: longhorn
           accessModes:
             - ReadWriteOnce
           resources:
@@ -135,6 +144,10 @@ alertmanager:
     storage:
       volumeClaimTemplate:
         spec:
+          # longhorn since #237 (2026-08-14). The old volume was empty (4K —
+          # no active silences), so no data was copied: the STS was recreated
+          # and provisioned a fresh longhorn volume.
+          storageClassName: longhorn
           accessModes:
             - ReadWriteOnce
           resources:

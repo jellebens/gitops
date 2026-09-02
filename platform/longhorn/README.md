@@ -14,10 +14,18 @@ Two Argo apps (same split as `csi-driver-smb` / `csi-driver-smb-config`):
 | `longhorn-config` | this chart (`platform/longhorn`) | 13 | CNP, PrometheusRule, Grafana dashboard, sealed backup-creds placeholder |
 
 **Deploying this is deliberately inert:** it adds the `longhorn`
-StorageClass (NOT the default — `local-path` stays default) and the control
-plane, but **zero storage capacity exists until the owner labels nodes**
-(`createDefaultDiskLabeledNodes: true`). No data moves automatically; the
-pilot migration (hermes state) is phase 3, a separate card.
+StorageClass and the control plane, but **zero storage capacity exists until
+the owner labels nodes** (`createDefaultDiskLabeledNodes: true`). No data
+moves automatically; migrations are per-PVC cards (#235–#238 series).
+
+**Default StorageClass: `longhorn` since #236 (2026-08-14).** The flip is
+two-sided: `persistence.defaultClass: true` here, plus a manual
+`kubectl annotate sc local-path storageclass.kubernetes.io/is-default-class=false --overwrite`
+(local-path is a k3s-bundled addon object, not in git). ⚠ k3s re-asserts
+local-path's default annotation on k3s restart/upgrade; if both SCs claim
+default, Kubernetes binds new PVCs to the **newest** default SC — longhorn —
+so behaviour stays correct, but re-run the annotate command after k3s
+maintenance so `kubectl get sc` shows a single `(default)`.
 
 ## Phase-1 findings (2026-07-10, read-only: node_exporter + kubectl)
 
@@ -135,24 +143,39 @@ credentials; seal real ones with kubeseal (controller `sealed-secrets`, ns
 `argocd`) when CIFS/S3 is chosen. After the target works, add a
 `RecurringJob` (snapshot + backup schedule) — part of the phase-3 card.
 
-## UI
+## UI — HTTPS-only gateway route, INTERIM until SSO (#233; was port-forward-only per #193)
 
-**`http://longhorn.lab.local`** — exposed via the shared gateway on OWNER
-request (2026-07-10): HTTPRoute in `gateway-config` → `longhorn-frontend:80`,
-A record + serial bump in `.config/lab/coredns-lab.yaml`, and the namespace
-CNP admits the gateway's reserved `ingress` identity. **HTTP only** (no
-per-hostname HTTPS listener — see AGENTS.md Known Pitfalls; type the
-`http://`). ⚠ The Longhorn UI is **UNAUTHENTICATED admin** (it can delete
-volumes/backups): it stays LAN-only behind the gateway, never expose it
-beyond, and don't add it to anything internet-reachable (the VPN is the
-remote path).
+The Longhorn UI is **UNAUTHENTICATED admin**: it can delete volumes, replicas
+and backups. The 2026-07-12 security review (#193) removed its gateway route
+entirely (port-forward-only) because TLS alone is encryption, not auth, and a
+per-route LAN allow-list is not cleanly supported on the shared Cilium gateway
+(gateway traffic reaches the backend as the reserved `ingress` identity; the
+LAN source IP is already proxied away).
 
-Port-forward alternative (works without the gateway):
+**Owner decision 2026-08-14 (#233):** with no SSO in the lab yet, the route is
+re-added **HTTPS-only** as an interim: `https://longhorn.lab.local` (lab-CA
+cert `longhorn-server-tls` from `templates/certificate.yaml`, dedicated
+`longhorn-https` SNI listener in `.config/lab/gateway.yaml`, HTTPRoute
+parented ONLY to that listener; `http://longhorn.lab.local` is answered by a
+redirect-only route that 302s to https — content is never served over plain
+HTTP). The namespace CNP
+re-admits the gateway `ingress` identity
+(`templates/ciliumnetworkpolicy.yaml`). This knowingly re-accepts the #193
+risk — any LAN host can reach an unauthenticated admin UI, now encrypted —
+until the **SSO rollout (card #232)** puts real authentication (oauth2-proxy /
+authentik / similar) in front of this route. Treat #232 as the closing half of
+this interim.
+
+The RBAC-gated path still works and remains the recommended one for anything
+destructive:
 
 ```sh
 kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
 # http://localhost:8080
 ```
+
+The `longhorn.lab.local` A record in `.config/lab/coredns-lab.yaml` predates
+all of this and is unchanged.
 
 ## Monitoring
 

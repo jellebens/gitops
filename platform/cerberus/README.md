@@ -4,9 +4,18 @@
 here** — cerberus is a *subagent* (`.claude/agents/cerberus.md`) driven by a
 scheduled read-only Prometheus poll, not a deployed workload. This README is the
 watchdog's operating manual: the exact PromQL it runs, the signal → severity →
-triage → card routing table, the dedup/state design, and the future
-Alertmanager-webhook upgrade path. Nothing in this folder is reconciled to the
-cluster.
+triage → card routing table, the dedup/state design, the daily owner-digest
+spec, and the future Alertmanager-webhook upgrade path. Nothing in this folder is
+reconciled to the cluster.
+
+> **Home (card #187).** Cerberus now runs **inside the hermes agent** as a native
+> `delegate_task` subagent of Cortana (persona in
+> `landingzones/hermes/values.yaml` `cerberus.soul` → `hermes-cerberus-soul`
+> ConfigMap → `/opt/cerberus/SOUL.md`), on two independent schedules Cortana
+> enforces: the **30-min watchdog poll** and the **daily 18:00 owner digest**.
+> This README stays the authoritative routing table the SOUL points at. In the
+> cluster cerberus reaches Trello via the REST API with the `CERBERUS_TRELLO_*`
+> env creds (sealed into `hermes-cerberus-trello`) rather than the Trello MCP.
 
 ## What cerberus does (and the hard boundary)
 Cerberus polls the in-cluster Prometheus on a schedule, and on a **new** firing
@@ -19,12 +28,18 @@ the card body** for a human/specialist to action. This watches a LIVE battery
 controller (jupiter-lar drives the tervuren battery; zeus is the live
 cross-check) — a wrong mutation is a real incident.
 
-## Trigger — cron-poll (v1); webhook is the documented upgrade
-- **v1 (built): scheduled read-only PromQL poll.** A scheduled task (registered
-  by the owner, see "Scheduled-task poll prompt" below) runs every N minutes,
-  queries Prometheus, dedups, and opens cards. Chosen because the push path
-  (below) needs a hosted receiver that can invoke a Claude session, which is
-  **not wired in this environment**.
+## Trigger — cron-poll; webhook is the documented upgrade
+- **v1.1 (built, #187): hermes-hosted schedule.** Cortana runs cerberus as a
+  `delegate_task` subagent on a recurring schedule — the **30-min watchdog poll**
+  (this routing table) plus a **daily 18:00 owner digest** (separate schedule,
+  below). The two are independent delegations so the digest never delays the
+  poll. **Cutover:** this SUPERSEDES the earlier owner-machine Claude Code
+  scheduled task ("Scheduled-task poll prompt" below is retained for reference);
+  **retire that standalone runner at deploy** so the two don't double-file (dedup
+  would catch duplicates, but the standalone runner is superseded).
+- **v1 (superseded): owner-machine scheduled task.** A Claude Code scheduled task
+  ran every N minutes on the owner's Windows host. Kept as the fallback/reference
+  prompt; turned off at the #187 cutover.
 - **v2 (future upgrade — Alertmanager webhook, push):** wire
   `kube-prometheus-stack` Alertmanager → a `webhook_config` receiver (an HTTP
   endpoint) that invokes a cerberus run per firing alert, replacing the poll.
@@ -74,7 +89,7 @@ Reused shipped rules — cerberus routes these straight from `ALERTS`:
 | `landingzones/zeus` (`zeus`) | `ZeusDown`, `ZeusCycleStalled`, `ZeusCycleFailing`, `ZeusPriceSourceDegraded`, `ZeusPricePartialCoverage`, `ZeusNoPriceData`, `ZeusSocCriticallyLow`, `ZeusControlUnavailable`, `ZeusOptimizerNotOptimal`, `ZeusBatteryStateMismatch` | `zeus` |
 | `landingzones/jupiter-central` price (`price-service`) | `JupiterPriceServiceDown`, `JupiterPriceServiceNoReplica`, `JupiterPriceServiceCrashLooping`, `JupiterPriceFeedDegraded`, `JupiterPricePartialCoverage`, `JupiterPriceTomorrowMissing`, `JupiterPriceTomorrowMissingCritical`, `JupiterPriceNoUsableCurve` | `infra` |
 | `landingzones/jupiter-central` forecast (`forecast-service`) | `JupiterForecastServiceDown`, `JupiterForecastArtifactStale`, `JupiterForecastTrainingFailing` | `infra` |
-| `landingzones/jupiter-central` reporting (`reporting-savings-parity`) | `JupiterReportingSavingsParityNoData`, `JupiterReportingSavingsParityDiverged` | `infra` |
+| `landingzones/jupiter-central` reporting (`reporting-savings-parity`) | `JupiterReportingSavingsParityNoData`, `JupiterReportingSavingsParityDiverged`, `JupiterSavingsNotIndependent` (#181 — savings-source not independent / source-flag) | `infra` |
 | `landingzones/jupiter-shadow` (`jupiter-shadow`) | `JupiterShadowHarnessNoData`, `JupiterShadowLogicDivergence`, `JupiterShadowSetpointDelta`, `JupiterShadowGuardConflict` | `infra` |
 | `platform/mqtt` (`emqx`) | `EMQXNodeDown`, `EMQXQuorumLost`, `EMQXQueueSaturation`, `EMQXAuthFailureSpike`, `EMQXClusterPartition` | `infra` |
 | `platform/longhorn` (`longhorn`) | `LonghornVolumeFaulted`, `LonghornVolumeDegraded`, `LonghornRebuildStorm`, `LonghornNodeNotReady`, `LonghornNodeStorageAboveThreshold` | `infra` |
@@ -203,6 +218,26 @@ Pipeline lists (for the Trello-search dedup layer):
 | Awaiting Validation | `6a44f4de25c6ccc80364e600` |
 | Waiting User Input | `6a44d2832dc9eb8158cb056e` |
 | Done | `698d00d004e1650d4907f897` |
+
+## Daily owner digest (18:00 Europe/Brussels) — card #187
+A **once-a-day** overview, on a schedule **separate** from the 30-min watchdog
+poll (so it can never delay it). It is **READ-ONLY reporting only — it files no
+cards and mutates nothing**. Cerberus compiles it and hands it to Cortana, who
+posts it to her **Discord** home channel (the chosen delivery channel; a pinned-
+card Trello comment was the fallback). Keep it to ~15 scannable lines, lead with
+the bottom line, and never invent a number — if a metric is missing, say so. If
+nothing is wrong, a one-line "all green" is a complete digest.
+
+Content (all read-only queries against the same Prometheus endpoint):
+
+| Line | Source (read-only) |
+| --- | --- |
+| Fleet-health one-liner | `up{namespace=~"zeus|jupiter.*|observability|mqtt|longhorn-system"}` + `count(ALERTS{alertstate="firing",severity=~"warning|critical"})` |
+| Savings today + parity | `zeus_savings_today_eur`; the jupiter reporting savings + parity state (`JupiterReportingSavingsParity*`, the #181 `JupiterSavingsNotIndependent` independence check) |
+| Soak clean-day count | the current #164 soak clean-day counter (or "n/a" if not exported) |
+| Spike-responder observe stats | the #177 observe counters (spike signals seen / responded — `jupiter_lar` spike metrics) |
+| Last 24h | alerts fired (from `ALERTS`/`increase`) and cards you filed (count open cards whose body carries a `cerberus-key:` created in the window) |
+| Awaiting owner | open cards in **Waiting User Input** (`6a44d2832dc9eb8158cb056e`) + any LIVE-battery critical still firing |
 
 ## Signals with NO clean PromQL mapping (flagged gaps)
 - **InfluxDB write failures** (a card-listed signal): **no clean cluster-side

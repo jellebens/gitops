@@ -84,7 +84,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_soc_percent)",
+          "expr": "max(jupiter_lar_soc_pct)",
           "refId": "A"
         }
       ]
@@ -173,7 +173,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_actual_mode_code)",
+          "expr": "max(jupiter_lar_actual_mode)",
           "refId": "A"
         }
       ]
@@ -224,7 +224,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_stored_kwh)",
+          "expr": "max(jupiter_reporting_energy_stored_kwh)",
           "refId": "A"
         }
       ]
@@ -290,80 +290,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_price_position_pct)",
+          "expr": "max(jupiter_reporting_price_position_pct)",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "-1": {
-                  "text": "none",
-                  "index": 0
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 0
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "vertical",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "10.0.0",
-      "title": "Next",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_next_charge_in_seconds)",
-          "legendFormat": "chg",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_next_discharge_in_seconds)",
-          "legendFormat": "dis",
-          "refId": "B"
         }
       ]
     },
@@ -425,7 +353,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_savings_today_eur)",
+          "expr": "max(jupiter_savings_today_eur)",
           "refId": "A"
         }
       ]
@@ -476,7 +404,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_charged_today_kwh)",
+          "expr": "max(jupiter_savings_charged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -527,7 +455,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_discharged_today_kwh)",
+          "expr": "max(jupiter_savings_discharged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -594,7 +522,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_charge_kw) - max(zeus_target_discharge_kw)",
+          "expr": "max(jupiter_lar_target_charge_kw) - max(jupiter_lar_target_discharge_kw)",
           "refId": "A"
         }
       ]
@@ -661,7 +589,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "time() - max(zeus_last_cycle_timestamp_seconds)",
+          "expr": "time() - max(jupiter_lar_last_cycle_timestamp_seconds)",
           "refId": "A"
         }
       ]
@@ -671,41 +599,29 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Component-NAME column of the Component health tile. #268 split the #266 grid into two aligned columns inside the same x=20 w=4 footprint: this panel shows only the names on a normal (uncolored) background; the matching statuses render in the 'health' panel to its right (id 16, x=22), which carries all the health coloring and the PromQL documentation. Both panels run the SAME 8 targets in the SAME order (refId A-H) so row i here lines up with row i there - keep the two target lists identical and deterministic, and keep both panels titled (equal header heights) or the rows drift vertically.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
           "color": {
-            "mode": "thresholds"
+            "fixedColor": "text",
+            "mode": "fixed"
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
+          "mappings": []
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
+        "h": 10,
+        "w": 2,
         "x": 20,
-        "y": 5
+        "y": 0
       },
-      "id": 12,
+      "id": 15,
       "options": {
-        "colorMode": "value",
+        "colorMode": "none",
         "graphMode": "none",
         "justifyMode": "center",
-        "orientation": "auto",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -713,10 +629,14 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "text": {
+          "titleSize": 12,
+          "valueSize": 12
+        },
+        "textMode": "name"
       },
       "pluginVersion": "10.0.0",
-      "title": "Fails",
+      "title": "Component",
       "type": "stat",
       "targets": [
         {
@@ -724,8 +644,242 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_cycle_failures_total)",
+          "expr": "(max(emqx_cluster_nodes_running{namespace=\"mqtt\"}) >= bool 1) or on() vector(0)",
+          "legendFormat": "mqtt",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(((sum(increase(jupiter_lar_ha_read_errors_total{read=\"soc\",namespace=\"jupiter-tervuren\"}[30m])) or on() vector(0)) == bool 0) * on() min(up{job=\"jupiter-cell\",namespace=\"jupiter-tervuren\"})) or on() vector(0)",
+          "legendFormat": "HA",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((max(jupiter_price_cache_age_seconds{namespace=\"jupiter-central\"}) < bool 93600) * (max(jupiter_price_cooldown_active{namespace=\"jupiter-central\"}) == bool 0) * min(up{job=\"price-service\",namespace=\"jupiter-central\"})) or on() vector(0)",
+          "legendFormat": "Nordpool",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() * 1000",
+          "legendFormat": "Grafana",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"forecast-service\",namespace=\"jupiter-central\"}) or on() vector(0)",
+          "legendFormat": "forecast",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(max(jupiter_lar_battery_telemetry_stale{namespace=\"jupiter-tervuren\"}) == bool 0) or on() vector(0)",
+          "legendFormat": "bluetti",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((time() - max(jupiter_lar_last_cycle_timestamp_seconds{namespace=\"jupiter-tervuren\"})) < bool 2100) or on() vector(0)",
+          "legendFormat": "lar cell",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"reporting-service\",namespace=\"jupiter-central\"}) or on() vector(0)",
+          "legendFormat": "reporting",
+          "refId": "H"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "STATUS column of the Component health tile (the names render uncolored in the 'Component' panel to the left, id 15 - #268 split the #266 grid; only this column carries color): one row per component, GREEN background + white letters = OK, RED = down/stale. The Grafana row keeps the #253 freeze-detector, restyled by #268: AMBER background (it is an age indicator - neither green-healthy nor red-down) whose value is the RELATIVE age of the last re-render (time()*1000 rendered with unit dateTimeFromNow -> 'a few seconds ago'), re-queried each ~30s refresh. The rendered string only advances when the tab re-renders, so it stops updating in a frozen tab. CAVEAT (accepted with #268): unlike the old absolute clock, a frozen 'a few seconds ago' still READS healthy at a glance - the playlist/device reload stays the real recovery, see .docs/zeus-kiosk-dashboard.md. OK conditions: mqtt >=1 EMQX node running; HA = no lar SoC read errors in 30m and jupiter-cell scrape up; Nordpool = price cache age < 26h (93600s, the JupiterPriceFeedDegraded threshold), no retry cooldown, price-service scrape up; forecast/reporting = scrape up; bluetti = jupiter_lar_battery_telemetry_stale == 0 (the #259 liveness-override verdict from binary_sensor.bluetti_integration_alive); lar cell = last cycle < 35 min old (2x the 15-min cycle interval + grace). Every row is wrapped in `or on() vector(0)` so a vanished series fails RED, never blank-green. jupiter_lar_ha_read_ok is deliberately NOT used for the HA row: its all-reads-succeeded gate is ~always 0 from routine flaky ac reads.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                },
+                "1": {
+                  "text": "OK",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Grafana"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeFromNow"
+              },
+              {
+                "id": "mappings",
+                "value": []
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 2,
+        "x": 22,
+        "y": 0
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "text": {
+          "valueSize": 12
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "title": "health",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(max(emqx_cluster_nodes_running{namespace=\"mqtt\"}) >= bool 1) or on() vector(0)",
+          "legendFormat": "mqtt",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(((sum(increase(jupiter_lar_ha_read_errors_total{read=\"soc\",namespace=\"jupiter-tervuren\"}[30m])) or on() vector(0)) == bool 0) * on() min(up{job=\"jupiter-cell\",namespace=\"jupiter-tervuren\"})) or on() vector(0)",
+          "legendFormat": "HA",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((max(jupiter_price_cache_age_seconds{namespace=\"jupiter-central\"}) < bool 93600) * (max(jupiter_price_cooldown_active{namespace=\"jupiter-central\"}) == bool 0) * min(up{job=\"price-service\",namespace=\"jupiter-central\"})) or on() vector(0)",
+          "legendFormat": "Nordpool",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() * 1000",
+          "legendFormat": "Grafana",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"forecast-service\",namespace=\"jupiter-central\"}) or on() vector(0)",
+          "legendFormat": "forecast",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(max(jupiter_lar_battery_telemetry_stale{namespace=\"jupiter-tervuren\"}) == bool 0) or on() vector(0)",
+          "legendFormat": "bluetti",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((time() - max(jupiter_lar_last_cycle_timestamp_seconds{namespace=\"jupiter-tervuren\"})) < bool 2100) or on() vector(0)",
+          "legendFormat": "lar cell",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "min(up{job=\"reporting-service\",namespace=\"jupiter-central\"}) or on() vector(0)",
+          "legendFormat": "reporting",
+          "refId": "H"
         }
       ]
     }

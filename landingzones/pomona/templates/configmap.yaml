@@ -1,0 +1,93 @@
+# telegraf.conf for the pomona ingestion bridge (MQTT -> InfluxDB).
+#
+# Two mqtt_consumer instances share the pomona-ingest credentials (distinct
+# client ids — EMQX treats them as separate sessions):
+#   - "pomona"      : the NUMERIC telemetry (water/air/unit gauges), parsed as
+#                     float. topic_parsing turns pomona/<zone>/<metric> into
+#                     zone + metric TAGS, so Flux filters on r.zone / r.metric
+#                     and the field is always "value".
+#   - "pomona_meta" : the STRING topics (status / fw_version / sensors JSON),
+#                     kept verbatim as a string "value" field.
+# ${MQTT_USER} / ${MQTT_PASS} / ${INFLUX_TOKEN} are expanded by Telegraf from
+# the pod env (pomona-secrets SealedSecret via envFrom).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pomona-telegraf
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona
+    app.kubernetes.io/part-of: pomona
+data:
+  telegraf.conf: |
+    [agent]
+      interval = "30s"
+      round_interval = true
+      flush_interval = "30s"
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      omit_hostname = true
+
+    # Sink: the shared InfluxDB 2.x instance (org {{ .Values.influx.org }}),
+    # dedicated {{ .Values.influx.bucket }} bucket. Buffered + retried by the
+    # agent, so a short InfluxDB outage costs nothing.
+    [[outputs.influxdb_v2]]
+      urls = ["{{ .Values.influx.url }}"]
+      token = "${INFLUX_TOKEN}"
+      organization = "{{ .Values.influx.org }}"
+      bucket = "{{ .Values.influx.bucket }}"
+
+    {{- if .Values.metrics.enabled }}
+    # Self-telemetry + a Prometheus mirror of the ingested series (string
+    # fields are dropped by the Prometheus exposition format; that is fine).
+    [[inputs.internal]]
+      collect_memstats = false
+
+    [[outputs.prometheus_client]]
+      listen = ":{{ .Values.metrics.port }}"
+      metric_version = 2
+      expiration_interval = "5m"
+    {{- end }}
+
+    # Numeric telemetry: floats (level_points / rssi_dbm / uptime_s ingest as
+    # float too — harmless, and one parser keeps this simple).
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.mqtt.host }}:{{ .Values.mqtt.port }}"]
+      client_id = "{{ .Values.mqtt.clientId }}"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.mqtt.qos }}
+      persistent_session = false
+      topics = [
+        "pomona/water/+",
+        "pomona/air/+",
+        "pomona/unit/rssi_dbm",
+        "pomona/unit/uptime_s",
+      ]
+      data_format = "value"
+      data_type = "float"
+      name_override = "pomona"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "pomona/+/+"
+        tags = "_/zone/metric"
+
+    # String topics (status/fw_version retained; sensors = retained JSON
+    # availability map, stored verbatim).
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.mqtt.host }}:{{ .Values.mqtt.port }}"]
+      client_id = "{{ .Values.mqtt.clientId }}-meta"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.mqtt.qos }}
+      persistent_session = false
+      topics = [
+        "pomona/unit/status",
+        "pomona/unit/fw_version",
+        "pomona/unit/sensors",
+      ]
+      data_format = "value"
+      data_type = "string"
+      name_override = "pomona_meta"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "pomona/+/+"
+        tags = "_/zone/metric"

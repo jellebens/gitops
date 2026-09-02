@@ -43,3 +43,20 @@ prometheusRule:
   # register, so they should match near-exactly; 0.1 kW absorbs read-timing skew
   # across a quarter boundary.
   peakDeltaKw: 0.1
+
+  # GATE-BLINDNESS guard (card #196) — its own flag + file
+  # (templates/gate-blind-prometheusrule.yaml) so it can be turned off
+  # independently of the harness. It guards the VALIDITY of the logic-divergence
+  # gate rather than being part of the harness: when inputs_source_match is 0,
+  # jupiter_shadow_logic_divergence is pinned to 0 by construction and its green
+  # 0 proves NOTHING. Becomes moot at zeus decommission (#169) — which is
+  # exactly why it is kept separable.
+  gateBlind:
+    enabled: true
+    releaseLabel: kube-prometheus-stack
+    # Sustained window before the guard fires. Long enough that a brief feed
+    # blip (one stack momentarily on cache/fallback while the other is primary)
+    # during a normal refresh does not page, but the permanent mismatch — 0 for
+    # the entire life of the series since 2026-07-05 — fires within 30m. Matches
+    # the #181 savings-source guard's 30m, for the same reason.
+    for: 30m

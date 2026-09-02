@@ -21,8 +21,12 @@ tlsCertificate:
 
 # Adopt Cortana's existing state PVC in place (no copy). Argo keeps this PVC
 # when extraAgents.cortana is removed and prunes the old hermes-state instead.
+# longhorn since #238 (2026-08-14) — this was the #176 phase-3 pilot candidate
+# (the #175 scar: irreplaceable Cortana state, node-pinned). State copied from
+# the old local-path PV in the #238 window (PV Retain'd as rollback anchor).
 persistence:
   claimName: hermes-cortana-state
+  storageClassName: longhorn
 
 # Cortana's Discord bot. The sealed blob below was sealed for the secret name
 # `hermes-cortana-discord-token` in namespace hermes, so keep that name.
@@ -54,7 +58,8 @@ git:
       encryptedKey: AgC2i4UYp3LeQqvORRM9I/ZLtRT16Ny5mqm4vuMajDh9Awznkg+/NL9Hk4EqaTD+Cpcpy8IOcUTtnQmuinp+nPdg4AnTOv+I2wVkWavqnEq0ylOa24ADyyE8qcTMBH9Tyuj5kuqcwajYGjpbm/QhMKwGx3BkSqKKBoqOwPDr+5WNep9lUHFgzAu8Q2bd6D/cH70vAjXCFDJZYllYFLypEyPBVKd5anY8oGZr2WCAsNm1Orni0LsrlFu3xTA+A4jiah9wqGu/L9U5ZbHVjX6FTbDkYdxkehJ4H6KfXLa8Kc8K1spHR0Za4FtzWLGX68jkULQYkzUdly515hU40bf7XZqJ/t7WQHWHrNWupDVpBM0CiqnQjeGEjuQnaNi/BKPSdwBdbk+lQxeSwj7Ofvj+C1vYqCSeqT80mLyFBEOeAdi6M0FLA/DnMQKX01k6pnw3uqyg0fKo/HhzoQgEUTiC+UPszY+YUnFUJhhe8EUEY4KmrrcG2jQ1R6drgFJBMsNrhHWQ5gGv0d7f3bnhcybFlEyk2Cugyz4rDWkXEemTinodGvequ+oXtVp6Rngv083Hpa5y7pTK3LfYjo8uKtKfXwv0xTSH+HooVahY04ULeC8YGf11y0L/1W5oxxvdMox94rJpT/P8Y8FaI/r8J5zYIRenXkMfUlXNikRYd2B3j/fIZcrwyMN1aVT7IeQkp0iauDDpw2cED7JFcETfSINjDXmnpMVfPbOWOEDlE0opm9kX/C3wCrgawtTDvYiyW0PYFN1463usxLBiLOwrzZjqhD/GbJMvo5lV53DOIW84w4xXQ6pZYvDCtcNIPPeszIwVOa72w044JeRO2a0dkSRDmb5TabVY5rLf9+3jKmds3CxvKZx1QFt/GdLy09Q1ymtU0xoiWWZ3Dq6SMJnxXJHevacq46w+WCHXynzkU3yfkmfO963yGWgfzuw+Fi+gQ0ppXbhp1Uz/5LZ/JmI5NUoYLpbrbqcbkPEmPa+odq4k1JwJdmrw57eKHnODBITwillt2WFbdvnxCWqshQf1was8phMn5K+1LuISoLqATmOh8XuLUUNWpwDx9ihZZL3YNUx36jgDejTMRsATOz8tZuo86mPgdkyhWhzuLuXMkw98uu/9XzlL5RRehoMEmuUsnHvvDtv6H09bSk9UQfe1WwTrKdEoGH4e8bWKhvNhfaALl2kbMZq7flKSBt0HiUxBSSQpfYe7kuIqcS3okQypOWlgjrRKXsG2ss5on9/i8yW3qfyeg0OHxNQ8MHPvxyAlrYY6icFg/u0uCoWwktM0HZRGQPUU2uab9w==
 
 # --- Nightly SQLite-safe backup to SMB ------------------------------------
-# SQLite (WAL) can't live on CIFS; live state stays on local-path and is backed
-# up to the smb-cortana StorageClass nightly via the online .backup API.
+# SQLite (WAL) can't live on CIFS; live state stays on block storage (longhorn
+# since #238; ext4-on-iSCSI is WAL-safe) and is backed up to the smb-cortana
+# StorageClass nightly via the online .backup API.
 backup:
   enabled: true

@@ -1,298 +1,212 @@
-# PLAN — dashboard `zeus_*` → `jupiter_lar_*` migration (P4 tail)
+# PLAN — kiosk dashboard `zeus_*` → jupiter migration
 
-**Status:** PLAN only. **No dashboard was touched, reflowed, or edited.** Kiosk
-layout is a HARD-rule no-go for this work. This document inventories the current
-`zeus_*` usage, maps it to `jupiter_lar_*`, flags the gaps, and sequences a
-cutover that is gated on zeus decommission (~August). It is deliberately
-actionable-but-not-executed.
+**Status:** REFRESHED 2026-07-20 against live Prometheus (read-only PromQL via a
+port-forward to `kube-prometheus-stack-prometheus`). This supersedes the original
+"P4 tail" draft, which predated (a) the dashboard renames, (b) the now-live
+`jupiter_reporting_*` namespace, `jupiter_savings_*` family, and
+`jupiter_savings_today_eur`, and (c) the #164 savings-parity sign-off. The old
+draft's central claim — *"jupiter_lar_* is a skeleton that emits no savings and
+no SoC/energy, so a name-for-name migration is impossible"* — is **no longer
+true**. A reporting-service now mirrors most kiosk series as `jupiter_reporting_*`
+and a savings-service emits `jupiter_savings_*`, all `site_id=tervuren`, all
+verified emitting live.
 
-**Decision context:** ADR-0022 (`jupiter_*` namespace + `zeus_*` dual-emit
-continuity, D3) and ADR-0023 (zeus stays running as a live cross-check;
-single-controller interlock keys on zeus's `commander` signal). Read those two
-first — the migration timing hangs entirely on the ADR-0023 end state.
-
----
-
-## The finding that reframes this whole plan
-
-ADR-0022 assumed the classic cutover: at go-live zeus goes to `replicas: 0`, and
-the lar turns **ON** a `zeus_*` **dual-emit** alias so dashboards keep working
-without a gap, then migrate to `jupiter_*` one at a time.
-
-**That is not what went live.** ADR-0023 (the actual 2026-07-06 go-live decision)
-kept **zeus running, demoted** (`control.enabled: false`, `commander == 0`). zeus
-therefore **keeps emitting every `zeus_*` series it always did**, including the
-savings source of truth. Consequences for this plan:
-
-- **The lar's `zeus_*` dual-emit is NOT on** (and must not be) — if the lar also
-  emitted `zeus_*` for tervuren while zeus is still emitting them, the two would
-  collide and poison `max()`/`last()` aggregations. Verified against the live
-  lar code (`services/lar/jupiter_lar/metrics.py`): the lar emits **only**
-  `jupiter_lar_*`, no `zeus_*` alias. ADR-0023 §Consequences confirms: "zeus
-  keeps emitting `zeus_*` including the savings series, so the kiosk source of
-  truth never gaps."
-- **Therefore the dashboards do NOT need to change during the soak.** They keep
-  reading `zeus_*` from the still-running zeus. The migration to `jupiter_lar_*`
-  is **gated on zeus decommission** (the eventual `replicas: 0`, ~August) — the
-  moment `zeus_*` stops being produced is the moment the dashboards must already
-  be on `jupiter_lar_*` (or the lar's dual-emit must be turned on as a bridge).
-
-So this is a *pre-staged* migration: build/verify the `jupiter_lar_*` panels now
-against the live shadow/live lar metrics, but do not flip the kiosk until the
-decommission card.
-
-## The gap that blocks a clean cutover (most important)
-
-**`jupiter_lar_*` today is a SKELETON metric set. It does not emit most of what
-the kiosk needs, and it emits NO savings series at all.**
-
-The live lar exposes exactly these Prometheus series (from
-`services/lar/jupiter_lar/metrics.py`, every one labeled `site_id`):
-
-```
-jupiter_lar_cycles_total{site_id,outcome}
-jupiter_lar_plan_cost_eur{site_id}
-jupiter_lar_target_charge_kw{site_id}
-jupiter_lar_target_discharge_kw{site_id}
-jupiter_lar_price_source{site_id}          # 0=primary 1=cache 2=none
-jupiter_lar_forecast_source{site_id}       # 0=primary 1=cache 2=none
-jupiter_lar_last_cycle_timestamp_seconds{site_id}
-jupiter_lar_build_info{version}
-jupiter_lar_control_available{site_id}
-jupiter_lar_actual_mode{site_id}
-jupiter_lar_live_actuating{site_id}
-jupiter_lar_ha_read_ok / jupiter_lar_ha_read_errors_total{site_id}
-```
-
-Its own metrics docstring says so: *"This is a SKELETON metric set … The rich
-per-slot plan/savings/peak series (the zeus `zeus_*` set) … land with the
-plan-doc + publish card (#140)."* The lar's richer state (SoC, per-slot plan) is
-published **to MQTT** (`jupiter/<site_id>/plan`, `…/heartbeat`) and is **not** a
-Prometheus series a Grafana panel can scrape today. The lar does **not** write to
-InfluxDB at all (its `degraded.influx` flag is a placeholder).
-
-**Net:** a straight name-for-name kiosk migration is **impossible right now** —
-the target series mostly don't exist yet. This plan therefore has a hard
-dependency on a jupiter metrics-parity card (the `#140`/`#137` line of work)
-before the kiosk can move.
+This doc is the spec for the tranche-2 query migration (card #198). Tranche 1
+(#165 / gitops PR #222) already migrated the OK-mapped **health/plan** series
+(target charge/discharge, last-cycle timestamp, control-available) to
+`jupiter_lar_*` in `battery-kiosk.json`, `mission-control.json`,
+`ops-resources-use.json`.
 
 ---
 
-## Inventory: `zeus_*` series in use, by dashboard and datasource
+## Superseded rule: savings source of truth
 
-Verified by parsing every dashboard JSON under
-`landingzones/zeus/dashboards/`. **No dashboard filters on `site_id`** (0 refs),
-so the backfill and any per-site work are non-breaking here.
+Prior guidance pinned savings to zeus (`zeus_battery_savings_today` /
+`zeus_savings_today_eur`) as the incumbent controller-agnostic figure. **As of
+2026-07-20 that is SUPERSEDED.** The jupiter reporting-service is now the live
+savings source of truth: `jupiter_reporting_savings_source{source="independent"} = 1`
+(verified live), and the #164 savings-parity soak signed off 2026-07-20
+(certified **savings-parity only, NOT logic-equivalence**). Savings tiles
+therefore migrate to `jupiter_savings_today_eur`.
 
-### `zeus-kiosk-ops.json` (the live kiosk)
-- **Prometheus (all live tiles):** `zeus_soc_percent`, `zeus_grid_power_w`,
-  `zeus_capacity_peak_kw`, `zeus_actual_mode_code`, `zeus_price_position_pct`,
-  `zeus_control_available`, `zeus_cycle_failures_total`,
-  `zeus_last_cycle_timestamp_seconds`, `zeus_solver_optimal`.
-- **InfluxDB (one panel):** "Consumption heatmap (kW)" reads `zeus_state`
-  (the live, `site_id=tervuren`-tagged wide measurement).
-
-### `zeus-kiosk.json`
-- **Prometheus:** `zeus_soc_percent`, `zeus_savings_today_eur`,
-  `zeus_energy_stored_kwh`, `zeus_energy_charged_today_kwh`,
-  `zeus_energy_discharged_today_kwh`, `zeus_target_charge_kw`,
-  `zeus_target_discharge_kw`, `zeus_actual_mode_code`,
-  `zeus_price_position_pct`, `zeus_next_charge_in_seconds`,
-  `zeus_next_discharge_in_seconds`, `zeus_cycle_failures_total`,
-  `zeus_last_cycle_timestamp_seconds`.
-
-### `zeus.json` (ops dashboard)
-- **Prometheus:** savings/cost (`zeus_savings_today_eur`,
-  `zeus_actual_cost_today_eur`, `zeus_baseline_cost_today_eur`,
-  `zeus_plan_cost_eur`), price (`zeus_price_today_eur_per_kwh`,
-  `zeus_price_now_marker_eur_per_kwh`, `zeus_import_price_eur_per_kwh`),
-  `zeus_soc_percent`, `zeus_working_mode`, `zeus_target_charge_kw`,
-  `zeus_target_discharge_kw`, `zeus_grid_power_w`, `zeus_capacity_peak_kw`,
-  energy, cycle/health series.
-
-### `ops-resources-use.json`
-- **Prometheus:** `zeus_control_available`, `zeus_cycle_failures_total`,
-  `zeus_last_cycle_timestamp_seconds`, `zeus_solver_optimal`.
-
-### `zeus-monthly-influx.json` (bucket `zeus`)
-- **InfluxDB:** `zeus_state`, `zeus_daily_savings`, `zeus_forecast`,
-  `zeus_forecast_frozen`, `zeus_forecast_load_kwh`, `zeus_load_history`,
-  `zeus_realized_load_kwh`, `zeus_soc_percent`, `zeus_grid_power_w`,
-  `zeus_mode_code`, `zeus_capacity_peak_kw`, `zeus_import_price_eur_per_kwh`.
-
-### `zeus-forecast-influx.json` (bucket `zeus`)
-- **InfluxDB:** `zeus_forecast`, `zeus_state`,
-  `zeus_predicted_baseline_cost_eur`, `zeus_predicted_optimized_cost_eur`,
-  `zeus_predicted_savings_eur`.
-
-### `home-energy-ha.json` (bucket `homeassistant`)
-- **InfluxDB (HA recorder path):** `entity_id="zeus_battery_savings_today"`
-  (savings source of truth), `zeus_actual_cost_today`,
-  `zeus_baseline_cost_today`. These are HA sensors, not zeus/lar Prometheus
-  series — a different migration story (see §Savings continuity).
+Caveat that follows directly from "parity, not logic-equivalence": the headline
+**net** savings agree within tolerance, but the **decomposition** series
+(baseline/actual cost, charged/discharged kWh) do **not** — see the divergence
+note below.
 
 ---
 
-## Mapping: `zeus_*` → `jupiter_lar_*`, with gaps
+## Dashboard renames (old draft → current files)
 
-Legend: **OK** = lar emits an equivalent Prometheus series today; **MQTT-only** =
-the value exists in the lar's MQTT plan/heartbeat doc but is NOT a Prometheus
-series a panel can scrape; **GAP** = the lar does not produce it anywhere yet.
+The old draft referenced pre-rename filenames. Current files under
+`landingzones/zeus/dashboards/`:
 
-| Kiosk/ops `zeus_*` | jupiter-lar equivalent | State |
+| Old draft name | Current file |
+|---|---|
+| `zeus-kiosk.json` | `battery-kiosk.json` |
+| `zeus-kiosk-ops.json` | `ops-kiosk.json` (+ `mission-control.json`) |
+| `zeus.json` (ops) | `battery-optimizer.json` |
+| `zeus-monthly-influx.json` | `battery-monthly.json` |
+| `zeus-forecast-influx.json` | `forecast-history.json` |
+| (price ops) | `price-grid.json` |
+| (savings ops) | `savings-economics.json` |
+| `home-energy-ha.json` | `home-energy-ha.json` (unchanged) |
+
+Other files: `consumption-analysis.json`, `gitops-data-health.json`,
+`forecast-accuracy.json`, `jupiter-services.json`, `ops-resources-use.json`.
+
+---
+
+## Live jupiter series (verified emitting 2026-07-20, all `site_id=tervuren`)
+
+The live tervuren controller emits `jupiter_lar_*` (note: `jupiter_cell_*` names
+exist in the metric index but return **no live samples** — a stale prefix; do not
+target them). Verified-emitting families relevant to the kiosk:
+
+- `jupiter_reporting_*` — kiosk mirror: `soc_percent`, `energy_stored_kwh`,
+  `price_position_pct`, `import_price_eur_per_kwh`, `capacity_peak_kw`,
+  `target_charge_kw`, `target_discharge_kw`, `price_source` (enum-as-label),
+  `forecast_source` (enum-as-label), `savings_source` (enum-as-label),
+  `controller`, plan metadata. **`jupiter_reporting_grid_power_w` exists in the
+  index but is NOT emitting** (no live sample).
+- `jupiter_savings_*` — `today_eur`, `actual_eur`, `baseline_eur`,
+  `charged_today_kwh`, `discharged_today_kwh`, plus parity metrics
+  (`parity_abs_eur`, `parity_signed_eur`, `parity_rel_ratio`).
+- `jupiter_lar_*` — live-controller state: `soc_pct`, `actual_mode` (0/1/2),
+  `target_charge_kw`, `target_discharge_kw`, `plan_cost_eur`,
+  `control_available`, `last_cycle_timestamp_seconds`,
+  `cycles_total{outcome=...}` (only `outcome="planned"` currently emits),
+  `price_source` (0/1/2 code), `live_actuating`, spike-responder series.
+- Standalone: `jupiter_quarter_mean_kw`, `jupiter_quarter_headroom_kw`,
+  `jupiter_charge_guard_trips_total`.
+
+---
+
+## Live cross-check (zeus vs jupiter, same physical battery)
+
+Instant values sampled 2026-07-20 confirm which mappings are drop-in safe. Same
+battery → matching values validate the mapping; divergent values flag a
+definitional mismatch.
+
+| Series | zeus value | jupiter value | verdict |
+|---|---|---|---|
+| soc | 68 | `jupiter_lar_soc_pct` 68 | **match** |
+| actual_mode | 1 | `jupiter_lar_actual_mode` 1 (range 0-2 = IDLE/CHARGING/DISCHARGING, matches panel mappings) | **match** |
+| energy_stored | 8.84 | `jupiter_reporting_energy_stored_kwh` 9.22 | **match** (sampling noise) |
+| price_position_pct | 0 | `jupiter_reporting_price_position_pct` 0 | **match** |
+| import_price | 0.004293 | `jupiter_reporting_import_price_eur_per_kwh` 0.004293 | **exact match** |
+| capacity_peak | 5.928 | `jupiter_reporting_capacity_peak_kw` 5.928 | **exact match** |
+| quarter_mean_kw | 1.9656 | `jupiter_quarter_mean_kw` 1.9645 | **match** |
+| quarter_headroom_kw | 3.9629 | `jupiter_quarter_headroom_kw` 3.9684 | **match** |
+| charge_guard_trips | 0 | `jupiter_charge_guard_trips_total` 0 | **match** |
+| savings_today_eur | 0.6027 | `jupiter_savings_today_eur` 0.5569 | **match** (parity, #164) |
+| **charged_today_kwh** | **10.783** | `jupiter_savings_charged_today_kwh` **5.763** | **DIVERGE ~2x** |
+| **discharged_today_kwh** | **9.626** | `jupiter_savings_discharged_today_kwh` **4.609** | **DIVERGE ~2x** |
+| **baseline_cost** | **1.088** | `jupiter_savings_baseline_eur` **0.685** | **DIVERGE** |
+| **actual_cost** | **0.5997** | `jupiter_savings_actual_eur` **0.2416** | **DIVERGE** |
+| **price_source** | **4** | `jupiter_lar_price_source` **0** | **DIFFERENT ENUM** |
+| **grid_power_w** | 1964.6 | `jupiter_reporting_grid_power_w` | **NOT EMITTING** |
+
+The decomposition divergence is exactly the #164 caveat ("savings-parity, not
+logic-equivalence"): jupiter's reporting-service reaches the same *net* savings
+via a different baseline/actual accounting basis than zeus. Silently swapping the
+decomposition tiles would show materially different (2x) numbers on a live kiosk
+with no validation — so those tiles stay on zeus_ pending a reconciliation card.
+
+---
+
+## Migration map (tranche-2 scope)
+
+**MIGRATE** — verified emitting + semantically matching, single tervuren series so
+`max(...)` is a clean drop-in:
+
+| `zeus_*` | -> jupiter | tier |
 |---|---|---|
-| `zeus_target_charge_kw` | `jupiter_lar_target_charge_kw{site_id}` | **OK** |
-| `zeus_target_discharge_kw` | `jupiter_lar_target_discharge_kw{site_id}` | **OK** |
-| `zeus_plan_cost_eur` | `jupiter_lar_plan_cost_eur{site_id}` | **OK** |
-| `zeus_control_available` | `jupiter_lar_control_available{site_id}` | **OK** |
-| `zeus_actual_mode_code` | `jupiter_lar_actual_mode{site_id}` | **OK** (verify enum mapping) |
-| `zeus_last_cycle_timestamp_seconds` | `jupiter_lar_last_cycle_timestamp_seconds{site_id}` | **OK** |
-| `zeus_cycle_failures_total` | `jupiter_lar_cycles_total{site_id,outcome="error"}` | **OK** (derive from `outcome`) |
-| `zeus_solver_optimal` | (implied by `jupiter_lar_cycles_total{outcome="planned"}`) | **partial** — no direct boolean; derive or add |
-| `zeus_soc_percent` | `soc_pct` in the MQTT plan doc | **MQTT-only** (no Prom series) |
-| `zeus_energy_stored_kwh` | `plan.soc_kwh[0]` in MQTT plan doc | **MQTT-only** |
-| `zeus_grid_power_w` | (read from HA; lar reads it but doesn't republish as a metric) | **GAP** |
-| `zeus_capacity_peak_kw` | `running_peak_kw` in MQTT plan `inputs` | **MQTT-only** |
-| `zeus_price_position_pct` | — | **GAP** |
-| `zeus_price_today_eur_per_kwh` / marker | — (price lives in the price-service; lar emits only `price_source` enum) | **GAP** |
-| `zeus_import_price_eur_per_kwh` | `import_price_eur` field in `zeus_state` (InfluxDB) | zeus-owned; **GAP** on lar side |
-| `zeus_next_charge_in_seconds` / `..._discharge_..` | — | **GAP** |
-| `zeus_working_mode` | `jupiter_lar_actual_mode{site_id}` | **partial** |
-| **`zeus_savings_today_eur`** | — | **GAP (critical)** |
-| **`zeus_battery_savings_today`** (HA sensor) | — | **GAP (critical)** |
-| `zeus_actual_cost_today_eur` / `zeus_baseline_cost_today_eur` | — | **GAP** |
-| `zeus_predicted_savings_eur` / baseline / optimized | — | **GAP** |
-| `zeus_daily_savings`, `zeus_savings` (InfluxDB history) | — | **GAP** |
-| `zeus_forecast*`, `zeus_load_history`, `zeus_realized_load_kwh` | — (forecast lives in the central forecast-service; lar emits `forecast_source` enum only) | **GAP** on lar side |
-| `zeus_state` (wide InfluxDB measurement) | — (no lar InfluxDB writer at all) | **GAP** |
+| `zeus_soc_percent` | `jupiter_lar_soc_pct` | SoC |
+| `zeus_actual_mode_code` | `jupiter_lar_actual_mode` | mode |
+| `zeus_energy_stored_kwh` | `jupiter_reporting_energy_stored_kwh` | energy |
+| `zeus_price_position_pct` | `jupiter_reporting_price_position_pct` | price |
+| `zeus_import_price_eur_per_kwh` | `jupiter_reporting_import_price_eur_per_kwh` | price |
+| `zeus_capacity_peak_kw` | `jupiter_reporting_capacity_peak_kw` | capacity |
+| `zeus_quarter_mean_kw` | `jupiter_quarter_mean_kw` | capacity |
+| `zeus_quarter_headroom_kw` | `jupiter_quarter_headroom_kw` | capacity |
+| `zeus_charge_guard_trips_total` | `jupiter_charge_guard_trips_total` | capacity |
+| `zeus_savings_today_eur` | `jupiter_savings_today_eur` | savings |
 
-### The critical gap: savings + battery-state
+**GAP — leave on `zeus_*`, note reason** (would blank or mislead a live tile):
 
-- **jupiter-lar emits NO savings series** — not `savings_today`, not a predicted
-  or baseline cost, nothing. Savings is entirely a **GAP**.
-- **jupiter-lar emits NO Prometheus SoC / energy-stored / grid-power series** —
-  those values exist only inside the MQTT plan document, which Grafana cannot
-  scrape as-is.
-- **jupiter-lar writes nothing to InfluxDB** — so the `zeus_state`-backed
-  InfluxDB panels (kiosk heatmap, monthly, forecast dashboards) have **no lar
-  data source** whatsoever.
+| `zeus_*` | reason |
+|---|---|
+| `zeus_grid_power_w` | `jupiter_reporting_grid_power_w` exists in index but emits no live sample |
+| `zeus_price_source` | jupiter enum differs (zeus code 4 vs `jupiter_lar_price_source` 0/1/2; `jupiter_reporting_price_source` is enum-as-label). Needs panel value-mapping rework, not a query swap |
+| `zeus_energy_charged_today_kwh` | ~2x divergence vs `jupiter_savings_charged_today_kwh` (accounting basis differs) |
+| `zeus_energy_discharged_today_kwh` | ~2x divergence vs `jupiter_savings_discharged_today_kwh` |
+| `zeus_baseline_cost_today_eur` | ~1.6x divergence vs `jupiter_savings_baseline_eur` |
+| `zeus_actual_cost_today_eur` | ~2.5x divergence vs `jupiter_savings_actual_eur` |
+| `zeus_working_mode` | stateset (`max by (mode)`) — `jupiter_lar_actual_mode` is a single code, different shape |
+| `zeus_next_charge_in_seconds` / `..._discharge_...` | no jupiter equivalent |
+| `zeus_cycle_failures_total` | `jupiter_lar_cycles_total{outcome="error"}` does not emit (only `outcome="planned"` exists) |
+| `zeus_solver_optimal` | no jupiter boolean equivalent |
+| `zeus_price_now_marker_eur_per_kwh` / `zeus_price_today_eur_per_kwh` / `zeus_price_horizon_eur_per_kwh` | per-slot price curve — jupiter price-service exposes `jupiter_price_curve_points` (a count) but no scrapeable per-slot curve series |
+| `zeus_price_degraded_total` | no jupiter equivalent |
+| `zeus_predicted_peak_kw` | no jupiter equivalent |
+| `zeus_shaving_miss_total` | no jupiter equivalent |
 
-**What would need building before the kiosk can leave `zeus_*`:**
-1. A jupiter metrics-parity pass (the `#140`/`#137` line) that promotes the
-   MQTT-only values (`soc_pct`, energy-stored, per-slot plan, running peak) to
-   Prometheus `jupiter_lar_*` gauges, and adds the missing live gauges
-   (grid power, price position, next-charge/discharge countdowns).
-2. A **savings computation + emission** owner for jupiter (see §Savings
-   continuity — this is a design decision, not just a rename).
-3. If any InfluxDB-backed panel is to move off `zeus_state`, a jupiter InfluxDB
-   writer (site-tagged, per ADR-0019) emitting the equivalent wide measurement —
-   or those panels stay on the (frozen-then-decommissioned) `zeus_state` and get
-   rebuilt against the new series.
+**#222 health/plan family — NOT tranche-2** (leave for the tranche that finishes
+#222's category; already migrated in the 3 files #222 touched, still on `zeus_*`
+in `battery-optimizer.json` / `ops-kiosk.json` where #222 did not reach):
+`zeus_target_charge_kw`, `zeus_target_discharge_kw`, `zeus_plan_cost_eur`,
+`zeus_control_available`, `zeus_last_cycle_timestamp_seconds`.
+
+**Out of scope entirely:**
+- **All InfluxDB-datasource panels** (card #199, historical-data preservation):
+  every Flux/`zeus_state`/`zeus_daily_savings`/`zeus_savings` target in
+  `gitops-data-health.json`, `ops-kiosk.json`, `battery-monthly.json`,
+  `forecast-history.json`, `consumption-analysis.json`, `savings-economics.json`,
+  `home-energy-ha.json`. jupiter has **no InfluxDB writer**, so these series only
+  exist under zeus — the decision (jupiter InfluxDB writer vs retire-with-zeus)
+  is #199's, gated before #169.
+- `forecast-accuracy.json`, `jupiter-services.json`.
 
 ---
 
-## Savings-continuity question (explicit)
+## Panels migrated in tranche 2 (per file)
 
-**The question:** post-cutover, zeus — as the demoted live check — still computes
-`zeus_battery_savings_today` from the actual battery behavior that **jupiter now
-drives**. Is that still the right source of truth, or should jupiter-lar own
-savings before zeus is decommissioned?
+- **battery-kiosk.json**: SoC, Mode (live), Stored, Cheap->Expensive, Savings today.
+- **mission-control.json**: SoC, Mode (live), Stored, Price now, Cheap->Expensive,
+  Savings today, Billed peak.
+- **ops-kiosk.json**: Battery (composite: mode/price-pos/soc), Grid power (refId B
+  = capacity_peak), Capacity peak (W).
+- **battery-optimizer.json**: Battery SoC, State of charge, Savings today, Savings
+  today (running), Import price, Capacity tariff peak, Capacity cross-check
+  (refId B).
+- **price-grid.json**: Import price now, Now cheap->expensive, Cheap->expensive
+  strip, Current quarter mean, Quarter headroom, Billed peak this month,
+  Charge-guard trips (range), Quarter-hour peak tracking (refId B quarter_mean,
+  refId C capacity_peak), Charge-guard trips & shaving misses (refId A).
+- **savings-economics.json**: Savings today (the one Prometheus panel).
 
-**The facts:**
-- zeus's savings is computed from *observed* battery/grid behavior (HA sensors +
-  price curve), **not** from who issued the command. Since the lar now drives the
-  battery, zeus's `zeus_battery_savings_today` is *already measuring the lar's
-  results* — it is an honest, controller-agnostic savings figure today.
-- jupiter-lar has **no** savings series and no savings model wired.
-- Both the Prometheus `zeus_savings_today_eur` and the HA-sensor
-  `zeus_battery_savings_today` (source of truth) are still fresh and live
-  (verified: HA sensor writing at 2026-07-06 17:30).
-
-**Recommendation:**
-1. **During the soak (now → ~August): keep zeus as the savings source of
-   truth.** It is controller-agnostic (measures realized behavior, not who
-   commanded), it is the incumbent with a year of continuous history, and
-   ADR-0023 explicitly keeps it emitting for exactly this reason. Do **not** rush
-   a jupiter savings series while zeus is warm — a second savings computation
-   during the soak just invites a divergence to explain.
-2. **Before zeus decommission, jupiter must take over savings** — otherwise the
-   source of truth vanishes with zeus. The clean design is a **central savings
-   owner** (not the per-site lar): savings is a reporting/accounting concern that
-   reads the realized battery series + the price curve, which is exactly the
-   central-services shape jupiter already uses for price/forecast. Building it
-   central (site-tagged `jupiter_savings_today{site_id}` + an InfluxDB history
-   series) keeps it fleet-ready and off the lar's safety-critical control path.
-   The lar staying savings-free is a feature: nothing on the actuation path
-   should depend on a reporting computation.
-3. **Cross-check overlap:** run the jupiter savings series in parallel with
-   zeus's for at least a soak window, diff them (they should agree, since both
-   read the same realized behavior), and only then flip the kiosk's savings panel
-   and retire `zeus_battery_savings_today`. This is the savings-series-continuity
-   requirement ADR-0022 calls out ("the daily savings history must read
-   unbroken — it is the kiosk's source of truth").
-
-**Bottom line:** zeus stays the savings source of truth through the soak;
-jupiter should own savings **centrally** (not in the lar) as a pre-decommission
-deliverable, verified against zeus before the kiosk's savings panel migrates.
+**HARD RULE honored:** every edit is a `targets[].expr` string swap on a
+Prometheus target only. No `gridPos`, no panel move/resize/reflow, no datasource
+type change (all already `prometheus`). Proven by jq gridPos-diff vs
+`origin/develop`.
 
 ---
 
-## Migration sequence (recommended order)
+## Remaining decommission blockers (before #169, ~2026-08-06)
 
-Both `zeus_*` and `jupiter_lar_*` coexist during the soak. Nothing on the kiosk
-moves until the decommission gate. Order:
-
-**Phase A — during the soak (no dashboard edits to the live kiosk).**
-- A0. Land the jupiter metrics-parity work (#140/#137): promote MQTT-only lar
-  values to Prometheus `jupiter_lar_*` gauges; add the missing live gauges;
-  decide the InfluxDB-writer question. **Blocks everything below.**
-- A1. Land the central jupiter savings owner (see §Savings continuity), running
-  in parallel with zeus for cross-check.
-- A2. Build a **parallel** "jupiter" copy of the ops dashboard (a NEW dashboard,
-  not an edit of the kiosk) wired to `jupiter_lar_*` with a `site_id` template
-  variable. This is where you validate parity visually without touching the
-  kiosk. (New file under `landingzones/zeus/dashboards/` or a jupiter landing
-  zone — additive, no reflow of anything existing.)
-- A3. For InfluxDB history panels, keep them on `zeus_state` (still live +
-  tagged). If a jupiter InfluxDB writer lands, add its series alongside and use
-  the ADR-0019 transition predicate.
-
-**Phase B — dual-source transition panels (still no kiosk reflow).**
-- For each parity-verified series, make the corresponding NEW-dashboard panel a
-  **dual-source** query: `max(zeus_X or jupiter_lar_X_equivalent)` (or an
-  explicit two-query overlay), so the panel is correct whether the value comes
-  from zeus or the lar. This makes the eventual zeus-off flip a no-op for those
-  panels. Candidate dual-source panels first: target charge/discharge, plan cost,
-  control-available, mode, cycle/last-cycle health — the **OK**-mapped series.
-
-**Phase C — cutover, GATED on zeus decommission (~August).**
-- Only when zeus goes `replicas: 0` (the decommission card) does `zeus_*` stop.
-  At that gate, either (a) the kiosk has already been re-pointed to
-  `jupiter_lar_*` (preferred — do the re-point as a scoped, panel-by-panel edit
-  that changes only the query/datasource, **never the gridPos**), or (b) the lar
-  turns on `zeus_*` dual-emit as a temporary bridge (ADR-0022's original
-  mechanism) so the kiosk keeps working while panels migrate one at a time.
-- Migrate **one dashboard / one panel at a time**, grep-verifying which `zeus_*`
-  names are still queried after each step. Retire a dual-emitted / zeus name only
-  when nothing queries it (per-dashboard, not per-calendar — ADR-0022 §4).
-- **HARD rule throughout: query/datasource edits only; never move, resize, or
-  reflow a tile.** Each panel migration is a scoped change to that panel's
-  `targets[]`, nothing else.
-
-**Recommended first migrations (lowest risk, highest parity):** the **OK**-mapped
-health/plan series (`target_charge_kw`, `target_discharge_kw`, `plan_cost_eur`,
-`control_available`, `actual_mode`, `last_cycle_timestamp`, cycle counters).
-**Last / most-blocked:** savings + SoC + InfluxDB-history panels, which depend on
-the parity build (A0) and the central savings owner (A1).
-
-## Open items to file as cards (out of scope for this PLAN)
-- Jupiter metrics-parity: promote lar MQTT-only values to Prometheus + add
-  missing live gauges (blocks the kiosk migration).
-- Central jupiter savings owner + InfluxDB history (blocks retiring the zeus
-  savings source of truth).
-- Decision: does jupiter write to InfluxDB (a site-tagged wide measurement
-  mirroring `zeus_state`) for the history/heatmap panels, or are those panels
-  rebuilt against Prometheus/new series?
-- HA-side: if the `homeassistant`-bucket savings sensor is to survive zeus, its
-  HA source (`sensor.zeus_battery_savings_today`) needs a jupiter-fed
-  replacement — a hestia (HA-config) concern.
+1. **InfluxDB history has no jupiter writer** (#199) — the `zeus_state` /
+   `zeus_daily_savings` history panels blank when zeus stops unless jupiter grows
+   an InfluxDB writer or the panels are rebuilt/retired.
+2. **grid_power_w** — needs `jupiter_reporting_grid_power_w` to actually emit.
+3. **price_source / forecast_source** — enum reshape (numeric code vs
+   enum-as-label) requires panel value-mapping rework.
+4. **energy/cost decomposition** (charged/discharged, baseline/actual) — reconcile
+   the ~2x accounting divergence and decide the source of truth (ties to #197
+   logic-equivalence A/B).
+5. **per-slot price curve** (marker/today/horizon) — needs a scrapeable jupiter
+   series.
+6. **next-charge/discharge countdowns, predicted_peak, shaving_miss,
+   solver_optimal, cycle error counter** — no jupiter equivalent yet.
+7. **#222 health/plan tail** in `battery-optimizer.json` / `ops-kiosk.json`
+   (target/plan_cost/control/last_cycle) — finish that category's migration.

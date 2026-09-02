@@ -87,7 +87,8 @@ spec:
               More than 3 container restarts in 30m in jupiter-central/price-service.
               Check pod events and logs (image pull, PVC bind, crash on boot).
         - alert: JupiterPriceFeedDegraded
-          # The ENTSO-E feed behind the service is unhealthy, mirroring
+          # The day-ahead feed behind the service (Nord Pool Data Portal since
+          # v0.19.0/#264; ENTSO-E before that) is unhealthy, mirroring
           # ZeusPriceSourceDegraded (30m of degraded input, warning). Two
           # signals, either sustained for 30m:
           #   - jupiter_price_cooldown_active == 1: retries were exhausted
@@ -110,9 +111,9 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: jupiter price-service ENTSO-E feed is degraded
+            summary: jupiter price-service day-ahead feed (Nord Pool) is degraded
             description: >-
-              The price-service has been in ENTSO-E retry cooldown and/or
+              The price-service has been in Nord Pool retry cooldown and/or
               serving curves last fetched more than 26h ago for 30m. Serves
               ride the last-good cache (consumers still get curves), but the
               upstream feed needs attention.

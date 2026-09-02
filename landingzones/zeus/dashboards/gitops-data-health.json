@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "GitOps & data health (#129): the Argo CD application matrix (sync/health per app — the 'would have caught the mqtt OutOfSync at a glance' view), InfluxDB data freshness for the key zeus measurements (staleness matters more than engine internals — ADR-0011), and InfluxDB pod/PVC health. Datasources: prometheus + influxdb (both static-mounted).",
+  "description": "GitOps & data health (#129): the Argo CD application matrix (sync/health per app — the 'would have caught the mqtt OutOfSync at a glance' view), InfluxDB data freshness for the key jupiter measurements (staleness matters more than engine internals — ADR-0011), and InfluxDB pod/PVC health. Datasources: prometheus + influxdb (both static-mounted).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -233,7 +233,7 @@
     {
       "id": 101,
       "type": "row",
-      "title": "InfluxDB — zeus data freshness (age of last point)",
+      "title": "InfluxDB — jupiter data freshness (age of last point)",
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
       "panels": []
@@ -241,8 +241,8 @@
     {
       "id": 10,
       "type": "stat",
-      "title": "zeus_state — age",
-      "description": "Age of the newest zeus_state point (full operational state, written every 15-min optimizer cycle). Healthy: under ~16 min. Orange = 2 missed cycles (30 min), red = 4 (1 h).",
+      "title": "jupiter_state — age",
+      "description": "Age of the newest jupiter_state point (full operational state, written every 15-min optimizer cycle). Healthy: under ~16 min. Orange = 2 missed cycles (30 min), red = 4 (1 h).",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 27 },
       "fieldConfig": {
@@ -258,13 +258,13 @@
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"zeus_state\" and r._field == \"soc_pct\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"jupiter_state\" and r._field == \"soc_pct\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
     },
     {
       "id": 11,
       "type": "stat",
-      "title": "zeus_savings — age",
-      "description": "Age of the newest zeus_savings point (today's realized savings, written each 15-min cycle when the savings report computes). Slightly laxer than zeus_state because it is gated on the report: orange 45 min, red 2 h.",
+      "title": "jupiter savings — age",
+      "description": "Age of the newest jupiter savings point (today's realized savings, written each 15-min cycle when the savings report computes). Slightly laxer than jupiter_state because it is gated on the report: orange 45 min, red 2 h.",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 27 },
       "fieldConfig": {
@@ -280,13 +280,13 @@
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"zeus_savings\" and r._field == \"today_eur\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"jupiter_state\" and r._field == \"savings_today_eur\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
     },
     {
       "id": 12,
       "type": "stat",
-      "title": "zeus_load_history — age",
-      "description": "Age of the newest zeus_load_history point (realized hourly load; the point is STAMPED at the last completed hour, so 1–2 h is normal). Orange 3 h, red 6 h — the forecaster trains on this series.",
+      "title": "jupiter_load_history — age",
+      "description": "Age of the newest jupiter_load_history point (realized hourly load; the point is STAMPED at the last completed hour, so 1–2 h is normal). Orange 3 h, red 6 h — the forecaster trains on this series.",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 6, "x": 12, "y": 27 },
       "fieldConfig": {
@@ -302,13 +302,13 @@
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-        "query": "from(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"zeus_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"jupiter_load_history\" and r._field == \"kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
     },
     {
       "id": 13,
       "type": "stat",
-      "title": "zeus_forecast_frozen — age",
-      "description": "Age of the newest zeus_forecast_frozen point. Written once per cycle, stamped at the NEXT slot start (~+15 min), so a healthy value is NEGATIVE (up to -15 min). It only climbs positive when zeus stops writing: orange 30 min, red 1 h.",
+      "title": "jupiter_forecast_frozen — age",
+      "description": "Age of the newest jupiter_forecast_frozen point. Written once per cycle, stamped at the NEXT slot start (~+15 min), so a healthy value is NEGATIVE (up to -15 min). It only climbs positive when the jupiter writer stops: orange 30 min, red 1 h.",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 27 },
       "fieldConfig": {
@@ -324,13 +324,13 @@
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h, stop: 2h)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -48h, stop: 2h)\n  |> filter(fn: (r) => r._measurement == \"jupiter_forecast_frozen\" and r._field == \"load_kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Age\"})" } ]
     },
     {
       "id": 14,
       "type": "stat",
-      "title": "zeus_forecast — horizon remaining",
-      "description": "How far into the FUTURE the newest zeus_forecast point reaches (the whole 36 h horizon is rewritten every cycle, so healthy is ~35–36 h and it shrinks when zeus stops). Orange under 30 h, red under 24 h.",
+      "title": "jupiter_forecast — horizon remaining",
+      "description": "How far into the FUTURE the newest jupiter_forecast point reaches (the whole 36 h horizon is rewritten every cycle, so healthy is ~35–36 h and it shrinks when the jupiter writer stops). Orange under 30 h, red under 24 h.",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 32 },
       "fieldConfig": {
@@ -346,7 +346,7 @@
       },
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "auto", "textMode": "value", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [ { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-        "query": "from(bucket: \"zeus\")\n  |> range(start: -6h, stop: 48h)\n  |> filter(fn: (r) => r._measurement == \"zeus_forecast\" and r._field == \"load_kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: r._time) - int(v: now())) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Horizon remaining\"})" } ]
+        "query": "from(bucket: \"zeus\")\n  |> range(start: -6h, stop: 48h)\n  |> filter(fn: (r) => r._measurement == \"jupiter_forecast\" and r._field == \"load_kwh\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({ r with _value: float(v: int(v: r._time) - int(v: now())) / 1000000000.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Horizon remaining\"})" } ]
     },
     {
       "id": 15,
@@ -357,7 +357,7 @@
       "options": {
         "mode": "markdown",
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "Thresholds derive from each series' write cadence in `zeus/main.py` (all writes happen in the 15-min optimizer cycle):\n\n| measurement | cadence / stamping | orange | red |\n|---|---|---|---|\n| `zeus_state` | every cycle, stamped *now* | 30 min (2 missed cycles) | 1 h |\n| `zeus_savings` | every cycle, gated on the savings report | 45 min | 2 h |\n| `zeus_load_history` | hourly series, stamped at the last **completed** hour (1–2 h age is normal) | 3 h | 6 h |\n| `zeus_forecast_frozen` | once per cycle, stamped at the **next** slot (healthy age is negative) | 30 min | 1 h |\n| `zeus_forecast` | whole 36 h horizon rewritten every cycle → tracked as *horizon remaining*, not age | < 30 h | < 24 h |\n\nAll queries `group()` across tags, so the `site_id=tervuren` tagging (JUPITER D5) and older untagged points are both covered."
+        "content": "Thresholds derive from each series' write cadence in the jupiter reporter (all writes happen in the 15-min optimizer cycle):\n\n| measurement | cadence / stamping | orange | red |\n|---|---|---|---|\n| `jupiter_state` | every cycle, stamped *now* | 30 min (2 missed cycles) | 1 h |\n| `jupiter savings` | every cycle, gated on the savings report | 45 min | 2 h |\n| `jupiter_load_history` | hourly series, stamped at the last **completed** hour (1–2 h age is normal) | 3 h | 6 h |\n| `jupiter_forecast_frozen` | once per cycle, stamped at the **next** slot (healthy age is negative) | 30 min | 1 h |\n| `jupiter_forecast` | whole 36 h horizon rewritten every cycle → tracked as *horizon remaining*, not age | < 30 h | < 24 h |\n\nAll queries `group()` across tags, so the `site_id=tervuren` tagging (JUPITER D5) and older untagged points are both covered."
       }
     },
     {

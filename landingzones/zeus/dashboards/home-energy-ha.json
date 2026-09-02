@@ -9,7 +9,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Battery savings today (zeus — source of truth)",
+      "title": "Battery savings today (jupiter — source of truth)",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -27,11 +27,7 @@
       "options": { "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false }, "orientation": "horizontal", "textMode": "value_and_name", "colorMode": "value", "graphMode": "area", "justifyMode": "center" },
       "targets": [
         { "refId": "A", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_battery_savings_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" },
-        { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_baseline_cost_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Baseline cost today\"})" },
-        { "refId": "C", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_actual_cost_today\" and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Actual cost today\"})" }
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => (r.entity_id == \"zeus_battery_savings_today\" or r.entity_id == \"jupiter_battery_savings_today\") and r._field == \"value\") |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" }
       ]
     },
     {
@@ -142,10 +138,8 @@
           "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\ntodayStart = date.truncate(t: now(), unit: 1d)\nfrom(bucket: \"homeassistant\") |> range(start: todayStart) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_consumption_kwh\" and r._field == \"value\") |> spread() |> rename(columns: {_value: \"Grid import\"})" },
         { "refId": "B", "datasource": { "type": "influxdb", "uid": "influxdb" },
           "query": "import \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Brussels\")\ntodayStart = date.truncate(t: now(), unit: 1d)\nfrom(bucket: \"homeassistant\") |> range(start: todayStart) |> filter(fn: (r) => r.entity_id == \"utility_room_home_energy_meter_electric_production_kwh\" and r._field == \"value\") |> spread() |> rename(columns: {_value: \"Grid export\"})" },
-        { "refId": "C", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_actual_cost_today\" and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Grid cost today\"})" },
         { "refId": "D", "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => r.entity_id == \"zeus_battery_savings_today\" and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" }
+          "query": "from(bucket: \"homeassistant\") |> range(start: -25h) |> filter(fn: (r) => (r.entity_id == \"zeus_battery_savings_today\" or r.entity_id == \"jupiter_battery_savings_today\") and r._field == \"value\") |> last() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Net savings today\"})" }
       ]
     },
     {

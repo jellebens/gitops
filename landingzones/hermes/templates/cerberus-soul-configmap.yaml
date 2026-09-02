@@ -1,0 +1,13 @@
+{{- if .Values.cerberus.soul }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-cerberus-soul
+  namespace: hermes
+  labels:
+    app.kubernetes.io/name: hermes
+    app.kubernetes.io/part-of: hermes
+data:
+  SOUL.md: |-
+    {{- .Values.cerberus.soul | nindent 4 }}
+{{- end }}

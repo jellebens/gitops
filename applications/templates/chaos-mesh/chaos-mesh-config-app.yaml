@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chaos-mesh-config
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Local config riding next to the upstream chaos-mesh chart (same split as
+    # longhorn / longhorn-config): an ingress-only CiliumNetworkPolicy from
+    # birth (#189). One wave after the chaos-mesh app (wave 20) so the
+    # namespace exists first.
+    argocd.argoproj.io/sync-wave: "21"
+spec:
+  project: platform-services
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      path: platform/chaos-mesh-config
+      helm:
+        releaseName: chaos-mesh-config
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/chaos-mesh-config.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos-mesh
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

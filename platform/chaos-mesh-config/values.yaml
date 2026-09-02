@@ -1,0 +1,11 @@
+# Config riding next to the upstream chaos-mesh chart (deployed by the
+# `chaos-mesh` Argo app from .config/<env>/chaos-mesh.yaml). This chart only
+# adds the repo-convention extra: a CiliumNetworkPolicy from birth (#189).
+# See README.md for the full card #189 findings and runbook.
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (repo convention — mqtt/zeus/
+# longhorn): egress stays fully open; ingress to every pod in chaos-mesh is
+# limited to in-cluster sources (denies `world` = the LAN). Details in
+# templates/ciliumnetworkpolicy.yaml. One-line disable: set to false.
+networkPolicy:
+  enabled: true

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: chaos-mesh-config
+description: >-
+  Local config next to the upstream chaos-mesh chart — ingress-only
+  CiliumNetworkPolicy that keeps the (destructive) chaos-mesh control plane
+  and dashboard off the LAN (card #189).
+type: application
+version: 0.1.0
+appVersion: "2.8.2"

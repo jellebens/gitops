@@ -44,3 +44,8 @@ backup:
     buckets:
       - zeus
       - homeassistant
+      # pomona hydroponics telemetry (card #222). The bucket itself is
+      # owner-created pre-deploy (landingzones/pomona/README.md) — it must
+      # exist before this list entry takes effect, or the hourly export logs
+      # errors for it.
+      - pomona

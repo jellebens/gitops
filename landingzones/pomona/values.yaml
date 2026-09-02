@@ -1,0 +1,99 @@
+# Telegraf ingestion bridge: subscribes to the pomona/# MQTT telemetry and
+# writes it to InfluxDB. Official multi-arch image (includes linux/arm64 —
+# required, the k3s cluster is arm64). Pinned minor; bump deliberately.
+image:
+  repository: telegraf
+  tag: "1.31-alpine"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# MQTT source (non-secret half). The broker is the platform EMQX cluster —
+# always the mqtt.lab.local VIP, never a pod/node IP (platform/mqtt README).
+# Credentials (MQTT_USER / MQTT_PASS) come from the pomona-secrets SealedSecret:
+# the DEDICATED least-privilege `pomona-ingest` broker user (subscribe-only on
+# pomona/#) — NOT the `pomona` device user the firmware publishes with.
+mqtt:
+  host: mqtt.lab.local
+  port: 1883
+  clientId: pomona-ingest
+  qos: 1
+
+# InfluxDB sink (non-secret half). Same instance/org as zeus/jupiter; dedicated
+# `pomona` bucket (owner-created pre-deploy, 365d retention — see README).
+# INFLUX_TOKEN comes from the pomona-secrets SealedSecret (a scoped write token
+# for the pomona bucket — see README owner steps).
+influx:
+  url: http://influxdb-influxdb2.influxdb
+  org: zeus
+  bucket: pomona
+
+# Secret injected as env (MQTT_USER / MQTT_PASS / INFLUX_TOKEN); telegraf.conf
+# references them as ${VAR}. Provide the sealed values in .config/<env>/pomona.yaml
+# (kubeseal). The Deployment mounts the resulting Secret with envFrom
+# (optional, so first sync does not block before the owner seals real creds).
+secret:
+  name: pomona-secrets
+  sealedSecret:
+    enabled: true
+    encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", INFLUX_TOKEN: "Ag..." }
+
+# Telegraf's prometheus_client output: self-telemetry (inputs.internal) plus a
+# mirror of the ingested pomona metrics, scraped by kube-prometheus-stack.
+# Enables future PrometheusRules (e.g. ingest-stalled alerts) without touching
+# the Influx path.
+metrics:
+  enabled: true
+  port: 9273
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  releaseLabel: kube-prometheus-stack
+
+# Scoped CiliumNetworkPolicy, INGRESS-ONLY by design (zeus pattern): default-
+# denies inbound to the pod while leaving egress open (MQTT broker + InfluxDB).
+# Only the Prometheus scrape of the metrics port is admitted.
+networkPolicy:
+  enabled: true
+  metricsScrapeNamespace: observability
+
+# Grafana dashboard provisioned as a ConfigMap, discovered by the
+# kube-prometheus-stack Grafana sidecar (watches all namespaces). The InfluxDB
+# DATASOURCE is NOT touched here — it is static-mounted by observability-config
+# (sidecar reload 403s; known gotcha).
+dashboard:
+  enabled: true
+  sidecarLabel: grafana_dashboard
+  folderAnnotation: grafana_folder
+  # Grafana folder (owner decision: lowercase "pomona"). The sidecar's
+  # folderAnnotation + provider.foldersFromFilesStructure are already enabled in
+  # .config/lab/observability.yaml (#127); unannotated ConfigMaps stay in
+  # General, so this is purely additive — no existing dashboard moves.
+  folder: pomona
+
+runtime:
+  uid: 1000
+  gid: 1000
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Probes hit the prometheus_client /metrics listener; generous thresholds —
+# ingestion is best-effort telemetry, a restart loop helps nobody.
+probes:
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 6

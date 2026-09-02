@@ -11,9 +11,10 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: forecast-service
-  # Recreate: the artifact PVC is RWO on local-path (node-pinned), so a
-  # RollingUpdate surge pod could never bind the volume anyway (same as the
-  # price-service).
+  # Recreate: the artifact PVC is RWO, so a RollingUpdate surge pod landing on
+  # another node could never bind the volume anyway (same as the
+  # price-service). Recreate also keeps the handover clean for the trainer,
+  # which is pinned to whichever node this pod holds the volume on (#240).
   strategy:
     type: Recreate
   template:

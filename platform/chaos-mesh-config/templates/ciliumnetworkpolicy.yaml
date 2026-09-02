@@ -1,0 +1,42 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for the whole chaos-mesh namespace
+# (#189, same deliberate pattern as longhorn/mqtt/zeus).
+#
+# Why this matters: chaos-mesh is an ACTIVE, destructive capability — its
+# dashboard/API can launch pod-kill, network partition/delay and IO-fault
+# experiments against any namespace (zeus/lar/mqtt/HA on the LIVE battery
+# path). It must never be reachable from the LAN. The dashboard's LAN paths
+# are already removed (gateway route dropped + Service pinned to ClusterIP in
+# .config/lab/chaos-mesh.yaml); this policy is the defense-in-depth boundary:
+# "nothing from outside the cluster reaches any chaos-mesh pod".
+#
+# Why ingress-only: in Cilium a policy with only `ingress` rules puts the
+# selected endpoints into default-deny for INGRESS only; their EGRESS stays
+# fully open. A broader egress default-deny is a separate, human-reviewed step.
+# (chaos-mesh egresses to the kube-apiserver and DNS — untouched here.)
+#
+# Why one namespace-wide `fromEntities: [cluster]` rule (mirrors longhorn):
+# chaos-mesh is a mesh of components — controller-manager (webhooks called by
+# the kube-apiserver, a host process on k3s), the chaos-daemon DaemonSet
+# (reached intra-cluster on dynamic-ish ports), the dns-server, and the
+# dashboard. Enumerating ports would be fragile guesswork; the meaningful
+# boundary is simply "in-cluster only". The Cilium `cluster` entity covers all
+# cluster pods AND the local-host/remote-node entities, so kubelet probes,
+# apiserver webhook calls and intra-ns daemon traffic keep working while
+# `world` (the LAN) is denied. The gateway `ingress` entity is deliberately
+# NOT allowed — chaos-mesh has no gateway route (unlike longhorn), so there is
+# no legitimate gateway-borne traffic to permit.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: chaos-mesh
+  namespace: chaos-mesh
+  labels:
+    app.kubernetes.io/name: chaos-mesh
+    app.kubernetes.io/part-of: platform
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromEntities:
+        - cluster
+{{- end }}

@@ -280,13 +280,19 @@ spec:
         # at 0 since #147, so once that release is deployed this series is a
         # live 0/1 rather than absent-until-first-trip.
         - record: jupiter_shadow_guard_conflict
+          # max by(site_id) collapses BOTH operands to one series per site so the
+          # on(site_id) join is strictly 1:1. Without it, multiple lar pod-instance
+          # series (e.g. right after a lar restart, within the 15m increase window)
+          # or multiple zeus series make the vector match "many-to-one" and the
+          # rule fails to evaluate (PrometheusRuleFailures). Semantics unchanged:
+          # 1 iff the lar guard tripped AND zeus's cross-check wanted to charge.
           expr: |
-            (increase(jupiter_charge_guard_trips_total{site_id="{{ .Values.site.id }}"}[15m]) > bool 0)
+            (max by(site_id) (increase(jupiter_charge_guard_trips_total{site_id="{{ .Values.site.id }}"}[15m])) > bool 0)
             * on(site_id)
             (
-              label_replace(
+              max by(site_id) (label_replace(
                 zeus_target_charge_kw, "site_id", "{{ .Values.site.id }}", "", ""
-              ) > bool 0
+              )) > bool 0
             )
 
     # ------------------------------------------------------------------ #

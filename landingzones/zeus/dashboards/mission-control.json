@@ -68,7 +68,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_soc_percent)",
+          "expr": "max(jupiter_lar_soc_pct)",
           "refId": "A"
         }
       ]
@@ -157,7 +157,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_actual_mode_code)",
+          "expr": "max(jupiter_lar_actual_mode)",
           "refId": "A"
         }
       ]
@@ -208,7 +208,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_stored_kwh)",
+          "expr": "max(jupiter_reporting_energy_stored_kwh)",
           "refId": "A"
         }
       ]
@@ -275,80 +275,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_target_charge_kw) - max(zeus_target_discharge_kw)",
+          "expr": "max(jupiter_lar_target_charge_kw) - max(jupiter_lar_target_discharge_kw)",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "-1": {
-                  "text": "none",
-                  "index": 0
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 5,
-        "x": 19,
-        "y": 0
-      },
-      "id": 5,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "vertical",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "10.0.0",
-      "title": "Next",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_next_charge_in_seconds)",
-          "legendFormat": "chg",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(zeus_next_discharge_in_seconds)",
-          "legendFormat": "dis",
-          "refId": "B"
         }
       ]
     },
@@ -398,7 +326,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_import_price_eur_per_kwh)",
+          "expr": "max(jupiter_reporting_import_price_eur_per_kwh)",
           "refId": "A"
         }
       ]
@@ -464,7 +392,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_price_position_pct)",
+          "expr": "max(jupiter_reporting_price_position_pct)",
           "refId": "A"
         }
       ]
@@ -481,7 +409,7 @@
               "type": "value",
               "options": {
                 "0": {
-                  "text": "JUPITER",
+                  "text": "PRIMARY",
                   "color": "green",
                   "index": 0
                 }
@@ -491,7 +419,7 @@
               "type": "value",
               "options": {
                 "1": {
-                  "text": "FALLBACK",
+                  "text": "CACHE",
                   "color": "yellow",
                   "index": 1
                 }
@@ -501,29 +429,9 @@
               "type": "value",
               "options": {
                 "2": {
-                  "text": "CACHE",
-                  "color": "orange",
-                  "index": 2
-                }
-              }
-            },
-            {
-              "type": "value",
-              "options": {
-                "3": {
                   "text": "SAFE-HOLD",
                   "color": "red",
-                  "index": 3
-                }
-              }
-            },
-            {
-              "type": "value",
-              "options": {
-                "4": {
-                  "text": "PARTIAL",
-                  "color": "red",
-                  "index": 4
+                  "index": 2
                 }
               }
             }
@@ -573,7 +481,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_price_source)",
+          "expr": "max(jupiter_lar_price_source)",
           "refId": "A"
         }
       ]
@@ -636,7 +544,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_savings_today_eur)",
+          "expr": "max(jupiter_savings_today_eur)",
           "refId": "A"
         }
       ]
@@ -687,7 +595,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_charged_today_kwh)",
+          "expr": "max(jupiter_savings_charged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -738,7 +646,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_energy_discharged_today_kwh)",
+          "expr": "max(jupiter_savings_discharged_today_kwh)",
           "refId": "A"
         }
       ]
@@ -805,7 +713,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(clamp_min(max(zeus_grid_power_w), 0)[15m:]) / 1000",
+          "expr": "avg_over_time(clamp_min(max(jupiter_reporting_grid_power_w), 0)[15m:]) / 1000",
           "refId": "A"
         }
       ]
@@ -872,7 +780,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(zeus_capacity_peak_kw)",
+          "expr": "max(jupiter_reporting_capacity_peak_kw)",
           "refId": "A"
         }
       ]

@@ -5,8 +5,12 @@ A single [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 **Cortana**, a voice-first personal assistant on Discord. Cortana delegates
 specialised work to short-lived subagents: **Calliope** (writes articles/blog
 posts and commits them to a git repo), **Aetos** (a read-only energy/battery
-analyst that reports on the Zeus optimizer), and **Hebe** (a dependency-update
-watcher that opens draft bump PRs against this gitops repo).
+analyst that reports on the Zeus optimizer), **Hebe** (a dependency-update
+watcher that opens draft bump PRs against this gitops repo), **Plutus** (a
+read-only AI-subscription cost tracker that posts a daily token/spend digest to
+Discord), and **Cerberus** (a READ-ONLY Prometheus watchdog that files triaged
+Trello cards for cluster/battery problems and posts a daily 18:00 owner digest
+to Discord).
 
 Namespace: `hermes`. Deployed by Argo CD (`applications/templates/hermes`,
 sync-wave 30) from this chart, with values layered as:
@@ -35,11 +39,24 @@ cortana ── the single agent (Deployment "hermes")
         │                     toolsets: terminal, web, search, memory
         │                     queries the Zeus optimizer read-only (Prometheus +
         │                     zeus-metrics) and reports charge/mode/price/savings
-        └─ delegate_task ─▶ Hebe (ephemeral dependency-update watcher)
-                              toolsets: terminal, web, search, memory (+ git)
-                              enumerates pinned versions in this gitops repo,
-                              opens one DRAFT bump PR per update into develop
-                              (arm64-only; never merges)
+        ├─ delegate_task ─▶ Hebe (ephemeral dependency-update watcher)
+        │                     toolsets: terminal, web, search, memory (+ git)
+        │                     enumerates pinned versions in this gitops repo,
+        │                     opens one DRAFT bump PR per update into develop
+        │                     (arm64-only; never merges)
+        ├─ delegate_task ─▶ Plutus (ephemeral AI-cost tracker, daily)
+        │                     toolsets: terminal, web, search, memory
+        │                     GETs each AI provider's usage/cost API read-only
+        │                     (Anthropic Admin + OpenAI org usage), posts a daily
+        │                     spend digest to Discord (never mutates anything)
+        └─ delegate_task ─▶ Cerberus (READ-ONLY Prometheus watchdog)
+                              toolsets: terminal, web, search, memory
+                              two INDEPENDENT schedules Cortana enforces:
+                                • every 30 min — poll ALERTS, dedup, file ONE
+                                  triaged Trello card per new firing problem
+                                • daily 18:00 Europe/Brussels — compile the owner
+                                  digest; Cortana posts it to Discord
+                              never mutates the cluster or the battery
   nightly CronJob ── sqlite3 .backup ──▶ SMB share (smb-cortana StorageClass)
 ```
 
@@ -174,6 +191,124 @@ present; otherwise she pushes the branch and reports a ready-to-paste PR body.
 Trigger is **on-demand** via Cortana `delegate_task`; a nightly CronJob (cf. the
 sqlite backup CronJob) is a possible future alternative.
 
+## The Plutus subagent
+
+Same delegation pattern as Calliope/Aetos/Hebe. **Plutus** (Ploutos, the Greek
+god of wealth) is a **read-only AI-subscription cost tracker**. Once a day
+Cortana delegates to him; he pulls yesterday's token usage and spend from each
+configured AI provider's **official usage/cost API** and hands Cortana a compact
+money digest that she posts to her **Discord** home channel. Persona + operating
+manual live in `.Values.plutus.soul` → `hermes-plutus-soul` ConfigMap → mounted
+at `.Values.plutus.soulPath` (`/opt/plutus/SOUL.md`). He is **strictly
+READ-ONLY** — GET requests to documented cost APIs only; he never changes a plan,
+buys credits, rotates a key, or mutates billing/cluster/git/battery, and he
+**never invents a number** (an unconfigured provider is reported as such).
+
+### Data sources (documented provider APIs — no dashboard scraping)
+
+| Provider | Endpoints (GET) | Credential |
+|---|---|---|
+| Anthropic (Claude) | `…/v1/organizations/cost_report` (USD) · `…/v1/organizations/usage_report/messages` (tokens), host `api.anthropic.com` | **Admin API key** `sk-ant-admin…` in the `x-api-key` header + `anthropic-version: 2023-06-01` |
+| OpenAI | `…/v1/organization/costs` (USD) · `…/v1/organization/usage/completions` (tokens), host `api.openai.com` | **Admin key** `sk-admin…` as `Authorization: Bearer` |
+
+Both credentials are **admin-scoped and distinct from the normal inference key** —
+a plain `sk-ant-api…` key or the project OpenAI key hermes already holds **cannot**
+read the org usage/cost report. The Anthropic admin key is created by an org admin
+in the Anthropic Console; the OpenAI admin key by an org owner in the org
+settings. Egress is to `api.anthropic.com` / `api.openai.com` over the pod's open
+egress (the CNP is ingress-only; both hosts are pre-listed in its egress comment
+for a future allow-list).
+
+### Turning Plutus on (owner action — gated + inert by default)
+
+Both providers ship **disabled** (`plutus.<provider>.enabled: false`, empty
+sealed key). The SOUL, the schedule, the ConfigMap and the delegation block all
+render regardless, so Plutus exists as soon as this merges — but with no admin
+key he will report every provider as "unconfigured" and post an all-quiet digest.
+To activate a provider the owner must (1) mint the **admin** key in that
+provider's console, (2) `kubeseal` it, (3) paste the sealed value into
+`.config/lab/hermes.yaml`, and (4) flip that provider's `enabled: true`:
+
+```sh
+# Anthropic (repeat with the OpenAI admin key + hermes-plutus-openai-admin)
+printf '%s' 'sk-ant-admin-...' | kubeseal --raw \
+  --controller-name sealed-secrets --controller-namespace argocd \
+  --namespace hermes --name hermes-plutus-anthropic-admin --from-file=/dev/stdin
+# -> paste into .config/lab/hermes.yaml:
+#      plutus.anthropic.enabled: true
+#      plutus.anthropic.sealedSecret.encryptedAdminKey: <sealed value>
+```
+
+The env var (`PLUTUS_ANTHROPIC_ADMIN_KEY` / `PLUTUS_OPENAI_ADMIN_KEY`) and the
+SealedSecret only render when that provider is both `enabled` and has a non-empty
+sealed key, so a half-configured provider never produces a broken Secret ref.
+
+**Schedule / delivery:** one daily delegation at `plutus.digest.schedule`
+(`0 8 * * *`, Europe/Brussels), delivery channel Discord — Cortana enforces it in
+her `system_prompt` (mirrors the Cerberus digest pattern). Kept off Cerberus's
+18:00 slot so the two daily posts don't collide.
+
+## The Cerberus subagent (watchdog + daily digest)
+
+Same delegation pattern as Aetos/Hebe. **Cerberus** (the three-headed hound
+guarding the gate) is a **READ-ONLY Prometheus watchdog**. Card **#187** moved
+it from an owner-machine Claude Code scheduled task into hermes as a native
+`delegate_task` subagent — so its prompt/config is version-controlled here, like
+the other subagents. Persona + operating summary live in `.Values.cerberus.soul`
+→ `hermes-cerberus-soul` ConfigMap → mounted read-only at `.Values.cerberus.soulPath`
+(`/opt/cerberus/SOUL.md`). Its **full routing table** (exact PromQL, severity
+map, per-alert triage, dedup key, card template, topic/list IDs) stays version-
+controlled in [`platform/cerberus/README.md`](../../platform/cerberus/README.md) —
+that is the authoritative operating manual; the SOUL file points at it.
+
+Cortana runs Cerberus on **two independent schedules** (declared in her
+`system_prompt`; canonical values in `.Values.cerberus.watchdog.schedule` /
+`.Values.cerberus.digest.schedule`) so the digest can never delay the watchdog:
+
+| Schedule | Cadence | What it does |
+|---|---|---|
+| Watchdog poll | every 30 min (`*/30 * * * *`) | poll `ALERTS` (+ raw safety-net queries), dedup on the `cerberus-key:` marker, file ONE triaged Trello card in TODO per NEW firing problem |
+| Owner digest | daily 18:00 `Europe/Brussels` (`0 18 * * *`) | compile a ~15-line overview (fleet health, savings + parity + soak clean days, spike-responder observe stats, 24h alerts/cards, anything awaiting an owner click); Cortana posts it to her **Discord** home channel |
+
+**Delivery channel = Discord** (the card left this open at investigate): hermes
+already has Discord egress and a home channel, so Cortana posting the digest is
+the least-moving-parts choice; a pinned-card Trello comment was the fallback.
+
+**Trust boundary (unchanged):** READ-ONLY diagnosis + Trello card creation ONLY.
+Cerberus never mutates the cluster or the battery — no `kubectl apply/…`, no
+argocd, no git, no Alertmanager/rule edits, no MQTT/HA writes; proposed fixes go
+in the card body for a human/specialist.
+
+**How it reaches things (open pod egress, no new MCP):**
+
+| Channel | Endpoint |
+|---|---|
+| Prometheus (alerts/history) | `http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/query` |
+| Trello (file/dedup cards) | `https://api.trello.com/1` via REST, authed with `CERBERUS_TRELLO_API_KEY` + `CERBERUS_TRELLO_TOKEN` |
+
+The Trello creds are a **SealedSecret** `hermes-cerberus-trello` (`api-key` +
+`token`), env-injected into the gateway container. It stays disabled until the
+sealed halves are provided in the environment overlay
+(`.config/lab/hermes.yaml`); absent creds → Cerberus reports "Trello
+unconfigured" and stays passive (still safe, just no card).
+
+**Cutover:** when this ships, **retire the old owner-machine cerberus scheduled
+task** so the two runners don't double-file (dedup would catch duplicates, but
+the standalone runner is superseded — turn it off at deploy).
+
+To provision the Trello creds:
+
+```sh
+# Trello API key + a token for the board (owner obtains from trello.com/app-key)
+printf '%s' "<api-key>" | kubeseal --raw --controller-name sealed-secrets \
+  --controller-namespace argocd --namespace hermes --name hermes-cerberus-trello \
+  --from-file=/dev/stdin        # -> cerberus.trello.sealedSecret.encryptedApiKey
+printf '%s' "<token>"   | kubeseal --raw --controller-name sealed-secrets \
+  --controller-namespace argocd --namespace hermes --name hermes-cerberus-trello \
+  --from-file=/dev/stdin        # -> cerberus.trello.sealedSecret.encryptedToken
+# then set cerberus.trello.enabled: true in .config/lab/hermes.yaml
+```
+
 ## Storage & backups
 
 State (`state.db`, `kanban.db`, memory, profile, MS365 token) is **SQLite in WAL
@@ -246,6 +381,9 @@ PVC (or straight from the share) back into `hermes-cortana-state`, scale up.
 | `hermes-cortana-discord-token` | Cortana's Discord bot token |
 | `hermes-writer-git-ssh` | writer's git deploy key (blog repo) |
 | `hermes-hebe-git-ssh` | Hebe's git deploy key (gitops repo, write) — only when `hebe.git.enabled` |
+| `hermes-plutus-anthropic-admin` | Anthropic **Admin** API key for Plutus (read-only usage/cost) — only when `plutus.anthropic.enabled` |
+| `hermes-plutus-openai-admin` | OpenAI **Admin** key for Plutus (read-only org usage/costs) — only when `plutus.openai.enabled` |
+| `hermes-cerberus-trello` | Cerberus's Trello API key + token (`api-key`, `token`) — only when `cerberus.trello.enabled` |
 
 ## Common operations
 

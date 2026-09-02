@@ -223,6 +223,34 @@ metrics); durable savings/forecast "reports" use **InfluxDB** (uid `influxdb`).
 > see zeus [ADR-0007](../../../zeus/.docs/adr/0007-forecast-visualization-grafana-prometheus.md),
 > now partially superseded by [ADR-0009](../../../zeus/.docs/adr/0009-influxdb-durable-time-series-store.md)/ADR-0010.
 
+> **#245 — post-decommission dashboard cleanup (2026-08-26).** zeus was scaled to 0
+> on 2026-07-30 (#169), so every `zeus_*` **Prometheus** metric went dead ("No data"
+> tiles; incident 2026-08-19). All dashboards in this ConfigMap were repointed to the
+> live **jupiter** stack:
+> - **Prometheus** tiles now read `jupiter_lar_*` (soc/target/mode/plan/cycles/
+>   control/price-source/forecast-source), `jupiter_savings_*`, and the (intermittent)
+>   `jupiter_reporting_*` gauges.
+> - **InfluxDB / Flux** panels **union the retained `zeus_*` history with the live
+>   `jupiter_state` / `jupiter_load_history` / `jupiter_forecast*` / `jupiter_daily_savings`
+>   series** (measurement filters broadened `(zeus_… or jupiter_…)`); the `zeus` bucket
+>   is kept (#199) so pre-cutover history is preserved.
+> - Panels whose zeus metric has **no jupiter equivalent were removed** (next-action
+>   countdown, cycle-failures, solver-optimal, shaving-miss, the per-slot price-horizon
+>   barchart, and the ~10 d Prometheus forecast-error panels — the InfluxDB
+>   forecast-vs-realized panels cover that view). The `jupiter-services` migration
+>   cross-check dashboard was **deleted**.
+> - **Kept history-only** (no jupiter source): billed capacity-peak, `zeus_savings`
+>   intraday economics, and the `predicted_*` forecast fields.
+>
+> Two live-data flags for **hephaestus** (not dashboard bugs): the jupiter→InfluxDB
+> `jupiter_state` **battery-telemetry** writer (soc/grid/mode/ac/house/energy/savings)
+> and the `jupiter_battery_savings_today` HA sensor have been **stale since 2026-08-19**
+> (only price-derived fields still write); and several `jupiter_reporting_*` gauges
+> (grid_power_w, soc_percent, capacity_peak_kw, energy_stored_kwh, plan_*) are
+> **intermittent** (present in range, absent at instant). The live controller
+> (`jupiter_lar_*` in Prometheus) is unaffected. See PR #245 for the per-dashboard
+> breakdown and the "no jupiter equivalent — removed" list.
+
 **InfluxDB datasource provisioning + Flux gotchas** (datasource registered via a
 static ConfigMap mount, series named with `rename()`, per-bar colour via
 `barchart`/`colorByField`, constant lines via `array.from`, local dates via the

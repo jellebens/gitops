@@ -47,6 +47,26 @@ gateway:
             kind: Secret
             name: jaeger-server-tls
             namespace: jaeger
+    - name: grafana-https
+      port: 443
+      hostname: grafana.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: grafana-server-tls
+            namespace: observability
+    - name: longhorn-https
+      port: 443
+      hostname: longhorn.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: longhorn-server-tls
+            namespace: longhorn-system
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -62,16 +82,20 @@ routes:
       name: argocd-server
       port: 80
 
-  - name: chaos-mesh
-    namespace: chaos-mesh
-    hostnames:
-      - chaos-mesh.lab.local
-    backend:
-      name: chaos-dashboard
-      port: 2333
+  # chaos-mesh route removed (#189): the chaos dashboard is an active,
+  # destructive capability (pod-kill / network / IO fault) and must not be
+  # LAN-reachable. It is now ClusterIP + port-forward-only, securityMode on,
+  # and namespace-policed by an ingress-only CNP (platform/chaos-mesh-config).
+  # The chaos-mesh.lab.local A record is left in place (harmless: resolves to
+  # the gateway VIP but has no route -> 404).
 
   - name: grafana
     namespace: observability
+    # http kept alongside https: the kiosk and existing bookmarks use plain
+    # http:// URLs (same both-listeners pattern as argocd/jaeger).
+    listeners:
+      - http
+      - grafana-https
     hostnames:
       - grafana.lab.local
     backend:
@@ -99,13 +123,37 @@ routes:
       name: jaeger-query
       port: 16686
 
-  # Longhorn admin UI (#176). HTTP-only (shared http listener — see AGENTS.md
-  # Known Pitfalls); UNAUTHENTICATED admin surface (can delete volumes), so it
-  # rides LAN-only like the rest, never beyond the gateway.
+  # Longhorn admin UI — HTTPS-ONLY route, INTERIM (#233, owner decision
+  # 2026-08-14). This partially rolls back #193 (security review 2026-07-12),
+  # which removed the route entirely because the UI is UNAUTHENTICATED admin
+  # (can delete volumes/replicas) and TLS alone is encryption, not auth. The
+  # owner accepted that risk as an interim because no SSO exists in the lab
+  # yet; the durable fix is the SSO rollout (card #232), after which this
+  # route moves behind real authentication. Until then:
+  #   - CONTENT is served only via the longhorn-https SNI listener; the plain
+  #     `http` hostname is claimed by a redirect-only route (httpRedirects
+  #     below) that 302s to https — never attach `http` to THIS route;
+  #   - cert: longhorn-server-tls from lab-ca-issuer
+  #     (platform/longhorn/templates/certificate.yaml);
+  #   - the longhorn-system CNP re-admits the gateway `ingress` identity
+  #     (platform/longhorn/templates/ciliumnetworkpolicy.yaml);
+  #   - `kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80`
+  #     remains the RBAC-gated alternative.
   - name: longhorn
     namespace: longhorn-system
+    listeners:
+      - longhorn-https
     hostnames:
       - longhorn.lab.local
     backend:
       name: longhorn-frontend
       port: 80
+
+# HTTP -> HTTPS 302 redirects (redirect-only routes on the shared `http`
+# listener; the RequestRedirect is answered by the gateway Envoy itself, no
+# backend involved — same pattern as hermes' hermes-http-to-https).
+httpRedirects:
+  - name: longhorn
+    namespace: longhorn-system
+    hostnames:
+      - longhorn.lab.local

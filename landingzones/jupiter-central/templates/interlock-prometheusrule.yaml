@@ -1,0 +1,98 @@
+{{- if .Values.fleetInterlock.enabled }}
+# FLEET SINGLE-CONTROLLER INTERLOCK backstop (gitops card #192).
+#
+# WHY THIS EXISTS: the jupiter lar's safety interlock (#151) enforces HARD
+# INVARIANT #1 — *exactly one* controller actuates a given battery at a time.
+# The lar documents (services/lar/jupiter_lar/interlock.py, DOUBLE_LIVE_ALERT_
+# NOTE) that gitops MUST ship a PrometheusRule that PAGES when that invariant is
+# violated, but the rule was never actually deployed: nothing in landingzones
+# alerted on jupiter_controllers_live > 1 (found by the 2026-07-12 review). This
+# file is that missing machine backstop. At N=1 site a human watches the handoff;
+# this check is mandatory *before* any second live site, and cheap to ship now.
+#
+# THE INVARIANT, IN TWO SIGNALS (both already emitted, all carry site_id):
+#   jupiter_controllers_live{site_id}    the lar's own count of controllers it
+#                                        believes command its site (defined in
+#                                        interlock.py). > 1 => two controllers
+#                                        think they own the battery.
+#   zeus_commander{site_id}              1 when zeus is the LIVE commander
+#                                        actuating (zeus/metrics.py), 0 when
+#                                        demoted to a passive cross-check.
+#   jupiter_lar_live_actuating{site_id}  1 when the lar ISSUED a live battery
+#                                        command this cycle (interlock.py), 0 on
+#                                        any hold/shadow.
+# Double-live is EITHER the lar's own count exceeding one, OR the cross-stack
+# case the count alone can miss: zeus commanding AND the lar actuating the same
+# site simultaneously. The second clause joins the two independent scrape targets
+# (ns zeus vs ns jupiter-<site>) on site_id, so it is site_id-GENERIC and covers
+# the whole fleet, not just tervuren.
+#
+# CRITICAL/PAGE severity ON PURPOSE: two controllers fighting over one battery is
+# a live-safety incident (conflicting charge/discharge commands), not a degraded
+# feed. The on-call action is in the annotation: flip one controller back to
+# shadow.
+#
+# VALIDATED against live Prometheus 2026-07-14 (read-only): the three series are
+# present with site_id="tervuren" (jupiter_controllers_live=1, zeus_commander=0,
+# jupiter_lar_live_actuating=1 — the lar is today's sole live controller); the
+# full expr returns EMPTY (won't false-fire under the healthy one-controller
+# state), and the second clause's `and on (site_id)` join was confirmed to yield
+# a {site_id="tervuren"} vector when both of its conditions hold — so it WILL
+# fire the moment a second actuator appears.
+#
+# NOTE ON NAME: interlock.py's note suggested the alert name
+# JupiterDoubleLiveController; card #192 fixes the name as
+# JupiterControllersDoubleLive. Same invariant, same expr.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jupiter-fleet-interlock
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: jupiter-fleet-interlock
+    app.kubernetes.io/part-of: jupiter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.fleetInterlock.releaseLabel | quote }}
+spec:
+  groups:
+    - name: jupiter-fleet-interlock
+      rules:
+        - alert: JupiterControllersDoubleLive
+          # HARD INVARIANT #1 violated: more than one controller is commanding a
+          # single battery. Clause 1 = the lar's own controller count > 1.
+          # Clause 2 = the cross-stack race the count can miss — zeus is the live
+          # commander (zeus_commander == 1) AND the lar issued a live command this
+          # cycle (jupiter_lar_live_actuating == 1) for the SAME site. The two
+          # sides are scraped from different namespaces, so they are joined on
+          # site_id only (`and on (site_id)`), which also makes the rule
+          # site_id-generic across the fleet. Each side is pre-aggregated with
+          # `max by (site_id)` so the result is a clean per-site vector.
+          expr: |
+            (
+              max by (site_id) (jupiter_controllers_live) > 1
+            )
+            or
+            (
+              (max by (site_id) (zeus_commander) == 1)
+              and on (site_id)
+              (max by (site_id) (jupiter_lar_live_actuating) == 1)
+            )
+          for: {{ .Values.fleetInterlock.for }}
+          labels:
+            severity: critical
+          annotations:
+            summary: two controllers are live on one jupiter battery (invariant 1 violated)
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }}: MORE THAN ONE controller is
+              actuating the battery — hard invariant #1 (exactly one live
+              controller per battery) is violated. Either the lar counts >1 live
+              controller (jupiter_controllers_live > 1), or zeus is commanding
+              (zeus_commander == 1) while the lar is also issuing live commands
+              (jupiter_lar_live_actuating == 1) for this site. The two stacks can
+              issue conflicting charge/discharge commands — a live-battery safety
+              incident. ON-CALL: immediately flip ONE controller back to shadow
+              (demote zeus with control.enabled=false, or set the lar's mode to
+              shadow) so exactly one commander remains, then investigate how both
+              went live. See services/lar/jupiter_lar/interlock.py
+              (DOUBLE_LIVE_ALERT_NOTE) and card #192.
+{{- end }}

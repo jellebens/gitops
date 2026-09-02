@@ -185,15 +185,32 @@ echo -n "$INFLUX_TOKEN" | kubeseal --raw \
 
 ### Storage & scheduling
 
-`forecast-artifacts` PVC, 1Gi `local-path`, RWO — artifacts are fully
-regenerated every trainer run, so NAS durability is not warranted (same
-rationale as the price cache). Both the deployment (read-only) and the
-CronJob (writable) mount it: `local-path` is node-pinned, but its
-`WaitForFirstConsumer` binding gives the PV node affinity that the scheduler
-honors for every pod, so server and trainer co-locate on the volume's node
-automatically (deployment uses `strategy: Recreate` accordingly). Node down
-= pods Pending until it returns; acceptable for v1, `smb` RWX is the later
-escape hatch.
+`forecast-artifacts` PVC, 1Gi `longhorn` (since #238), **RWO**. Both the
+deployment (read-only) and the CronJob (writable) mount it.
+
+**RWO is a per-node lock, and that governs scheduling.** The volume attaches
+to exactly one node at a time and the serving pod holds it for as long as it
+runs, so the trainer Job must land on that same node — two pods on one node
+may share an RWO volume, but a pod on any other node cannot bind it at all.
+The trainer therefore carries a `requiredDuringSchedulingIgnoredDuringExecution`
+**`podAffinity`** on `app.kubernetes.io/name=forecast-service`
+(`kubernetes.io/hostname`), enabled by `forecast.trainer.coLocateWithServer`;
+the deployment uses `strategy: Recreate` for the same reason.
+
+That pin is not optional while the claim is RWO. It replaces a guarantee
+`local-path` used to provide for free: `WaitForFirstConsumer` created the PV
+on the first consumer's node with node affinity, and the scheduler honoured
+it for every later pod. Longhorn attaches anywhere, so #238 removed the
+guarantee without noticing it was load-bearing — every bake then failed with
+`Multi-Attach error` for five days while `/healthz` stayed green and the
+optimizer quietly planned on stale models (#240). If the artifacts ever need
+a genuinely multi-node access mode, move the claim to RWX (`smb`, or Longhorn
+RWX) **first** and only then relax `coLocateWithServer`.
+
+Failure modes with the pin in place: serving pod absent (Recreate rollout,
+node drain) → the Job sits Pending and is reaped by `activeDeadlineSeconds`,
+next run in ≤6 h picks it up. Node down → both pods Pending until it returns;
+Longhorn replicas mean the artifacts themselves survive.
 
 ### Monitoring & alerting
 

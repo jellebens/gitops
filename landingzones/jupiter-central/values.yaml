@@ -1,16 +1,21 @@
 # jupiter-central landing zone — price-service (jupiter P1 card #106).
 #
-# The service is the central ENTSO-E price API (jupiter repo,
+# The service is the central day-ahead price API (jupiter repo,
 # services/price): GET /healthz + GET /v1/curve?zone=... per
 # zeus:.docs/jupiter/architecture.md. It is a CENTRAL SINGLETON — one
 # instance serves every bidding zone / site. Bidding zones are a PER-REQUEST
 # query parameter, not server config, so there is deliberately no ConfigMap
 # here: the only knobs the app reads are the env vars below (PORT,
-# PRICE_CACHE_DIR, ENTSOE_API_TOKEN, SITE_ID).
+# PRICE_CACHE_DIR, SITE_ID).
 image:
   repository: jellebens/jupiter-price
   # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-  tag: "0.13.0"
+  # 0.19.0 (#264): day-ahead source migrated ENTSO-E -> Nord Pool Data Portal
+  # (BE, EUR, 15-min MTU, public API — NO token). ENTSO-E fetcher + token
+  # removed (ADR-0025 supersedes ADR-0011). Validated 96/96 slots identical to
+  # the last ENTSO-E curve; /v1/curve contract unchanged (lar untouched).
+  # Jump from 0.13.0 is behaviorally just this migration (only reformats since).
+  tag: "0.19.0"
   pullPolicy: IfNotPresent
 
 # Central singleton. The last-good cache PVC is RWO (local-path pins it to a
@@ -87,15 +92,31 @@ prometheusRule:
   enabled: true
   releaseLabel: kube-prometheus-stack
 
-# Per-zone last-good curve cache (PRICE_CACHE_DIR). local-path (k3s default,
-# same choice as platform/mqtt): the cache is small and re-fetchable from
-# ENTSO-E, so NAS durability (zeus's smb class) is not warranted — losing the
-# node only degrades the first request per zone to a fresh fetch. RWO +
-# local-path pins the pod to the node holding the volume; fine for a
-# single-replica cache.
+# FLEET single-controller interlock backstop (gitops card #192). A SEPARATE,
+# fleet-wide (site_id-generic) PrometheusRule — templates/interlock-prometheus
+# rule.yaml — that PAGES (critical) when hard invariant #1 is violated: more than
+# one controller actuating a single battery (jupiter_controllers_live > 1, or
+# zeus commanding while the lar also actuates the same site). It is NOT a
+# price-service concern; it lives in jupiter-central because that is the fleet's
+# central home and the rule joins zeus (ns zeus) with the per-site lars (ns
+# jupiter-<site>). The lar's interlock.py DOUBLE_LIVE_ALERT_NOTE mandates this
+# rule; it had never been deployed until #192.
+fleetInterlock:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+  # Sustain before paging. Short (2m per interlock.py's note): a genuine
+  # double-live is an active safety incident, so alert promptly — but 2m still
+  # rides out a single scrape blip where the two targets momentarily overlap.
+  for: 2m
+
+# Per-zone last-good curve cache (PRICE_CACHE_DIR). longhorn since #238
+# (2026-08-14): the cache is re-fetchable from ENTSO-E, but a lost node during
+# a price-API outage would hurt the LIVE optimizer — 3-replica block storage
+# removes the node pin for 1Gi of cost. Data copied from the old local-path PV
+# in the #238 window.
 persistence:
   enabled: true
-  storageClassName: "local-path"
+  storageClassName: "longhorn"
   accessMode: ReadWriteOnce
   size: 1Gi
   mountPath: /data
@@ -128,19 +149,16 @@ runtime:
   uid: 1000
   gid: 1000
 
-# Secret injected as env via envFrom (optional: true, so the first sync does
-# not block on the seal). Key ENTSOE_API_TOKEN — the exact env var name
-# app.py reads (NOTE: zeus calls its key ENTSOE_TOKEN; this service does not).
-# The app tolerates an absent token: it still serves persisted last-good
-# curves, and a fetch without a token degrades exactly like an ENTSO-E outage.
-# Provide the sealed value in .config/<env>/jupiter-central.yaml (kubeseal —
-# see that file; sealed blobs are namespace-scoped, so zeus's sealed
-# ENTSOE_TOKEN can NOT be reused here).
+# Secret injected as env via envFrom (optional: true). Since 0.19.0 (#264) the
+# price-service needs NO secret at all — Nord Pool's Data Portal API is public
+# (the ENTSOE_API_TOKEN this block used to carry was removed with the ENTSO-E
+# fetcher). The envFrom mechanism is kept (optional + empty = renders nothing)
+# for any future secret need.
 secret:
   name: jupiter-central-secrets
   sealedSecret:
     enabled: true
-    encryptedData: {} # { ENTSOE_API_TOKEN: "Ag..." }
+    encryptedData: {}
 
 # ---------------------------------------------------------------------------
 # forecast-service (jupiter P2 cards #120/#121, deployed by gitops card #126).
@@ -155,11 +173,11 @@ forecast:
   image:
     repository: jellebens/jupiter-forecast
     # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-    tag: "0.13.0"
+    tag: "0.16.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, same reasoning as the price-service: the artifact PVC
-  # is RWO on local-path (node-pinned) and one instance serves every site.
+  # is RWO (one node at a time) and one instance serves every site.
   replicaCount: 1
 
   service:
@@ -169,19 +187,27 @@ forecast:
 
   # Shared artifact volume (FORECAST_ARTIFACT_DIR): the trainer WRITES
   # <site>/<target>.json here, the server READS it (mounted read-only).
-  # local-path (k3s default) is fine for v1: artifacts are fully regenerated
-  # by every trainer run, so losing the node only costs one training run —
-  # NAS durability (zeus's smb class) is not warranted. local-path is RWO and
-  # node-pinned, but its volumeBindingMode is WaitForFirstConsumer: the PV is
-  # created on the first consumer's node and carries node affinity, and the
-  # scheduler honors PV node affinity for every later pod — so the serving
-  # pod and the trainer Jobs co-locate on that node automatically, no
-  # nodeSelector needed. (If that node dies, pods go Pending and the artifact
-  # is rebuilt on the next trainer run once rescheduled — accepted for v1;
-  # RWX via the smb class is the later option if this ever hurts.)
+  #
+  # The volume is RWO and therefore attaches to exactly ONE node at a time.
+  # The serving Deployment holds it permanently, so the trainer Job MUST land
+  # on the serving pod's node — see trainer.coLocateWithServer below. That is
+  # a hard requirement of this writer/reader pair, not a preference:
+  #
+  #   - Under local-path it was satisfied silently. WaitForFirstConsumer
+  #     created the PV on the first consumer's node with node affinity, and
+  #     the scheduler honoured that affinity for every later pod.
+  #   - Under longhorn (#238) it is NOT. Longhorn attaches anywhere, so the
+  #     trainer can be scheduled onto a node that cannot bind the volume; it
+  #     then fails with "Multi-Attach error" and the server keeps serving a
+  #     stale artifact with a green /healthz. That regression cost five days
+  #     of bakes before #240 caught it.
   persistence:
     enabled: true
-    storageClassName: "local-path"
+    # longhorn since #238 (2026-08-14): artifacts survive a node loss, rather
+    # than dying with the node the way a local-path PV did (#175). Node-loss
+    # durability is the whole point of the class change — the earlier claim
+    # that it also freed the pods from co-locating was wrong (see #240).
+    storageClassName: "longhorn"
     accessMode: ReadWriteOnce
     size: 1Gi
     mountPath: /artifacts
@@ -236,6 +262,18 @@ forecast:
     # A run is minutes of work; hard-kill anything wedged well before the
     # next 6h window.
     activeDeadlineSeconds: 1800
+    # Pin each trainer Job to the node the serving pod runs on (podAffinity,
+    # topologyKey kubernetes.io/hostname). REQUIRED while the artifact PVC is
+    # RWO — see the persistence block above for why, and #240 for what happens
+    # without it. Only turn this off if the volume moves to a genuinely
+    # multi-node access mode (RWX via the smb class, or Longhorn RWX): with
+    # RWO, a job that lands elsewhere cannot bind and every bake fails.
+    #
+    # Cost of the pin: if the serving pod is momentarily absent (a Recreate
+    # rollout, a node drain) the Job sits Pending and is reaped by
+    # activeDeadlineSeconds above; the next 6h run picks it up, and a run of
+    # bad luck long enough to matter surfaces as JupiterForecastArtifactStale.
+    coLocateWithServer: true
     successfulJobsHistoryLimit: 3
     failedJobsHistoryLimit: 3
     # Fitting/baking with pandas over 30d of history — modest but real.
@@ -268,6 +306,14 @@ forecast:
       timezone: Europe/Brussels
       base_temp_c: 21.0
       include_untagged: true
+      # #169 zeus DECOMMISSION (2026-07-29): zeus stopped writing zeus_load_history /
+      # zeus_state, so the trainer's load sources go stale. Flip the unions ON so the
+      # trainer reads jupiter's own series instead (jupiter_load_history + jupiter
+      # whole-home). whole_home was proven byte-identical (#202); critical_load
+      # (#203 Path B) verified same-cadence in InfluxDB before this flip. Historical
+      # zeus_* remains in the bucket (union still reads it for pre-cutover history).
+      whole_home_union_jupiter: true
+      critical_load_union_jupiter: true
 
   # InfluxDB token for the trainer, injected via envFrom (optional: true so
   # the chart deploys before the seal exists — the trainer is suspended until
@@ -323,7 +369,13 @@ reporting:
     # sourced entirely from jupiter's own inputs (lar MQTT + price-service), ZERO
     # zeus_state reads (#163/#170/#171). Makes the #164 parity soak a true
     # independent cross-check.
-    tag: "0.13.0"
+    # 0.17.0 (#209): jupiter_reporting_forecast_source now classifies the lar's
+    # service:-prefixed sources onto a `service` bucket instead of collapsing to
+    # `other` (mirrors the 0.16.3 price_source fix). Also carries #210 ruff reformat.
+    # 0.18.2 (#247): self-heal the MQTT consumer on unreachable-broker-at-startup
+    #   (connect_async + backoff reconnect, re-subscribe on reconnect) so a boot-time
+    #   broker outage no longer wedges the writer; adds jupiter_reporting_broker_connected.
+    tag: "0.18.2"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the
@@ -492,3 +544,21 @@ reporting:
     # bank/refresh their daily figures independently, so a short window would
     # page on benign end-of-cycle boundary blips.
     for: 2h
+
+  # ---------------------------------------------------------------------------
+  # SAVINGS-SOURCE guard (gitops card #181, from Clio's #164 soak finding).
+  # A small, SEPARATE PrometheusRule (JupiterSavingsNotIndependent) that watches
+  # jupiter_reporting_savings_source and fires when the savings pipeline is up but
+  # NOT producing an independent number (source != independent for > `for`), i.e.
+  # jupiter_savings_today_eur is FROZEN at its last value — the failure mode that
+  # was invisible for 68h in the soak. Deliberately its OWN gate, not
+  # savingsParity's: the parity cross-check joins against zeus_* and retires at
+  # zeus decommission (#169), but this jupiter-only guard should keep watching.
+  savingsSource:
+    enabled: true
+    releaseLabel: kube-prometheus-stack
+    # Sustained window before the guard fires. Long enough that a normal cold
+    # start / just-past-local-midnight refresh (briefly insufficient_history until
+    # the new day has >=2 jupiter_state points) does not page, but well under the
+    # 68h wedge — 30m per the card.
+    for: 30m
