@@ -89,11 +89,13 @@ ch1 pH-Down 0.48 ml/s full / 0.11 @50 · ch2 NutrA 0.66 / 0.24 · ch3 NutrB
 - retained `pomona/dose/result` shows no run in progress.
 
 **Playbook (one corrective action per wake, then re-evaluate next hour):**
-- **pH > 6.5:** dose **1 ml pH-Down** (`ch1 fwd 2080`). The buffer eats the
+- **pH > 7.0:** dose **1 ml pH-Down** (`ch1 fwd 2080`). The buffer eats the
   first ml (≈ −0.4 pH); past the knee ≈ −1.3 pH/ml — that is exactly why you
   dose 1 ml per hour and NEVER stack doses to hit the target in one shot.
-  Hard cap: **4 ml pH-Down per rolling 24 h**; if the cap is reached and pH
-  is still high, card + stop.
+- **6.5 < pH ≤ 7.0:** fine dose only — **0.5 ml slow** (`ch1 fwd 4550 50`);
+  a full ml here can overshoot below 5.4 (−1.3/ml past the knee).
+- Acid hard cap across both cases: **4 ml pH-Down per rolling 24 h**; cap
+  reached and pH still high → card + stop.
 - **EC < 0.7:** dose **5 ml A** (`ch2 fwd 7580`), wait ≥2 min, **5 ml B**
   (`ch3 fwd 8330`) — together ≈ +0.19 mS/cm, and B also pulls pH ≈ −0.18.
   Max once per 24 h. A and B always separately, never simultaneously.
