@@ -109,7 +109,7 @@ demeter:
   enabled: true
   image:
     repository: jellebens/pomona-demeter
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
 
   # SHADOW by default: full evaluation, decisions published to

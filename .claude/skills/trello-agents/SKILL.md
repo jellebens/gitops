@@ -209,6 +209,12 @@ Nothing deploys from card merges. When the user says **"release"** (or
    new `v*` tags and opens a draft PR into `develop`. Do this for every release,
    jupiter and/or zeus; if no new tag was cut (gitops-only deploy), skip it.
    Merge that PR with the next batch — it needs no separate release (docs only).
+   **demeter (owner rule, 2026-09-11): the changelog is updated on EVERY
+   release, BEFORE the release PR** — on the release branch, move
+   `CHANGELOG.md` *Unreleased* into `## [x.y.z] - date` together with the
+   `pyproject.toml` / `__init__` version bump; then build + push the arm64
+   image, PR `develop → master`, tag `v<version>`, then the gitops tag bump.
+   No changelog entry = not releasable. (Checklist: demeter README "Releasing".)
 Order matters: zeus first (image must exist before the tag bump deploys), then
 gitops. If only gitops cards are pending, step 2 alone is the release (and
 step 4 is skipped — no new app tag).
