@@ -1,6 +1,7 @@
 # #278 — Demeter: the k3s autodosing brain (auto-feed + pH stabilisation)
 
-Status: **built, pending release** (2026-09-10). Design of record for the
+Status: **live — ACTIVE in lab** since 2026-09-10 (chart 0.3.1, image
+`jellebens/pomona-demeter:0.1.0`; card #278 closed). Design of record for the
 rails remains pomona card **#224**; this document records the k3s half —
 what runs in-cluster, why the split is safe, and the rollout gates.
 
@@ -58,18 +59,36 @@ agree.
 
 ## Rollout gates (owner-controlled, one per release)
 
-1. **Ship in shadow** (this change): Demeter evaluates live water, publishes
-   `pomona/demeter/decision` and `demeter_would_dose`, doses nothing.
-   Owner pre-deploy: create the `pomona-demeter` EMQX user, seal creds,
-   build + push the arm64 image.
-2. **Shadow soak:** some days comparing Demeter's decisions against
-   Tethys's Trello dose log. Divergence = fix before any actuation.
-3. **Go active:** `demeter.mode: active` in `.config/lab/pomona.yaml` and
-   retire the Tethys hourly task **in the same release**. Two brains must
-   never dose one tank; the foreign-dose lockout (any live `dose/result`
-   Demeter did not command restarts its 60 min clock) guards the window.
-4. **#224 firmware follow-up:** first-class `dose/request` contract with
-   firmware-local budgets; Demeter swaps transport only.
+1. **Ship in shadow** — ✅ done 2026-09-10, chart 0.3.0: Demeter evaluates
+   live water, publishes `pomona/demeter/decision` and `demeter_would_dose`,
+   doses nothing. Owner pre-deploy done: `pomona-demeter` EMQX user created,
+   creds sealed in `.config/lab/pomona.yaml`, arm64 image 0.1.0 pushed.
+2. **Shadow soak** — ⏭ **skipped by owner decision** (2026-09-10). The plan
+   was some days comparing Demeter's decisions against Tethys's Trello dose
+   log; the rails are the Tethys playbook verbatim and the engine is
+   unit-tested, so the owner accepted going straight to active.
+3. **Go active** — ✅ done 2026-09-10, chart 0.3.1: `demeter.mode: active`
+   in `.config/lab/pomona.yaml`, released together with retiring the Tethys
+   hourly task (`tethys-ph-watch` paused, dosing grant revoked). Two brains
+   must never dose one tank; the foreign-dose lockout (any live
+   `dose/result` Demeter did not command restarts its 60 min clock) guards
+   the window. Fallback to observe-only = delete the `mode: active` line.
+4. **#224 firmware follow-up** — open: first-class `dose/request` contract
+   with firmware-local budgets; Demeter swaps transport only.
+
+### Release log
+
+| date | chart | change |
+|---|---|---|
+| 2026-09-10 19:08 | — | pomona PR #91 merges the controller into `develop`; image 0.1.0 built + pushed by hand |
+| 2026-09-10 19:35 | 0.3.0 | Demeter deployed in shadow (mqtt chart 0.1.1 adds the broker user) |
+| 2026-09-10 20:05 | 0.3.1 | `mode: active` in lab, Tethys paused, dosing dashboard row + dose annotations |
+| pending | 0.4.0 | controller 0.2.0: self-learning brain (Bayesian dose response + Kalman pH; two config rails) — pomona PR `demeter-adaptive` |
+
+First live cycle (evening of 2026-09-10): pod came up clean, waited out the
+conservative boot lockout, then dosed 1 ml pH-Down at pH 8.24 — the expected
+"buffer knee" dose; pH did not move within the first 10 min, as the
+titration curve predicts for the first ml.
 
 ## Safety envelope (defense in depth)
 
@@ -94,8 +113,10 @@ Prometheus (`demeter_*`): doses + ml per reagent, last-dose timestamps,
 rolling budgets, lockout countdown, every decision by action/condition,
 readings + ages, unit-online, would-dose. Scraped by kube-prometheus-stack;
 dose steps are also visible in the InfluxDB pH/EC series and every decision
-is a retained MQTT message. Dashboard row + PrometheusRules are the listed
-follow-up.
+is a retained MQTT message. The **Demeter — dosing (card #278)** dashboard
+row and dose annotations shipped with chart 0.3.1. **PrometheusRules are
+still open**: the acid-cap STOP and the stale/offline no-dose states are
+visible on the dashboard but do not page anyone yet.
 
 ## Explicitly out of scope
 
