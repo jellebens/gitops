@@ -147,7 +147,10 @@ nothing (envFrom is `optional: true` — deploy order is not blocked).
    subscribe the tree, publish ONLY the dose command channel and demeter's
    own namespace:
    `POST /api/v5/authorization/sources/built_in_database/rules/users`
-   `[{"username":"pomona-demeter","rules":[{"topic":"pomona/#","permission":"allow","action":"subscribe"},{"topic":"pomona/dose/test","permission":"allow","action":"publish"},{"topic":"pomona/demeter/#","permission":"allow","action":"publish"},{"topic":"#","permission":"deny","action":"all"}]}]`
+   `[{"username":"pomona-demeter","rules":[{"topic":"pomona/#","permission":"allow","action":"subscribe"},{"topic":"pomona/dose/test","permission":"allow","action":"publish"},{"topic":"pomona/pump/override","permission":"allow","action":"publish"},{"topic":"pomona/demeter/#","permission":"allow","action":"publish"},{"topic":"#","permission":"deny","action":"all"}]}]`
+   (`pomona/pump/override` since demeter 0.4.0 / ADR-0003 — Demeter runs
+   the circulation pump around a dose to mix; re-POST the rule set when
+   upgrading from ≤ 0.3.0, it replaces the user's rules.)
    (DR mirror already in `platform/mqtt/files/acl.conf`; fold the mnesia rule
    into card #252.) Seal `MQTT_USER` / `MQTT_PASS` for **secret
    `pomona-demeter-secrets`** and paste under
