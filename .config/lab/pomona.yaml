@@ -50,6 +50,12 @@ demeter:
   # to the new content and bump filled_on (that resets the counter).
   # line_volume_ml stays 0 until the tubing ID is known (pi/4 * ID_mm^2 * m).
   config:
+    # STAGE RAMP (owner 2026-09-11): the plants went in on 2026-08-31; the
+    # planting plan ramps EC 0.8-1.0 -> 1.4-1.6 (and light 12 -> 14 h) 2-3
+    # weeks later. On/after this date demeter derives the "established"
+    # targets — re-derived every cycle, so the switch needs no release.
+    tower:
+      established_from: "2026-09-14"
     reagents:
       ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
       nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
