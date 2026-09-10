@@ -1194,10 +1194,10 @@
       {
         "name": "prime_ml",
         "label": "Prime offset (ml/reagent)",
-        "description": "The dosing lines were primed with WATER on commissioning (2026-09-10), so the first ml pumped per channel deliver no reagent. Delivered-ml panels subtract this per reagent. Set to 0 once the lines have been primed with reagent.",
+        "description": "Water the dosing lines were primed with; delivered-ml panels subtract this per reagent. 0 since 2026-09-11: the owner flushed the water out and the lines carry reagent (baseline). Set it again only after a line is re-primed with water.",
         "type": "constant",
-        "query": "10",
-        "current": { "selected": false, "text": "10", "value": "10" },
+        "query": "0",
+        "current": { "selected": false, "text": "0", "value": "0" },
         "hide": 0,
         "skipUrlSync": false
       }

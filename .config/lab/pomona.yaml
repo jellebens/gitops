@@ -48,7 +48,14 @@ demeter:
   # 250 ml bottle with ~200 ml left. Bottle-low alert < 10 % (95 ml / 20 ml);
   # a dose the bottle cannot cover is BLOCKED. On a refill: set container_ml
   # to the new content and bump filled_on (that resets the counter).
-  # line_volume_ml stays 0 until the tubing ID is known (pi/4 * ID_mm^2 * m).
+  # line_volume_ml is 0 and correct: the owner flushed the water out of the
+  # lines on 2026-09-11 (BASELINE) — they carry reagent, so every ml pumped
+  # from here on reaches the tank. Set a line volume only after a line is
+  # re-primed with water (pi/4 * ID_mm^2 * m per line).
+  # Baseline 2026-09-11 ~23:10Z: manual A+B feed done by the owner (EC 0.75
+  # -> 0.85), Demeter's learned model reset to its priors (earlier lessons
+  # were taken on water-primed lines and a still tank), dose history and
+  # bottle counters kept.
   config:
     # STAGE RAMP (owner 2026-09-11): the plants went in on 2026-08-31; the
     # planting plan ramps EC 0.8-1.0 -> 1.4-1.6 (and light 12 -> 14 h) 2-3
