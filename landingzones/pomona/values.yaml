@@ -97,3 +97,108 @@ probes:
     periodSeconds: 30
     timeoutSeconds: 10
     failureThreshold: 6
+
+# --- Demeter: the k3s autodosing brain (cards #278/#224) --------------------
+# Source: pomona repo controller/ (jellebens/pomona-demeter image, arm64).
+# Watches pomona/water/# and corrects chemistry via pomona/dose/test inside
+# the playbook rails (pH-Down 1 ml / 0.5 ml fine, 4 ml/24h acid cap; 5 ml
+# Nutrient A then B, once/24h; 60 min lockout; confirm >=10 min; stale or
+# offline never doses). Replaces the interim hourly Tethys agent regime.
+demeter:
+  enabled: true
+  image:
+    repository: jellebens/pomona-demeter
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+
+  # SHADOW by default: full evaluation, decisions published to
+  # pomona/demeter/decision + demeter_would_dose metric, but NO dose command
+  # is ever sent. Flip to "active" only per environment
+  # (.config/<env>/pomona.yaml), only after the shadow soak, and retire the
+  # Tethys hourly task in the same release — two brains must never dose one
+  # tank.
+  mode: shadow
+
+  # Broker creds: the DEDICATED pomona-demeter EMQX user (subscribe pomona/#,
+  # publish ONLY pomona/dose/test + pomona/demeter/#). Seal MQTT_USER /
+  # MQTT_PASS in .config/<env>/pomona.yaml (ns pomona, name
+  # pomona-demeter-secrets) — owner runbook in the README.
+  secret:
+    name: pomona-demeter-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+
+  metrics:
+    enabled: true
+    port: 9000
+
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    releaseLabel: kube-prometheus-stack
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+  # /metrics answers from prometheus_client's own thread; liveness is
+  # deliberately tolerant — a restarted controller sits out a fresh boot
+  # lockout, so restarts cost dosing time and buy nothing.
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 6
+
+  # Rendered verbatim into /config/config.yaml after mode + metrics_port.
+  # Mirrors controller/config.example.yaml in the pomona repo — see there for
+  # per-key documentation. Bands are the ESTABLISHMENT phase values; #262
+  # ramps EC toward 1.4-1.6 when establishment ends (edit here, no rebuild).
+  config:
+    interval_seconds: 60
+    freshness_seconds: 120
+    confirm_minutes: 10
+    mqtt:
+      host: mqtt.lab.local
+      port: 1883
+      client_id: pomona-demeter
+      username: "${MQTT_USER}"
+      password: "${MQTT_PASS}"
+      base_topic: pomona
+    bands:
+      ph_target_low: 5.8
+      ph_target_high: 6.2
+      ph_tol_low: 5.4
+      ph_tol_high: 6.5
+      ph_high_full: 7.0
+      ec_target_low: 0.8
+      ec_target_high: 1.0
+      ec_tol_low: 0.7
+      ec_tol_high: 1.1
+      water_temp_max_c: 26.5
+    dosing:
+      lockout_minutes: 60
+      ph_full_dose_ml: 1.0
+      ph_fine_dose_ml: 0.5
+      ph_daily_cap_ml: 4.0
+      nutrient_dose_ml: 5.0
+      nutrient_gap_seconds: 120
+      nutrient_max_per_24h: 1
+      max_command_ms: 10000
+      # DFR0523 calibration, 2026-09-09 recalibration on the FINAL plumbing
+      # (pomona docs/dosing/dfr0523.md). Per-channel AND per-speed — never
+      # interpolate; recalibrate after any tube change, then update HERE.
+      ph_down:    { channel: 1, full_ml_s: 0.48, slow_ml_s: 0.11, slow_speed: 50 }
+      nutrient_a: { channel: 2, full_ml_s: 0.66, slow_ml_s: 0.24, slow_speed: 50 }
+      nutrient_b: { channel: 3, full_ml_s: 0.60, slow_ml_s: 0.11, slow_speed: 50 }
