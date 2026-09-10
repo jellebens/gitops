@@ -2,5 +2,6 @@ apiVersion: v2
 name: mqtt
 description: Platform MQTT broker — EMQX 3-node HA cluster at mqtt.lab.local
 type: application
-version: 0.1.0
+# 0.1.1 = #278 pomona-demeter ACL added to the DR mirror (files/acl.conf).
+version: 0.1.1
 appVersion: "5.8.9"

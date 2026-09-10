@@ -1,0 +1,19 @@
+{{- if and .Values.demeter.enabled .Values.demeter.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: pomona-demeter-metrics
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona-demeter
+    app.kubernetes.io/part-of: pomona
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: pomona-demeter
+  ports:
+    - name: metrics
+      port: {{ .Values.demeter.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}

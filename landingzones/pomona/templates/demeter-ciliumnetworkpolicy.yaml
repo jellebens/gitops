@@ -1,0 +1,31 @@
+{{- if and .Values.demeter.enabled .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for demeter (zeus/pomona pattern):
+# default-denies inbound while leaving egress open (it must reach the EMQX
+# VIP). The only ingress admitted is the Prometheus scrape of the metrics
+# port from the observability namespace.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pomona-demeter
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona-demeter
+    app.kubernetes.io/part-of: pomona
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: pomona-demeter
+  ingress:
+    {{- if .Values.demeter.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.demeter.metrics.port | quote }}
+              protocol: TCP
+    {{- else }}
+    # Metrics disabled: no ingress is permitted (default-deny ingress).
+    []
+    {{- end }}
+{{- end }}
