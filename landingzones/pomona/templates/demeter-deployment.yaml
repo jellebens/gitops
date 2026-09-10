@@ -2,7 +2,7 @@
 # demeter: the k3s autodosing brain (#278, design of record #224). Watches
 # pomona/water/# on the platform broker and — in active mode only — corrects
 # chemistry via pomona/dose/test, inside the playbook rails (see the
-# controller/ README in the pomona repo). Ships in SHADOW mode: it decides
+# README of github.com/jellebens/demeter). Ships in SHADOW mode: it decides
 # and publishes but never doses until the owner flips demeter.mode.
 #
 # Single replica + Recreate is a SAFETY property here, not just tidiness:

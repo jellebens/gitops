@@ -19,8 +19,9 @@ rails. Demeter ships in **shadow mode** (decides, publishes, doses nothing)
 until the owner flips it active.
 
 - **Application source:** <https://github.com/jellebens/pomona> (firmware,
-  calibration lessons, `docs/mqtt.md` topic schema, `controller/` — the
-  Demeter service, OTA/deploy tooling).
+  calibration lessons, `docs/mqtt.md` topic schema, OTA/deploy tooling).
+- **Demeter source:** <https://github.com/jellebens/demeter> (private;
+  extracted from pomona `controller/` on 2026-09-11, history preserved).
 - This directory ships two workloads: the **Telegraf bridge** (official
   multi-arch `telegraf` image) that subscribes to `pomona/#` on the platform
   EMQX broker and writes to InfluxDB, and **pomona-demeter** (the
@@ -160,7 +161,7 @@ Demeter productionizes the playbook the interim **Tethys** agent ran hourly
 5 ml Nutrient B, once/24 h; 60 min lockout after ANY dose; violations must
 be confirmed ≥10 min; stale readings (>2 min) or an offline unit never dose;
 pH < 5.4 / EC > 1.1 / hot water are alert-only (no reagent exists). The
-rails live in tested code (pomona repo `controller/`), the quanta and bands
+rails live in tested code (the demeter repo), the quanta and bands
 in `values.yaml` `demeter.config` — an EC-band ramp (#262) or a
 recalibration is a values edit.
 
@@ -186,7 +187,7 @@ acid in the tank); the dashboard's delivered-ml panels subtract a
 each line with a bench `chN fwd 10000` before going live avoids the wasted
 first day.
 
-**Dashboard:** the `Demeter — dosing` row on `Pomona — Hydroponics` (mode,
+**Dashboard:** the `Demeter` row on `Pomona — Hydroponics` (mode,
 acid budget vs cap, nutrients 24 h, lockout, last dose, alert decisions;
 stacked delivered-per-day bars, dose-event bars, decisions by outcome,
 reading freshness), plus dashboard annotations that mark every dose on the
