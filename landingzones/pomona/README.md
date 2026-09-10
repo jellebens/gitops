@@ -164,16 +164,33 @@ rails live in tested code (pomona repo `controller/`), the quanta and bands
 in `values.yaml` `demeter.config` — an EC-band ramp (#262) or a
 recalibration is a values edit.
 
-**Rollout is a two-step owner decision:**
-1. **Shadow soak (current state):** `demeter.mode: shadow` — it evaluates
-   live water and publishes to `pomona/demeter/decision` + the
-   `demeter_would_dose` metric, but cannot dose. Tethys keeps dosing.
-   Compare Demeter's decisions against Tethys's Trello log for some days.
-2. **Go active:** set `demeter.mode: active` in `.config/lab/pomona.yaml`
-   **and retire the Tethys hourly task in the same release** — two brains
-   must never dose one tank. (Belt-and-braces: Demeter treats any live
-   `dose/result` it did not command as a foreign dose and restarts its
-   60 min lockout.)
+**Rollout (owner decisions):**
+1. **Shadow:** `demeter.mode: shadow` (chart default) — it evaluates live
+   water and publishes to `pomona/demeter/decision` + the
+   `demeter_would_dose` metric, but cannot dose. Shipped 2026-09-10 (chart
+   0.3.0); the owner skipped the soak.
+2. **ACTIVE since 2026-09-10 (chart 0.3.1):** `demeter.mode: active` in
+   `.config/lab/pomona.yaml`, released together with **retiring the Tethys
+   hourly task** (`tethys-ph-watch` paused in the Claude scheduled tasks,
+   not deleted) — two brains must never dose one tank. (Belt-and-braces:
+   Demeter treats any live `dose/result` it did not command as a foreign
+   dose and restarts its 60 min lockout.) Fallback to observe-only = delete
+   the `mode: active` line.
+
+**Commissioning note (2026-09-10):** the dosing lines were primed with
+WATER, so the first ~10 ml pumped per channel deliver no reagent. The
+controller's budgets count pumped ml (prime included — that is what gates
+dosing, and it means the first day's 4 ml acid cap may be reached with little
+acid in the tank); the dashboard's delivered-ml panels subtract a
+`prime_ml` variable (default 10, set to 0 after a reagent prime). Priming
+each line with a bench `chN fwd 10000` before going live avoids the wasted
+first day.
+
+**Dashboard:** the `Demeter — dosing` row on `Pomona — Hydroponics` (mode,
+acid budget vs cap, nutrients 24 h, lockout, last dose, alert decisions;
+stacked delivered-per-day bars, dose-event bars, decisions by outcome,
+reading freshness), plus dashboard annotations that mark every dose on the
+pH/EC and other time series (red pH-Down, green nutrients).
 
 Restart safety: the rolling dose ledger is retained JSON on
 `pomona/demeter/ledger`; a restarted pod reloads it, and with no ledger it
@@ -231,16 +248,16 @@ dashboards/pomona.json      the Pomona — Hydroponics dashboard
 - **Card #252**: mirror the `pomona` (device) + `pomona-ingest` (+ now
   `pomona-demeter`, whose file mirror already exists) ACLs into
   `platform/mqtt/files/acl.conf` (DR) and reconcile `users.csv`.
-- **Demeter dashboard row + PrometheusRules** (dose events vs pH/EC series,
-  acid budget gauge, `demeter_would_dose` during the shadow soak; alert on
-  ALERT decisions — acid cap hit, no-reagent conditions — and on
-  demeter-offline).
+- **Demeter PrometheusRules** (alert on ALERT decisions — acid cap hit,
+  no-reagent conditions — and on demeter-offline / stale readings). The
+  dashboard row + dose annotations shipped in 0.3.1.
 - **#224 firmware half**: first-class `pomona/dose/request` contract
   (ml payloads, idempotency ids, acks, firmware-local ml caps + daily
   budget) replacing the bench channel; then Demeter's `runtime.py` transport
   swaps over.
-- **Retire Tethys** when demeter goes active (same release; see the Demeter
-  section).
+- ~~Retire Tethys when demeter goes active~~ — done 2026-09-10 (task paused).
+  The dosing-grant version of `.claude/agents/tethys.md` lives on the
+  `docs-tag-policy` branch; when that merges, mark the grant revoked there.
 - Lamp switch state panel (HA entity id TBD) next to the pump-watts panel.
 - PrometheusRule alerts (reservoir CRIT, unit offline, ingest stalled).
 - HA ingestion of `pomona/#` (device topics) for automations/notifications is

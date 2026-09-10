@@ -36,12 +36,12 @@ secret:
 # live rules verified via GET, authn + subscribe + own-namespace publish
 # smoke-tested against mqtt.lab.local, both values sealed below.
 #
-# mode stays the chart default (shadow). Flipping to active is a deliberate
-# one-line override here — AFTER the shadow soak, and in the same release
-# that retires the Tethys hourly task:
-# demeter:
-#   mode: active
+# mode: ACTIVE since 2026-09-10 (owner decision — shadow soak skipped). The
+# Tethys hourly task (`tethys-ph-watch`) was paused in the same release and
+# its dosing grant revoked: two brains must never dose one tank. To fall back
+# to observe-only, delete the `mode: active` line (chart default = shadow).
 demeter:
+  mode: active
   secret:
     sealedSecret:
       enabled: true
