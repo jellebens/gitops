@@ -683,7 +683,7 @@
       "id": 19,
       "type": "stat",
       "title": "Last dose",
-      "description": "Time since the most recent dose Demeter executed (any reagent).",
+      "description": "Time since the most recent dose Demeter executed (any reagent). Looks back 7 days so a controller restart does not blank it (the gauge is per process until 0.3.1 sets it from the ledger).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 4, "w": 4, "x": 16, "y": 29 },
       "fieldConfig": {
@@ -704,7 +704,7 @@
         "justifyMode": "center"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(demeter_last_dose_timestamp_seconds) * 1000", "legendFormat": "last dose", "instant": true }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(max_over_time(demeter_last_dose_timestamp_seconds[7d])) * 1000", "legendFormat": "last dose", "instant": true }
       ]
     },
     {
