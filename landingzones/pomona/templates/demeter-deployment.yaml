@@ -1,0 +1,103 @@
+{{- if .Values.demeter.enabled }}
+# demeter: the k3s autodosing brain (#278, design of record #224). Watches
+# pomona/water/# on the platform broker and — in active mode only — corrects
+# chemistry via pomona/dose/test, inside the playbook rails (see the
+# controller/ README in the pomona repo). Ships in SHADOW mode: it decides
+# and publishes but never doses until the owner flips demeter.mode.
+#
+# Single replica + Recreate is a SAFETY property here, not just tidiness:
+# two controllers would each believe they own the lockout clock and could
+# double-dose the reservoir. Same single-writer discipline as zeus/jupiter,
+# with a live crop instead of a battery.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pomona-demeter
+  namespace: pomona
+  labels:
+    app.kubernetes.io/name: pomona-demeter
+    app.kubernetes.io/part-of: pomona
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pomona-demeter
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pomona-demeter
+        app.kubernetes.io/part-of: pomona
+      annotations:
+        # Roll the pod when the config changes.
+        checksum/config: {{ include (print $.Template.BasePath "/demeter-configmap.yaml") . | sha256sum }}
+        {{- if and .Values.demeter.secret.sealedSecret.enabled .Values.demeter.secret.sealedSecret.encryptedData }}
+        # Roll the pod when the sealed creds change.
+        checksum/secret: {{ include (print $.Template.BasePath "/demeter-sealed-secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: demeter
+          image: "{{ .Values.demeter.image.repository }}:{{ .Values.demeter.image.tag }}"
+          imagePullPolicy: {{ .Values.demeter.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # MQTT_USER / MQTT_PASS: the dedicated pomona-demeter broker user
+          # (subscribe pomona/#, publish ONLY dose/test + demeter/#). optional:
+          # true so the chart deploys before the owner seals real creds — until
+          # then the MQTT connect fail-and-retries and nothing can dose.
+          envFrom:
+            - secretRef:
+                name: {{ .Values.demeter.secret.name }}
+                optional: true
+          {{- if .Values.demeter.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.demeter.metrics.port }}
+              protocol: TCP
+          {{- with .Values.demeter.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with .Values.demeter.probes.liveness }}
+          # Liveness is deliberately tolerant (zeus discipline): /metrics is
+          # served on prometheus_client's own daemon thread, so only a truly
+          # wedged process fails it — a restart loop on a dosing controller
+          # helps nobody, and a restarted pod starts in boot lockout anyway.
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          resources:
+            {{- toYaml .Values.demeter.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: pomona-demeter
+{{- end }}
