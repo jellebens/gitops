@@ -9,7 +9,8 @@ name: pomona
 # 0.4.1 = #278 dashboard row renamed "Demeter", dose markers only on pH/EC;
 #         source pointers -> github.com/jellebens/demeter.
 # 0.5.0 = #278 Demeter 0.3.0 — config describes the tower (ADR-0002).
-version: 0.5.0
+# 0.5.1 = #278 "Last dose" stat survives controller restarts (7 d lookback).
+version: 0.5.1
 type: application
 appVersion: "1.0.0"
 description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf), Grafana dashboard, and Demeter the autodosing controller
