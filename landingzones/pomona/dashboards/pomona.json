@@ -515,7 +515,7 @@
       "id": 13,
       "type": "timeseries",
       "title": "Pump power (HA)",
-      "description": "sensor.pomona_pump_electric_consumption_w from the homeassistant bucket (HA InfluxDB export). Flat non-zero = pump running; the on/off rhythm is the irrigation cycle. Lamp switch state panel is a follow-up (entity id TBD).",
+      "description": "sensor.pomona_pump_power from the homeassistant bucket (HA InfluxDB export; ~4.7 W when running). Flat non-zero = pump running; the on/off rhythm is the irrigation cycle. Lamp switch state panel is a follow-up (entity id TBD).",
       "datasource": { "type": "influxdb", "uid": "influxdb" },
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 20 },
       "fieldConfig": {
@@ -543,7 +543,7 @@
         {
           "refId": "A",
           "datasource": { "type": "influxdb", "uid": "influxdb" },
-          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"pomona_pump_electric_consumption_w\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Pump W\"})"
+          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"pomona_pump_power\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"Pump W\"})"
         }
       ]
     },
@@ -1040,8 +1040,8 @@
       "id": 29,
       "type": "state-timeline",
       "title": "Mixing & pump",
-      "description": "Demeter mixing = it holds pomona/pump/override=on around a dose (15 min, then auto; ADR-0003). pump running = the GIGA's actual pomona/pump/request (its schedule OR Demeter's override; the level interlock can veto). dose pending verdict = a dose whose response is not yet judged — the verdict needs ≥ 10 min of pump running.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "pump power = the Fibaro plug actually drawing power (sensor.pomona_pump_power via HA → InfluxDB, on above 2 W) — the ground truth that the tank is circulating. pump requested = the GIGA's pomona/pump/request (its schedule OR Demeter's override; the level interlock can veto); requested-but-no-power means HA is not relaying. Demeter mixing = it holds pomona/pump/override=on around a dose (15 min, then auto; ADR-0003). dose pending verdict = a dose whose response is not yet judged — the verdict needs ≥ 10 min of pump running.",
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
       "fieldConfig": {
         "defaults": {
@@ -1059,6 +1059,8 @@
           ]
         },
         "overrides": [
+          { "matcher": { "id": "byName", "options": "pump power (Fibaro)" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "off", "color": "transparent" }, "1": { "text": "on", "color": "green" } } } ] } ] },
+          { "matcher": { "id": "byName", "options": "pump requested (GIGA)" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "off", "color": "transparent" }, "1": { "text": "requested", "color": "blue" } } } ] } ] },
           { "matcher": { "id": "byName", "options": "Demeter mixing" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "idle", "color": "transparent" }, "1": { "text": "mixing", "color": "purple" } } } ] } ] },
           { "matcher": { "id": "byName", "options": "dose pending verdict" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "—", "color": "transparent" }, "1": { "text": "pending", "color": "orange" } } } ] } ] }
         ]
@@ -1072,7 +1074,12 @@
         "tooltip": { "mode": "single", "sort": "none" }
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_pump_running", "legendFormat": "pump running" },
+        {
+          "refId": "P",
+          "datasource": { "type": "influxdb", "uid": "influxdb" },
+          "query": "from(bucket: \"homeassistant\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r.entity_id == \"pomona_pump_power\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false) |> map(fn: (r) => ({ r with _value: if r._value > 2.0 then 1.0 else 0.0 })) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"pump power (Fibaro)\"})"
+        },
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_pump_running", "legendFormat": "pump requested (GIGA)" },
         { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_mixing", "legendFormat": "Demeter mixing" },
         { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_dose_response_pending", "legendFormat": "dose pending verdict" }
       ]

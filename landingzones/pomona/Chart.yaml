@@ -13,7 +13,8 @@ name: pomona
 # 0.6.0 = #278 Demeter 0.4.0 — mixes what it doses (pump override, ADR-0003),
 #         tier-scoped early release, late responses learned.
 # 0.6.1 = #278 dashboard: reagent bottle + mixing/pump panels.
-# 0.6.2 = #278 baseline 2026-09-11: prime_ml 0 (lines flushed, carry reagent).
+# 0.6.2 = #278 baseline 2026-09-11: prime_ml 0 (lines flushed, carry reagent);
+#         Mixing & pump panel shows the Fibaro pump POWER lane (HA/Influx).
 version: 0.6.2
 type: application
 appVersion: "1.0.0"
