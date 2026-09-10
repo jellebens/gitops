@@ -55,7 +55,7 @@ This repository manages Argo CD app-of-apps and platform service configuration v
   - `syncOptions`: `CreateNamespace=true`, `ServerSideApply=true`
 - Use sync waves for ordering (for example config apps before dependent apps).
 - **Conventional Commits (owner directive, 2026-08-26):** every commit — in this
-  repo and the sibling repos (pomona, jupiter/zeus, home-assitant) — uses
+  repo and the sibling repos (pomona, demeter, jupiter/zeus, home-assitant) — uses
   `type(scope): subject`, e.g. `feat(firmware): …`, `fix(dashboards): …`,
   `docs(runbook): …`, `chore(release): …`. Applies to agents too; PR titles keep
   the `#NN card name` convention.

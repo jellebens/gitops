@@ -5,7 +5,10 @@ name: pomona
 # (0.1.0 shipped twice unbumped: #222 feature -> 0.2.0, #261 fix -> 0.2.1).
 # 0.3.0 = #278 Demeter autodosing controller (feature; ships in shadow mode).
 # 0.3.1 = #278 Demeter ACTIVE in lab + dosing dashboard row/annotations.
-version: 0.4.0
+# 0.4.0 = #278 Demeter 0.2.0 self-learning brain.
+# 0.4.1 = #278 dashboard row renamed "Demeter", dose markers only on pH/EC;
+#         source pointers -> github.com/jellebens/demeter.
+version: 0.4.1
 type: application
 appVersion: "1.0.0"
 description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf), Grafana dashboard, and Demeter the autodosing controller
