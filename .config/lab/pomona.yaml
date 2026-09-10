@@ -42,6 +42,18 @@ secret:
 # to observe-only, delete the `mode: active` line (chart default = shadow).
 demeter:
   mode: active
+  # THE CONTAINERS (ADR-0002, owner 2026-09-11): container_ml is what was IN
+  # the bottle on filled_on — the count of pumped ml starts there. A and B are
+  # 1 L bottles "mostly full" (taken as 950 ml, conservative); pH-Down is a
+  # 250 ml bottle with ~200 ml left. Bottle-low alert < 10 % (95 ml / 20 ml);
+  # a dose the bottle cannot cover is BLOCKED. On a refill: set container_ml
+  # to the new content and bump filled_on (that resets the counter).
+  # line_volume_ml stays 0 until the tubing ID is known (pi/4 * ID_mm^2 * m).
+  config:
+    reagents:
+      ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
+      nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
+      nutrient_b: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
   secret:
     sealedSecret:
       enabled: true

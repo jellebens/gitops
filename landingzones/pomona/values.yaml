@@ -109,7 +109,7 @@ demeter:
   enabled: true
   image:
     repository: jellebens/pomona-demeter
-    tag: "0.2.0"
+    tag: "0.3.0"
     pullPolicy: IfNotPresent
 
   # SHADOW by default: full evaluation, decisions published to
@@ -164,8 +164,12 @@ demeter:
 
   # Rendered verbatim into /config/config.yaml after mode + metrics_port.
   # Mirrors config.example.yaml in the demeter repo — see there for per-key
-  # documentation. Bands are the ESTABLISHMENT phase values; #262
-  # ramps EC toward 1.4-1.6 when establishment ends (edit here, no rebuild).
+  # documentation. Since controller 0.3.0 (ADR-0002) this describes THE
+  # TOWER, not the controller: bands, tolerances, dose quanta and the lockout
+  # are derived by demeter from the plants' targets + the reservoir volume
+  # (defaults derive the Tethys playbook exactly). Owner inputs still null:
+  # the three reagent container sizes + fill dates (per-env override in
+  # .config/<env>/pomona.yaml) and the canopy lux floor for the light check.
   config:
     interval_seconds: 60
     freshness_seconds: 120
@@ -177,29 +181,47 @@ demeter:
       username: "${MQTT_USER}"
       password: "${MQTT_PASS}"
       base_topic: pomona
-    bands:
-      ph_target_low: 5.8
-      ph_target_high: 6.2
-      ph_tol_low: 5.4
-      ph_tol_high: 6.5
-      ph_high_full: 7.0
-      ec_target_low: 0.8
-      ec_target_high: 1.0
-      ec_tol_low: 0.7
-      ec_tol_high: 1.1
-      water_temp_max_c: 26.5
-    dosing:
-      lockout_minutes: 60
-      ph_full_dose_ml: 1.0
-      ph_fine_dose_ml: 0.5
-      ph_daily_cap_ml: 4.0
-      nutrient_dose_ml: 5.0
-      nutrient_gap_seconds: 120
-      nutrient_max_per_24h: 1
-      max_command_ms: 10000
-      # DFR0523 calibration, 2026-09-09 recalibration on the FINAL plumbing
-      # (pomona docs/dosing/dfr0523.md). Per-channel AND per-speed — never
-      # interpolate; recalibrate after any tube change, then update HERE.
+    # WHAT IS IN THE TOWER + the optimum for that mix (pomona
+    # docs/planting-plan.md, as-built 2026-08-31: 18 of 30 pods).
+    tower:
+      reservoir_l: 10
+      plants:
+        - { crop: strawberry, variety: alpine, count: 9, tiers: [3, 4] }
+        - { crop: paprika,                     count: 4, tiers: [1] }
+        - { crop: dulce_italiano,              count: 3, tiers: [2] }
+        - { crop: chili,                       count: 2, tiers: [2] }
+      # establishment | established. established_from (ISO date) ramps the
+      # EC target automatically — the planting plan says 2-3 weeks after the
+      # 2026-08-31 transplant (#262); set the date here when it is decided.
+      stage: establishment
+      established_from: null
+      targets:
+        ec_ms_cm:
+          establishment: [0.8, 1.0]   # freshly transplanted young plants
+          established: [1.4, 1.6]     # mixed-tower compromise (peppers ~1.8-2.4, strawberry 1.2-1.6)
+        ph: [5.8, 6.2]                # covers every crop's ideal window; set point ~6.0
+        light:                        # observed + alerted (light_low), never actuated (#260)
+          hours_per_day: { establishment: 12, established: 14 }
+          canopy_lux_min: null        # BH1750 reads ~1/60 of true canopy lux; null = check off
+        water_temp_max_c: 26.5
+    # THE CONTAINERS: container_ml - pumped since filled_on = remaining;
+    # reagent_low_<name> alert < 10 %, an uncoverable dose is BLOCKED. A new
+    # filled_on = a refill (counter resets). line_volume_ml = tube volume the
+    # fill pushes out before reagent reaches the tank (1 m of 4 mm ID = 12.6 ml).
+    reagents:
+      ph_down:    { container_ml: null, filled_on: null, line_volume_ml: 0 }
+      nutrient_a: { container_ml: null, filled_on: null, line_volume_ml: 0 }
+      nutrient_b: { container_ml: null, filled_on: null, line_volume_ml: 0 }
+    # THE FEW HARD RAILS (ADR-0001 §4). null = derived from reservoir_l:
+    # acid cap 0.4 ml/L per 24 h (4 ml), max single dose 0.2 ml/L (2 ml).
+    rails:
+      ph_daily_cap_ml: null
+      ph_max_single_dose_ml: null
+      adaptive: true                # false = fixed playbook, nothing learned
+    # CALIBRATION FACTS: DFR0523 2026-09-09 recalibration on the FINAL
+    # plumbing (pomona docs/dosing/dfr0523.md). Per-channel AND per-speed —
+    # never interpolate; recalibrate after any tube change, then update HERE.
+    pumps:
       ph_down:    { channel: 1, full_ml_s: 0.48, slow_ml_s: 0.11, slow_speed: 50 }
       nutrient_a: { channel: 2, full_ml_s: 0.66, slow_ml_s: 0.24, slow_speed: 50 }
       nutrient_b: { channel: 3, full_ml_s: 0.60, slow_ml_s: 0.11, slow_speed: 50 }
