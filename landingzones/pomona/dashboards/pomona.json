@@ -889,6 +889,301 @@
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max(demeter_reading_age_seconds)", "legendFormat": "newest reading age" },
         { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_unit_online", "legendFormat": "unit online" }
       ]
+    },
+    {
+      "id": 25,
+      "type": "bargauge",
+      "title": "Reagent remaining (%)",
+      "description": "Bottle content left = container_ml at the fill date minus ml pumped since (ADR-0002). Demeter alerts below 10 % and blocks a dose the bottle cannot cover. Refill = set container_ml to the new content and bump filled_on in .config/<env>/pomona.yaml.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 50 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "green", "value": 25 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ph_down" }, "properties": [ { "id": "displayName", "value": "pH-Down" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_a" }, "properties": [ { "id": "displayName", "value": "Nutrient A" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_b" }, "properties": [ { "id": "displayName", "value": "Nutrient B" } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "minVizHeight": 16
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * demeter_reagent_remaining_ml / demeter_reagent_container_ml > -1", "legendFormat": "{{reagent}}", "instant": true }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Reagent remaining (ml)",
+      "description": "Millilitres left per bottle (container at fill minus pumped since). -1 would mean the container size is not configured.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 50 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mlitre",
+          "decimals": 1,
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ph_down" }, "properties": [ { "id": "displayName", "value": "pH-Down" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_a" }, "properties": [ { "id": "displayName", "value": "Nutrient A" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_b" }, "properties": [ { "id": "displayName", "value": "Nutrient B" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "dark-green" } } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_reagent_remaining_ml", "legendFormat": "{{reagent}}", "instant": true }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Days left at the 7-day dosing rate",
+      "description": "remaining ml / (ml pumped in the last 7 days / 7). Capped at 999 when the rate is ~0. A planning number, not a rail — the bottle-low alert is the rail.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 50 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 7 },
+              { "color": "green", "value": 21 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ph_down" }, "properties": [ { "id": "displayName", "value": "pH-Down" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_a" }, "properties": [ { "id": "displayName", "value": "Nutrient A" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_b" }, "properties": [ { "id": "displayName", "value": "Nutrient B" } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "clamp_max((demeter_reagent_remaining_ml > -1) / clamp_min(sum by (reagent) (increase(demeter_dosed_ml_total[7d])) / 7, 0.05), 999)", "legendFormat": "{{reagent}}", "instant": true }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "Reagent level (ml)",
+      "description": "Bottle content over time, per reagent. Steps down on each dose; jumps up on a refill (new filled_on). Widen the range to see consumption trends.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mlitre",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": true,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ph_down" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }, { "id": "displayName", "value": "pH-Down" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_a" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }, { "id": "displayName", "value": "Nutrient A" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_b" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "dark-green" } }, { "id": "displayName", "value": "Nutrient B" } ] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_reagent_remaining_ml > -1", "legendFormat": "{{reagent}}" }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "state-timeline",
+      "title": "Mixing & pump",
+      "description": "Demeter mixing = it holds pomona/pump/override=on around a dose (15 min, then auto; ADR-0003). pump running = the GIGA's actual pomona/pump/request (its schedule OR Demeter's override; the level interlock can veto). dose pending verdict = a dose whose response is not yet judged — the verdict needs ≥ 10 min of pump running.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 0, "fillOpacity": 80 },
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "blue", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "off", "color": "transparent" }, "1": { "text": "on", "color": "blue" } } }
+          ]
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Demeter mixing" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "idle", "color": "transparent" }, "1": { "text": "mixing", "color": "purple" } } } ] } ] },
+          { "matcher": { "id": "byName", "options": "dose pending verdict" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "—", "color": "transparent" }, "1": { "text": "pending", "color": "orange" } } } ] } ] }
+        ]
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_pump_running", "legendFormat": "pump running" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_mixing", "legendFormat": "Demeter mixing" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_dose_response_pending", "legendFormat": "dose pending verdict" }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Mixed time since the pending dose",
+      "description": "Pump-on seconds accumulated since the last dose (from pomona/pump/request). The brain judges the dose's pH response only past the 600 s line — until then a 'no response' cannot be declared. Resets on each dose.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 64 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "spanNulls": false,
+            "showPoints": "never",
+            "axisSoftMin": 0,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "green", "value": 600 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_pending_dose_mixed_seconds", "legendFormat": "mixed since dose" }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "No-response streak",
+      "description": "Consecutive pH-Down doses that produced no measurable drop on a MIXED tank. At 3 Demeter stops dosing acid and alerts — dry line, empty bottle or dead pump. Cleared by a dose that responds.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 64 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_no_response_streak", "legendFormat": "streak", "instant": true }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Last dose response (pH drop)",
+      "description": "pre-dose pH minus the settled trough of the last judged pH-Down dose. Around 0 = no response; the learned model expects k·ml − b (k ≈ 1.36 pH/ml, b ≈ 0.37 as of 2026-09-11).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 64 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null },
+              { "color": "green", "value": 0.1 }
+            ]
+          },
+          "mappings": [],
+          "noValue": "none yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_last_dose_response_ph_drop", "legendFormat": "drop", "instant": true }
+      ]
     }
   ],
   "refresh": "1m",
