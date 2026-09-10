@@ -45,7 +45,7 @@ requests.*
 
 | piece | where |
 |---|---|
-| Demeter service (`jellebens/pomona-demeter`, arm64) | pomona repo `controller/` — decision engine + MQTT runtime + Prometheus, engine unit-tested |
+| Demeter service (`jellebens/pomona-demeter`, arm64) | its own private repo <https://github.com/jellebens/demeter> (extracted from pomona `controller/` on 2026-09-11, history kept) — decision engine + MQTT runtime + Prometheus, engine unit-tested |
 | Chart: deployment / configmap / sealed-secret / service / servicemonitor / CNP | `landingzones/pomona/templates/demeter-*.yaml` |
 | Playbook config (bands, quanta, caps, DFR0523 calibration) | `landingzones/pomona/values.yaml` `demeter.config` |
 | Broker user `pomona-demeter` (least privilege) + DR mirror | owner runbook in the landing-zone README; `platform/mqtt/files/acl.conf` |
@@ -113,8 +113,8 @@ Prometheus (`demeter_*`): doses + ml per reagent, last-dose timestamps,
 rolling budgets, lockout countdown, every decision by action/condition,
 readings + ages, unit-online, would-dose. Scraped by kube-prometheus-stack;
 dose steps are also visible in the InfluxDB pH/EC series and every decision
-is a retained MQTT message. The **Demeter — dosing (card #278)** dashboard
-row and dose annotations shipped with chart 0.3.1. **PrometheusRules are
+is a retained MQTT message. The **Demeter** dashboard row and the dose
+annotations (shown on the pH and EC panels only) shipped with chart 0.3.1. **PrometheusRules are
 still open**: the acid-cap STOP and the stale/offline no-dose states are
 visible on the dashboard but do not page anyone yet.
 

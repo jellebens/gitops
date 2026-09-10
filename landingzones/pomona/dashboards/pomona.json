@@ -10,9 +10,10 @@
         "expr": "changes(demeter_last_dose_timestamp_seconds{reagent=\"ph_down\"}[1m]) > 0",
         "step": "1m",
         "titleFormat": "pH-Down dose",
-        "textFormat": "Demeter dosed pH-Down (ch1) — ml in the Demeter — dosing row",
+        "textFormat": "Demeter dosed pH-Down (ch1) — ml in the Demeter row",
         "tagKeys": "reagent",
-        "useValueForTime": false
+        "useValueForTime": false,
+        "filter": { "exclude": false, "ids": [6, 7] }
       },
       {
         "name": "Nutrient dose (A/B)",
@@ -25,11 +26,12 @@
         "titleFormat": "Nutrient dose",
         "textFormat": "Demeter dosed {{reagent}} (A=ch2, B=ch3)",
         "tagKeys": "reagent",
-        "useValueForTime": false
+        "useValueForTime": false,
+        "filter": { "exclude": false, "ids": [6, 7] }
       }
     ]
   },
-  "description": "Pomona hydroponic tower — monitoring dashboard (card #222) + Demeter autodosing (card #278). Data: MQTT pomona/# ingested by the pomona-ingest Telegraf bridge into the InfluxDB pomona bucket (tags zone/metric, field value); pump watts come from the homeassistant bucket (HA InfluxDB export); dosing series are Demeter's demeter_* Prometheus metrics. Vertical markers on every time series = a dose (red pH-Down, green nutrients). Delivered-ml stats net out the first $prime_ml ml per reagent (lines primed with water on commissioning).",
+  "description": "Pomona hydroponic tower — monitoring dashboard (card #222) + Demeter autodosing (card #278). Data: MQTT pomona/# ingested by the pomona-ingest Telegraf bridge into the InfluxDB pomona bucket (tags zone/metric, field value); pump watts come from the homeassistant bucket (HA InfluxDB export); dosing series are Demeter's demeter_* Prometheus metrics. Vertical markers on the pH and EC panels = a dose (red pH-Down, green nutrients). Delivered-ml stats net out the first $prime_ml ml per reagent (lines primed with water on commissioning).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -548,7 +550,7 @@
     {
       "id": 14,
       "type": "row",
-      "title": "Demeter — dosing (card #278)",
+      "title": "Demeter",
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 },
       "panels": []
