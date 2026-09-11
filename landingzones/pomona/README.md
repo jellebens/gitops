@@ -16,7 +16,10 @@ the interim Tethys dosing regime proven, this landing zone now also hosts
 **Demeter — the k3s autodosing brain** (design of record #224): pH-Down when
 the water drifts alkaline, Nutrients A then B when the EC sags, inside hard
 rails. Demeter ships in **shadow mode** (decides, publishes, doses nothing)
-until the owner flips it active.
+until the owner flips it active. **Retired from this zone at the #291 cutover
+(2026-09-12):** the tower's brain now runs as `demeter-brain-pomona-0001` in
+[`landingzones/demeter`](../demeter/README.md) (`demeter.enabled: false` here; the
+block below is history).
 
 - **Application source:** <https://github.com/jellebens/pomona> (firmware,
   calibration lessons, `docs/mqtt.md` topic schema, OTA/deploy tooling).
