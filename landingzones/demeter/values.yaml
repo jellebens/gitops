@@ -52,7 +52,7 @@ units:
       # while soaking next to the live pomona-demeter (which owns
       # pomona/demeter/#); flip to "demeter" at the cutover so the new brain
       # inherits the live retained ledger.
-      ownPrefix: demeter-shadow
+      ownPrefix: demeter
     # Broker creds (MQTT_USER / MQTT_PASS): the same least-privilege
     # pomona-demeter EMQX user the live brain uses (subscribe pomona/#, publish
     # ONLY pomona/dose/test + pomona/pump/override + pomona/demeter/#) — its
