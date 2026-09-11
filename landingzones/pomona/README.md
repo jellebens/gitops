@@ -69,9 +69,10 @@ Argo syncs automatically (`prune`, `selfHeal`, `CreateNamespace=true`,
 
 ## Data model
 
-Topics (live, from pomona `docs/mqtt.md`), ingested as two measurements in the
-`pomona` bucket. `topic_parsing` turns `pomona/<zone>/<metric>` into `zone` +
-`metric` **tags**; the field is always `value`:
+Topics (live, from pomona `docs/mqtt.md`), ingested into the `pomona` bucket
+(**infinite retention**, [ADR-0002](../../docs/adr/0002-all-telemetry-in-influxdb-forever.md)).
+`topic_parsing` turns `pomona/<zone>/<metric>` into `zone` + `metric` **tags**;
+for the raw measurements the field is always `value`:
 
 | measurement | zone | metric | type | notes |
 |---|---|---|---|---|
@@ -86,6 +87,12 @@ Topics (live, from pomona `docs/mqtt.md`), ingested as two measurements in the
 | `pomona_meta` | unit | `status` | string | `online`/`offline`, retained (LWT) |
 | `pomona_meta` | unit | `fw_version` | string | retained |
 | `pomona_meta` | unit | `sensors` | string | retained JSON availability map, stored verbatim |
+| `pomona_events` | dose | `test` / `result` | string | every dose command + result line (#290) |
+| `pomona_events` | demeter | `decision` / `ledger` / `status` / `mode` | string | Demeter's stream, JSON verbatim — the lossless training record (#290) |
+| `pomona_events` | pump / light / control | `request` / `reason` / `override` / `power` / `mode` | string | the control plane as seen on the broker (#290) |
+| `pomona_events` | unit | `ota_result` / `i2c_scan` | string | diagnostics (#290) |
+| `demeter_decision` | — | tags `action`,`condition`,`stage`,`mode` | fields `executed`,`reason`,`ml`,`reagent`,`version` | one point per decision, timestamped by the document's own `ts` (#290) |
+| `demeter_model` | — | tag `last_dose_tier` | fields `k`,`b`,`n`,`settle_s`,`rebound_ph_h`,`kf_level`,`kf_slope`,`kf_r`,`trough_ph`,`no_response_streak`,`overshoots`,`*_pumped_ml`,`pending_*` | the learned model, one point per ledger publish = the learning curve (#290) |
 
 Example Flux:
 
@@ -96,12 +103,12 @@ from(bucket: "pomona")
       and r.metric == "ec_ms_cm" and r._field == "value")
 ```
 
-- **Bucket**: `pomona`, org `zeus`, **365d retention** — a full season of
-  chemistry/climate history at ~60s cadence is small (same order as zeus's
-  ~5 MiB/day total), and a year bounds cardinality growth without ever
-  mattering for the current dataset. Included in the hourly incremental NAS
-  export (`platform/influxdb-config` `backup.incremental.buckets`; the nightly
-  full backup covers all buckets automatically).
+- **Bucket**: `pomona`, org `zeus`, **infinite retention** (owner decision
+  2026-09-11, ADR-0002; it was 365d before #290). Declared and reconciled in
+  `platform/influxdb-config` `buckets.list`; included in the hourly incremental
+  NAS export (`backup.incremental.buckets`; the nightly full covers all buckets).
+  Demeter's Prometheus series (`demeter_*`) reach InfluxDB separately, via the
+  cluster-wide `remote_write` archive into the `prometheus` bucket.
 - **Broker**: always `mqtt.lab.local:1883` (the EMQX LB VIP), never a pod/node
   IP — [`platform/mqtt/README.md`](../../platform/mqtt/README.md).
 
@@ -124,10 +131,13 @@ nothing (envFrom is `optional: true` — deploy order is not blocked).
    - Mirror the rule into `platform/mqtt/files/acl.conf` + the README table per
      the standing DR rule — fold it into **card #252** (the pomona ACL DR-mirror
      card) so the two pomona users land in the mirror together.
-2. **InfluxDB bucket + token** (in-cluster, pod `influxdb-influxdb2-0`, admin
-   token from the `influxdb-auth` secret):
+2. **InfluxDB token** (in-cluster, pod `influxdb-influxdb2-0`, admin token
+   from the `influxdb-auth` secret). The bucket itself is no longer hand-made:
+   `platform/influxdb-config` `buckets.list` declares it (retention `0` =
+   forever) and the `influxdb-buckets` CronJob creates/reconciles it (#290).
    ```sh
-   influx bucket create --name pomona --org zeus --retention 8760h
+   # bucket: declared in git — run the reconciler now if you cannot wait an hour
+   #   kubectl -n influxdb create job --from=cronjob/influxdb-buckets buckets-now
    # scoped token: write-only pomona + read for /api/ds/query verification
    influx auth create --org zeus --description "pomona-ingest bridge" \
      --write-bucket <pomona-bucket-id> --read-bucket <pomona-bucket-id>

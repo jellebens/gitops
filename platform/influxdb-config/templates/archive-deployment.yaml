@@ -1,0 +1,93 @@
+{{- if .Values.archive.enabled }}
+# telemetry-archive: Telegraf next to the database (card #290, ADR-0002).
+# Single replica + Recreate: two receivers would double-write every point.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemetry-archive
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: telemetry-archive
+    app.kubernetes.io/part-of: influxdb
+spec:
+  replicas: {{ .Values.archive.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: telemetry-archive
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: telemetry-archive
+        app.kubernetes.io/part-of: influxdb
+      annotations:
+        # Roll the pod when the telegraf config changes.
+        checksum/config: {{ include (print $.Template.BasePath "/archive-configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: telegraf
+          image: "{{ .Values.archive.image.repository }}:{{ .Values.archive.image.tag }}"
+          imagePullPolicy: {{ .Values.archive.image.pullPolicy }}
+          args: ["--config", "/etc/telegraf/telegraf.conf"]
+          env:
+            # Admin token from influxdb-auth — same precedent as the backup
+            # CronJobs; the archive lives in the database's own namespace.
+            - name: INFLUX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: admin-token
+          {{- if .Values.archive.mqtt.enabled }}
+          envFrom:
+            # MQTT_USER / MQTT_PASS for the broker user `telemetry-archive`
+            # (sealed per env, see README owner runbook).
+            - secretRef:
+                name: {{ .Values.archive.mqtt.secret.name }}
+          {{- end }}
+          ports:
+            {{- if .Values.archive.remoteWrite.enabled }}
+            - name: remote-write
+              containerPort: {{ .Values.archive.remoteWrite.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.archive.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.archive.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.archive.metrics.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          {{- end }}
+          resources:
+            {{- toYaml .Values.archive.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/telegraf
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: telemetry-archive
+{{- end }}

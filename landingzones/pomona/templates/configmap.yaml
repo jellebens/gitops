@@ -91,3 +91,184 @@ data:
       [[inputs.mqtt_consumer.topic_parsing]]
         topic = "pomona/+/+"
         tags = "_/zone/metric"
+
+    # --- Long-term archive of the control plane (card #290, ADR-0002) ---------
+    # Every remaining pomona topic, VERBATIM as a string field: dose commands and
+    # results, Demeter's decision/ledger/status/mode, pump + light requests and
+    # reasons, control mode, OTA results, the I2C scan. Lossless — this is the
+    # training record. Retained topics replay on every reconnect (one duplicate
+    # point per retained topic at reconnect time; harmless).
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.mqtt.host }}:{{ .Values.mqtt.port }}"]
+      client_id = "{{ .Values.mqtt.clientId }}-events"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = 1
+      persistent_session = false
+      topics = [
+        "pomona/dose/+",
+        "pomona/demeter/+",
+        "pomona/pump/+",
+        "pomona/light/+",
+        "pomona/control/+",
+        "pomona/unit/ota_result",
+        "pomona/unit/i2c_scan",
+      ]
+      data_format = "value"
+      data_type = "string"
+      name_override = "pomona_events"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "pomona/+/+"
+        tags = "_/zone/metric"
+
+    # Demeter's decision, PARSED (queryable without JSON parsing in Flux): the
+    # action/condition/stage as tags, the planned ml + executed flag as fields.
+    # The document's own `ts` is the point time, so a retained replay on
+    # reconnect rewrites the same point instead of adding one.
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.mqtt.host }}:{{ .Values.mqtt.port }}"]
+      client_id = "{{ .Values.mqtt.clientId }}-decision"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = 1
+      persistent_session = false
+      topics = ["pomona/demeter/decision"]
+      data_format = "json_v2"
+      name_override = "demeter_decision"
+      [[inputs.mqtt_consumer.json_v2]]
+        timestamp_path = "ts"
+        timestamp_format = "unix"
+        [[inputs.mqtt_consumer.json_v2.tag]]
+          path = "action"
+        [[inputs.mqtt_consumer.json_v2.tag]]
+          path = "condition"
+        [[inputs.mqtt_consumer.json_v2.tag]]
+          path = "stage"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.tag]]
+          path = "mode"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "executed"
+          type = "bool"
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "reason"
+          type = "string"
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "version"
+          type = "string"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "steps.0.ml"
+          rename = "ml"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "steps.0.reagent"
+          rename = "reagent"
+          type = "string"
+          optional = true
+
+    # Demeter's learned model, PARSED from the retained ledger it republishes
+    # every cycle: the pH dose-response posterior (k, b, n), settle/rebound,
+    # the Kalman level/slope, streaks, and ml pumped per reagent since the last
+    # refill. One point per publish (arrival time) = the learning curve.
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.mqtt.host }}:{{ .Values.mqtt.port }}"]
+      client_id = "{{ .Values.mqtt.clientId }}-ledger"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = 1
+      persistent_session = false
+      topics = ["pomona/demeter/ledger"]
+      data_format = "json_v2"
+      name_override = "demeter_model"
+      [[inputs.mqtt_consumer.json_v2]]
+        [[inputs.mqtt_consumer.json_v2.tag]]
+          path = "last_dose_tier"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "v"
+          rename = "ledger_version"
+          type = "int"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.k"
+          rename = "k"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.b"
+          rename = "b"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.n"
+          rename = "n"
+          type = "int"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.settle_s"
+          rename = "settle_s"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.rebound_ph_h"
+          rename = "rebound_ph_h"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.kf_level"
+          rename = "kf_level"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.kf_slope"
+          rename = "kf_slope"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.kf_r"
+          rename = "kf_r"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.trough_ph"
+          rename = "trough_ph"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.no_response_streak"
+          rename = "no_response_streak"
+          type = "int"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "model.overshoots"
+          rename = "overshoots"
+          type = "int"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "reagents.ph_down.pumped_ml"
+          rename = "ph_down_pumped_ml"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "reagents.nutrient_a.pumped_ml"
+          rename = "nutrient_a_pumped_ml"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "reagents.nutrient_b.pumped_ml"
+          rename = "nutrient_b_pumped_ml"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "pending.ml"
+          rename = "pending_ml"
+          type = "float"
+          optional = true
+        [[inputs.mqtt_consumer.json_v2.field]]
+          path = "pending.pre_ph"
+          rename = "pending_pre_ph"
+          type = "float"
+          optional = true

@@ -1,6 +1,8 @@
 apiVersion: v2
 name: influxdb-config
-description: InfluxDB admin credentials (SealedSecret) for the influxdb2 chart
+description: InfluxDB platform config — admin credentials (SealedSecret), bucket + retention reconciler, telemetry-archive (Prometheus remote_write + MQTT document archiver), NAS backups
 type: application
-version: 0.1.0
+# 0.2.0 = #290 buckets reconciled from git (all retention 0 = forever, ADR-0002) +
+#         telemetry-archive: Prometheus remote_write receiver + MQTT archiver.
+version: 0.2.0
 appVersion: "2.7"

@@ -67,6 +67,7 @@ see "ACL disaster recovery" below):
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
 | `pomona`        | `all pomona/#` (the GIGA firmware)                           | `deny all #` |
 | `pomona-demeter` | `subscribe pomona/#`, `publish pomona/dose/test`, `publish pomona/pump/override`, `publish pomona/demeter/#` | `deny all #` |
+| `telemetry-archive` | **`subscribe jupiter/#`, `subscribe zeus/#`** (no publish — the InfluxDB document archiver, #290 / ADR-0002) | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
 `homeassistant` is scoped to **its own tree plus the pomona relay grants**

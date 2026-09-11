@@ -1,0 +1,70 @@
+{{- if .Values.buckets.enabled }}
+# Bucket + retention reconciler (card #290, ADR-0002 "all telemetry, forever").
+#
+# Buckets and their retention used to be hand-created (`influx bucket create
+# --retention 8760h` in a README) — invisible to Argo, so a finite retention
+# could silently age data out. This CronJob makes `.Values.buckets.list` the
+# source of truth: a missing bucket is created, an existing one has the
+# declared retention (re)applied, every hour. Idempotent; never deletes.
+#
+# A CronJob rather than an Argo Sync hook on purpose: this chart syncs at wave
+# 17, BEFORE the influxdb2 chart (wave 18) exists on a fresh cluster — a hook
+# Job would fail there and hold the bootstrap. The CronJob simply retries next
+# hour. To apply a change immediately:
+#   kubectl -n influxdb create job --from=cronjob/influxdb-buckets buckets-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: influxdb-buckets
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: influxdb-buckets
+    app.kubernetes.io/part-of: influxdb
+spec:
+  schedule: {{ .Values.buckets.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: buckets
+              image: {{ .Values.buckets.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  host="http://influxdb-influxdb2.{{ .Values.secret.namespace }}"
+                  org="{{ .Values.buckets.org }}"
+                  rc=0
+                  {{- range .Values.buckets.list }}
+                  name="{{ .name }}"; retention="{{ .retention | default "0" }}"
+                  if influx bucket list --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" --name "$name" --hide-headers >/dev/null 2>&1; then
+                    echo "bucket $name: exists -> retention $retention"
+                    influx bucket update --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" \
+                      --id "$(influx bucket list --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" --name "$name" --hide-headers | awk '{print $1}')" \
+                      --retention "$retention" --hide-headers || rc=1
+                  else
+                    echo "bucket $name: missing -> create with retention $retention"
+                    influx bucket create --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" \
+                      --name "$name" --retention "$retention" --hide-headers || rc=1
+                  fi
+                  {{- end }}
+                  echo "current buckets (name / retention):"
+                  influx bucket list --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" --json \
+                    | sed -n 's/.*"name": *"\([^"]*\)".*/\1/p; s/.*"retentionPeriod": *\([0-9]*\).*/  retention_ns=\1/p'
+                  exit $rc
+              env:
+                - name: INFLUXDB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: admin-token
+{{- end }}
