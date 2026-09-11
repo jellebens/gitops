@@ -1,0 +1,26 @@
+{{- if .Values.metrics.enabled }}
+{{- range $id, $u := .Values.units }}
+{{- if $u.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demeter-brain-{{ $id }}-metrics
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-brain
+    app.kubernetes.io/instance: demeter-brain-{{ $id }}
+    app.kubernetes.io/part-of: demeter
+    demeter.jellebens.dev/unit: {{ $id | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: demeter-brain-{{ $id }}
+  ports:
+    - name: metrics
+      port: {{ $.Values.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}
+{{- end }}
+{{- end }}
