@@ -106,7 +106,7 @@ probes:
 # Nutrient A then B, once/24h; 60 min lockout; confirm >=10 min; stale or
 # offline never doses). Replaces the interim hourly Tethys agent regime.
 demeter:
-  enabled: true
+  enabled: false   # RETIRED at the #291 cutover (2026-09-12): the tower's brain is demeter-brain-pomona-0001 in landingzones/demeter
   image:
     repository: jellebens/pomona-demeter
     tag: "0.5.1"

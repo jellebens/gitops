@@ -34,55 +34,51 @@ GIGA firmware ──MQTT (user `pomona`)──> EMQX mqtt.lab.local:1883 (ns mqt
 Per-environment facts and the flip to active live in
 `.config/<env>/demeter.yaml`.
 
-## Owner runbook — onboarding the tower's brain (#291)
+## How the tower's brain got here (#291) — and the rules that stay
 
-1. **Broker user.** The brain reuses the least-privilege **`pomona-demeter`**
-   EMQX user (subscribe `pomona/#`; publish `pomona/dose/test`,
-   `pomona/pump/override`, `pomona/demeter/#`). For the soak it publishes
-   its own documents under `pomona/demeter-shadow/#`, so **add
-   `pomona/demeter-shadow/#` to its publish allow-list** (live mnesia rule
-   via the admin API, and the DR mirror in `platform/mqtt/files/acl.conf`).
-   It connects with its own client id `brain-pomona-0001` (never the live
-   pod's `pomona-demeter` — EMQX kicks duplicate client ids).
-2. **Seal the creds for THIS namespace.** Sealed blobs are namespace + name
-   scoped; the `pomona` blobs do not decrypt here:
+**Cutover 2026-09-12 (owner; shadow soak skipped — the golden replay in the
+demeter repo proves bit-for-bit 0.5.1 behaviour).** In one release:
+`landingzones/pomona` `demeter.enabled: false` retired the old
+`pomona-demeter` Deployment (its retained `pomona/demeter/ledger` stayed on
+the broker); here `units.pomona-0001.mqtt.ownPrefix: demeter` made the new
+brain inherit that ledger — the acid budget, the lockout clock, what it
+learned — and `.config/lab/demeter.yaml` set `mode: active`. **Never two
+brains on one tank:** sync the `pomona` app (old pod gone) before the
+`demeter` app when applying such a release by hand.
 
-   ```sh
-   printf '%s' "$VALUE" | kubeseal --raw \
-     --controller-name sealed-secrets --controller-namespace argocd \
-     --namespace demeter --name demeter-brain-pomona-0001-secrets
-   ```
+- **Broker user.** The brain reuses the least-privilege **`pomona-demeter`**
+  EMQX user (subscribe `pomona/#`; publish `pomona/dose/test`,
+  `pomona/pump/override`, `pomona/demeter/#`) with its own client id
+  `brain-pomona-0001`.
+- **Creds for THIS namespace.** Sealed blobs are namespace + name scoped;
+  the `pomona` blobs do not decrypt here. At the cutover the Secret
+  `demeter-brain-pomona-0001-secrets` was a hand-copied stopgap of
+  `pomona/pomona-demeter-secrets` (the command is in
+  `.config/lab/demeter.yaml`); replace it with the sealed form:
 
-   Paste `MQTT_USER` / `MQTT_PASS` under
-   `units.pomona-0001.secret.sealedSecret.encryptedData` in
-   `.config/<env>/demeter.yaml`. Until then the pod runs, idles unconnected
-   and cannot dose (envFrom is optional).
-3. **Shadow soak (≥ 24 h).** With `mode: shadow` the new brain publishes
-   `pomona/demeter-shadow/decision` and `demeter_would_dose{unit="pomona-0001"}`
-   next to the live `pomona-demeter` pod. Compare the two decision streams
-   (Influx `pomona_events` for the live one, the retained shadow topic and
-   the `demeter_decisions_total{unit="pomona-0001"}` counters for the new
-   one) — they must agree decision for decision.
-4. **Cutover — one release, never two brains on one tank:**
-   - `landingzones/pomona`: `demeter.enabled: false` (the old Deployment,
-     ConfigMap, Service, ServiceMonitor and policy go away; its retained
-     `pomona/demeter/ledger` stays on the broker);
-   - here: `units.pomona-0001.mqtt.ownPrefix: demeter` (the new brain
-     inherits the live retained ledger — the acid budget, the lockout clock,
-     what it learned) and, in `.config/<env>/demeter.yaml`, `mode: active`;
-   - drop `pomona/demeter-shadow/#` from the ACL again.
-   Bump both chart versions; Argo applies them in one sync.
-5. **Dashboard.** After the cutover every `demeter_*` series carries
-   `unit="pomona-0001"` and `unit_type="aeroponic_tower"`; the `Pomona —
-   Hydroponics` Demeter row keeps working unchanged (queries select by
-   metric name) and gains the label for a future `unit` variable. During
-   the soak the row shows the live brain; the shadow brain is visible only
-   under the `unit` label.
+  ```sh
+  printf '%s' "$VALUE" | kubeseal --raw \
+    --controller-name sealed-secrets --controller-namespace argocd \
+    --namespace demeter --name demeter-brain-pomona-0001-secrets
+  ```
 
-**Rollback** at any point: `units.pomona-0001.enabled: false` here (the
-shadow brain vanishes; nothing it did touched the tank) or, after the
-cutover, `demeter.enabled: true` back in `landingzones/pomona` with `mode:
-shadow` here — the old brain reloads the same retained ledger.
+  and paste `MQTT_USER` / `MQTT_PASS` under
+  `units.pomona-0001.secret.sealedSecret.encryptedData`. Without any
+  Secret the pod runs, idles unconnected and cannot dose (envFrom is
+  optional).
+- **Soaking a future brain.** A new image goes to one unit first with
+  `mode: shadow` (or a per-unit `role: shadow`) and `mqtt.ownPrefix:
+  demeter-shadow` (grant `pomona/demeter-shadow/#` to the broker user for
+  the duration), so its retained documents never overwrite the live ones;
+  compare `demeter_would_dose{unit=…}` and the decision streams, then flip.
+- **Dashboard.** Every `demeter_*` series carries `unit="pomona-0001"` and
+  `unit_type="aeroponic_tower"`; the `Pomona — Hydroponics` Demeter row
+  keeps working unchanged (queries select by metric name) and gains the
+  label for a future `unit` variable.
+
+**Rollback:** `units.pomona-0001.enabled: false` here (the brain vanishes,
+the retained ledger stays) and `demeter.enabled: true` back in
+`landingzones/pomona` — the old 0.5.1 pod reloads the same retained ledger.
 
 ## Alerts (architecture §8 R2)
 
