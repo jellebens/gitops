@@ -1,0 +1,106 @@
+{{- if .Values.archive.enabled }}
+# telegraf.conf for telemetry-archive — the long-term archiving service
+# (card #290, ADR-0002). Everything it receives is written to InfluxDB with the
+# bucket chosen per input via the `influx_bucket` tag (stripped on write):
+#   remote_write  -> {{ .Values.archive.remoteWrite.bucket }}   measurement "prometheus": field = metric name, tags = labels
+#   mqtt          -> {{ .Values.archive.mqtt.bucket }}   measurement "mqtt": string field "value" = payload verbatim,
+#                              tags topic (+ project/site/doc for 3-level topics)
+# ${INFLUX_TOKEN} / ${MQTT_USER} / ${MQTT_PASS} come from the pod env.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-archive
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: telemetry-archive
+    app.kubernetes.io/part-of: influxdb
+data:
+  telegraf.conf: |
+    [agent]
+      interval = "30s"
+      round_interval = true
+      flush_interval = "10s"
+      metric_batch_size = 5000
+      # ~10 min of remote_write at the project namespaces' series volume: an
+      # InfluxDB restart costs nothing; a longer outage is also covered by
+      # Prometheus's own remote_write WAL (it retries for 2 h by default).
+      metric_buffer_limit = 200000
+      omit_hostname = true
+
+    # Sink: the shared InfluxDB 2.x instance. The bucket is taken from the
+    # `influx_bucket` tag every input sets below, so one output serves all
+    # archives; `bucket` is only the fallback for an untagged point.
+    [[outputs.influxdb_v2]]
+      urls = ["{{ .Values.archive.influx.url }}"]
+      token = "${INFLUX_TOKEN}"
+      organization = "{{ .Values.archive.influx.org }}"
+      bucket = "{{ .Values.archive.remoteWrite.bucket }}"
+      bucket_tag = "influx_bucket"
+      exclude_bucket_tag = true
+
+    {{- if .Values.archive.metrics.enabled }}
+    # Self-telemetry ONLY on the Prometheus mirror (namepass) — re-exposing the
+    # archived series would double every project's cardinality in Prometheus.
+    # The internal_* series themselves also go to InfluxDB via the output above.
+    [[inputs.internal]]
+      collect_memstats = false
+      [inputs.internal.tags]
+        influx_bucket = "{{ .Values.archive.remoteWrite.bucket }}"
+
+    [[outputs.prometheus_client]]
+      listen = ":{{ .Values.archive.metrics.port }}"
+      metric_version = 2
+      expiration_interval = "5m"
+      namepass = ["internal_*"]
+    {{- end }}
+
+    {{- if .Values.archive.remoteWrite.enabled }}
+    # Prometheus remote_write receiver. kube-prometheus-stack pushes the project
+    # namespaces' series here (write_relabel_configs in
+    # .config/<env>/observability.yaml decide WHAT is archived; this end keeps
+    # everything it is sent). Measurement "prometheus", one field per metric
+    # name, every Prometheus label becomes a tag.
+    [[inputs.http_listener_v2]]
+      service_address = ":{{ .Values.archive.remoteWrite.port }}"
+      paths = ["{{ .Values.archive.remoteWrite.path }}"]
+      methods = ["POST"]
+      data_format = "prometheusremotewrite"
+      name_override = "prometheus"
+      max_body_size = "64MB"
+      read_timeout = "30s"
+      write_timeout = "30s"
+      [inputs.http_listener_v2.tags]
+        influx_bucket = "{{ .Values.archive.remoteWrite.bucket }}"
+    {{- end }}
+
+    {{- if .Values.archive.mqtt.enabled }}
+    # MQTT document archiver: whole project trees, every message stored
+    # verbatim as a string field (lossless — JSON documents included). Retained
+    # messages are replayed on every (re)connect, so a reconnect produces one
+    # duplicate point per retained topic at reconnect time; harmless for an
+    # archive and cheaper than tracking sessions.
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.archive.mqtt.host }}:{{ .Values.archive.mqtt.port }}"]
+      client_id = "{{ .Values.archive.mqtt.clientId }}"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.archive.mqtt.qos }}
+      persistent_session = false
+      topics = [
+        {{- range .Values.archive.mqtt.topics }}
+        {{ . | quote }},
+        {{- end }}
+      ]
+      data_format = "value"
+      data_type = "string"
+      name_override = "mqtt"
+      # jupiter/<site>/<doc>, zeus/<site>/commander, zeus/<key>/state ... The
+      # full topic is always kept as the `topic` tag; deeper topics simply get
+      # no project/site/doc tags.
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "+/+/+"
+        tags = "project/site/doc"
+      [inputs.mqtt_consumer.tags]
+        influx_bucket = "{{ .Values.archive.mqtt.bucket }}"
+    {{- end }}
+{{- end }}

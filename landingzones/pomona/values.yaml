@@ -20,7 +20,8 @@ mqtt:
   qos: 1
 
 # InfluxDB sink (non-secret half). Same instance/org as zeus/jupiter; dedicated
-# `pomona` bucket (owner-created pre-deploy, 365d retention — see README).
+# `pomona` bucket (declared in platform/influxdb-config `buckets.list`, retention
+# INFINITE since #290 / ADR-0002; it was owner-created with 365d before that).
 # INFLUX_TOKEN comes from the pomona-secrets SealedSecret (a scoped write token
 # for the pomona bucket — see README owner steps).
 influx:

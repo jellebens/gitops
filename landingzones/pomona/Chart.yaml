@@ -20,7 +20,9 @@ name: pomona
 #         "Dosing vs usual" panel.
 # 0.7.1 = #278 Demeter 0.5.1 — the pump is confirmed by plug power before a
 #         dose is judged (ADR-0005); homeassistant publishes pomona/pump/power.
-version: 0.7.1
+# 0.8.0 = #290 telemetry archive: dose/demeter/pump/light/control events +
+#         parsed Demeter decision & ledger model into the pomona bucket, forever.
+version: 0.8.0
 type: application
 appVersion: "1.0.0"
 description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf), Grafana dashboard, and Demeter the autodosing controller

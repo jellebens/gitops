@@ -22,6 +22,114 @@ tlsCertificate:
     name: lab-ca-issuer
     kind: ClusterIssuer
 
+# --- Buckets: declared here, reconciled by a CronJob (card #290, ADR-0002) ----
+# Every bucket the cluster writes telemetry into, with its retention. The
+# `influxdb-buckets` CronJob creates a missing bucket and (re)applies the
+# declared retention to an existing one, so retention is GitOps-enforced and
+# drift (a bucket hand-created with a finite retention, as pomona was on
+# 2026-08-31 with 8760h) is corrected within the hour. Retention "0" = infinite.
+#
+# OWNER DECISION 2026-09-11 (ADR-0002): ALL telemetry is stored FOREVER. Every
+# bucket below is "0". Do not add a finite retention without superseding the ADR.
+#
+# Tokens are NOT reconciled here (they cannot be declared in git); a new
+# bucket still needs its scoped token minted by the owner if a writer outside
+# this namespace is to use it — see README "Owner runbook".
+buckets:
+  enabled: true
+  schedule: "20 * * * *" # hourly at :20; run at once with `kubectl -n influxdb create job --from=cronjob/influxdb-buckets buckets-now`
+  image: influxdb:2.7
+  org: zeus
+  list:
+    # zeus battery archive (frozen since #169) + jupiter reporting/forecast
+    # writers (site-tagged, ADR-0019). Infinite since creation.
+    - name: zeus
+      retention: "0"
+    # Home Assistant's own InfluxDB integration (unfiltered, off-cluster via
+    # the gateway). Infinite since creation.
+    - name: homeassistant
+      retention: "0"
+    # pomona hydroponics telemetry via the landingzones/pomona Telegraf bridge
+    # (+ Demeter's dose/decision/ledger stream since #290). Was 8760h.
+    - name: pomona
+      retention: "0"
+    # Prometheus remote_write archive (telemetry-archive below): every app
+    # series from the project namespaces, forever. Prometheus itself keeps 15 d.
+    - name: prometheus
+      retention: "0"
+    # Raw MQTT document archive (telemetry-archive below): jupiter plan /
+    # heartbeat / event docs and the zeus tree, verbatim JSON strings.
+    - name: mqtt
+      retention: "0"
+
+# --- telemetry-archive: the long-term archiving service (card #290, ADR-0002)
+# One Telegraf deployment next to the database that turns SHORT-lived
+# telemetry into InfluxDB points:
+#   * remote_write receiver — kube-prometheus-stack ships the project
+#     namespaces' series here (.config/<env>/observability.yaml
+#     prometheusSpec.remoteWrite); Telegraf writes them to the `prometheus`
+#     bucket. Measurement `prometheus`, one FIELD per metric name, every label a
+#     tag. This is what preserves the 15 d Prometheus-only series (demeter_*,
+#     jupiter_lar_*, jupiter_price_*, jupiter_forecast_*, pomona telegraf
+#     internals ...) that model training needs.
+#   * MQTT document archiver (optional until the broker user is sealed) —
+#     subscribes to whole project trees and stores every message VERBATIM as a
+#     string field, so retained JSON documents that a controller overwrites
+#     every cycle (jupiter plan/heartbeat, zeus schedule) get a history.
+# It authenticates to InfluxDB with the admin token from `influxdb-auth`, the
+# same precedent as the backup CronJobs (co-located platform service; a scoped
+# token cannot be minted from git). Revisit trigger in the ADR.
+archive:
+  enabled: true
+  image:
+    repository: telegraf
+    tag: "1.31-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  influx:
+    url: http://influxdb-influxdb2.influxdb
+    org: zeus
+  remoteWrite:
+    enabled: true
+    port: 8080
+    path: /receive
+    bucket: prometheus
+  mqtt:
+    # OFF by default: Telegraf exits at start if the broker refuses the
+    # credentials, so the env flips this on only once `secret` is sealed (README
+    # owner runbook: EMQX user `telemetry-archive`, subscribe-only).
+    enabled: false
+    host: mqtt.lab.local
+    port: 1883
+    clientId: telemetry-archive
+    qos: 1
+    bucket: mqtt
+    topics:
+      - "jupiter/#"
+      - "zeus/#"
+    secret:
+      name: telemetry-archive-mqtt
+      sealedSecret:
+        encryptedData: {}
+  metrics:
+    enabled: true
+    port: 9273
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    releaseLabel: kube-prometheus-stack
+  networkPolicy:
+    enabled: true
+    # remote_write + the metrics scrape both originate here (Prometheus pods).
+    sourceNamespace: observability
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 # Nightly `influx backup` to the NAS (smb StorageClass) — durable archive +
 # disaster recovery + the migration vehicle to Proxmox/Ceph (see ADR-0009).
 backup:
@@ -41,11 +149,12 @@ backup:
     schedule: "5 * * * *" # hourly at :05
     windowMinutes: 75 # > 60 so consecutive runs overlap and never gap
     retentionDays: 3
+    # Keep in sync with `buckets.list` above — a bucket missing here gets only
+    # the nightly full until it is added (the export logs an error for a bucket
+    # that does not exist yet; the buckets CronJob creates it within the hour).
     buckets:
       - zeus
       - homeassistant
-      # pomona hydroponics telemetry (card #222). The bucket itself is
-      # owner-created pre-deploy (landingzones/pomona/README.md) — it must
-      # exist before this list entry takes effect, or the hourly export logs
-      # errors for it.
       - pomona
+      - prometheus
+      - mqtt

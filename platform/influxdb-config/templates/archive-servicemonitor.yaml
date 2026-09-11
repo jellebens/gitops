@@ -1,0 +1,21 @@
+{{- if and .Values.archive.enabled .Values.archive.metrics.enabled .Values.archive.serviceMonitor.enabled }}
+# Scrape telemetry-archive's own health (internal_* only — buffer fill, write
+# errors, points received per input). The archived series are NOT re-exposed.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: telemetry-archive
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    release: {{ .Values.archive.serviceMonitor.releaseLabel }}
+    app.kubernetes.io/name: telemetry-archive
+    app.kubernetes.io/part-of: influxdb
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: telemetry-archive
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.archive.serviceMonitor.interval }}
+{{- end }}

@@ -1,0 +1,33 @@
+{{- if and .Values.archive.enabled .Values.archive.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for telemetry-archive (zeus/pomona
+# pattern): default-denies inbound to the pod while leaving egress open (it
+# must reach in-cluster InfluxDB and, optionally, the EMQX VIP). The only
+# ingress admitted is from the observability namespace — Prometheus's
+# remote_write pushes and its scrape of the metrics port.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: telemetry-archive
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: telemetry-archive
+    app.kubernetes.io/part-of: influxdb
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: telemetry-archive
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.archive.networkPolicy.sourceNamespace | quote }}
+      toPorts:
+        - ports:
+            {{- if .Values.archive.remoteWrite.enabled }}
+            - port: {{ .Values.archive.remoteWrite.port | quote }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.archive.metrics.enabled }}
+            - port: {{ .Values.archive.metrics.port | quote }}
+              protocol: TCP
+            {{- end }}
+{{- end }}

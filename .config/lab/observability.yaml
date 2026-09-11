@@ -98,6 +98,29 @@ prometheus:
     retention: 15d
     scrapeInterval: 30s
     evaluationInterval: 30s
+    # Long-term archive (card #290, ADR-0002 "all telemetry, forever"): ship
+    # the PROJECT namespaces' series to telemetry-archive
+    # (platform/influxdb-config), which writes them to the InfluxDB
+    # `prometheus` bucket with infinite retention. Prometheus itself stays at
+    # 15 d. Cluster/platform series (kube_*, container_*, node-exporter,
+    # Longhorn, Cilium ...) are NOT archived — volume, not value; the keep-list
+    # below is the one place to widen that.
+    remoteWrite:
+      - url: http://telemetry-archive.influxdb.svc.cluster.local:8080/receive
+        name: telemetry-archive
+        remoteTimeout: 30s
+        queueConfig:
+          capacity: 10000
+          maxShards: 5
+          maxSamplesPerSend: 2000
+          batchSendDeadline: 10s
+        writeRelabelConfigs:
+          - sourceLabels: [namespace]
+            regex: "jupiter-.*|pomona|zeus|hermes|influxdb"
+            action: keep
+          - sourceLabels: [__name__]
+            regex: "kube_.*|container_.*"
+            action: drop
     storageSpec:
       volumeClaimTemplate:
         spec:
