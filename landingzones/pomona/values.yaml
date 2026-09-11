@@ -109,7 +109,7 @@ demeter:
   enabled: true
   image:
     repository: jellebens/pomona-demeter
-    tag: "0.4.1"
+    tag: "0.5.0"
     pullPolicy: IfNotPresent
 
   # SHADOW by default: full evaluation, decisions published to
@@ -222,6 +222,11 @@ demeter:
       ph_daily_cap_ml: null
       ph_max_single_dose_ml: null
       nutrient_feeds_per_24h: 1     # A+B feeds per rolling 24 h
+      # ADR-0004 (demeter >= 0.5.0): the brain learns the usual ml pumped per
+      # reagent over this window (sampled hourly); > 2 sd above the learned
+      # mean raises the alert-only dosing_unusual_<reagent>. The learned
+      # replacement for the daily caps.
+      dosing_window_h: 24
       adaptive: true                # false = fixed playbook, nothing learned
     # CALIBRATION FACTS: DFR0523 2026-09-09 recalibration on the FINAL
     # plumbing (pomona docs/dosing/dfr0523.md). Per-channel AND per-speed —
