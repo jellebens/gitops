@@ -49,8 +49,10 @@ spec:
           args:
             - --values
             - /config/values.yaml
+            {{- if ne ($u.configSource | default "file") "mqtt" }}
             - --config
             - /config/config.yaml
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
