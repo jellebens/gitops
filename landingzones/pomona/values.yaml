@@ -109,7 +109,7 @@ demeter:
   enabled: true
   image:
     repository: jellebens/pomona-demeter
-    tag: "0.4.0"
+    tag: "0.4.1"
     pullPolicy: IfNotPresent
 
   # SHADOW by default: full evaluation, decisions published to
@@ -214,9 +214,14 @@ demeter:
       nutrient_b: { container_ml: null, filled_on: null, line_volume_ml: 0 }
     # THE FEW HARD RAILS (ADR-0001 §4). null = derived from reservoir_l:
     # acid cap 0.4 ml/L per 24 h (4 ml), max single dose 0.2 ml/L (2 ml).
+    # ph_daily_cap_ml: 0 = no daily acid cap; nutrient_feeds_per_24h: null =
+    # no daily feed cap (demeter >= 0.4.1). The per-dose rails always hold:
+    # max single dose, the posterior guard on the pH floor, the lockout, the
+    # no-response streak, the empty-bottle block.
     rails:
       ph_daily_cap_ml: null
       ph_max_single_dose_ml: null
+      nutrient_feeds_per_24h: 1     # A+B feeds per rolling 24 h
       adaptive: true                # false = fixed playbook, nothing learned
     # CALIBRATION FACTS: DFR0523 2026-09-09 recalibration on the FINAL
     # plumbing (pomona docs/dosing/dfr0523.md). Per-channel AND per-speed —

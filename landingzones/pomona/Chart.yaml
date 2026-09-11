@@ -15,7 +15,8 @@ name: pomona
 # 0.6.1 = #278 dashboard: reagent bottle + mixing/pump panels.
 # 0.6.2 = #278 baseline 2026-09-11: prime_ml 0 (lines flushed, carry reagent);
 #         Mixing & pump panel shows the Fibaro pump POWER lane (HA/Influx).
-version: 0.6.2
+# 0.6.3 = #278 Demeter 0.4.1 — daily caps as rails; lab removes both caps.
+version: 0.6.3
 type: application
 appVersion: "1.0.0"
 description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf), Grafana dashboard, and Demeter the autodosing controller
