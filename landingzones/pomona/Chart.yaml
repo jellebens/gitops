@@ -16,7 +16,8 @@ name: pomona
 # 0.6.2 = #278 baseline 2026-09-11: prime_ml 0 (lines flushed, carry reagent);
 #         Mixing & pump panel shows the Fibaro pump POWER lane (HA/Influx).
 # 0.6.3 = #278 Demeter 0.4.1 — daily caps as rails; lab removes both caps.
-# 0.7.0 = #278 Demeter 0.5.0 — learned dosing-rate baseline (ADR-0004).
+# 0.7.0 = #278 Demeter 0.5.0 — learned dosing-rate baseline (ADR-0004) +
+#         "Dosing vs usual" panel.
 version: 0.7.0
 type: application
 appVersion: "1.0.0"
