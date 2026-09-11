@@ -103,3 +103,36 @@ templates/
   brain-sealed-secret.yaml          MQTT_USER / MQTT_PASS per unit (rendered once sealed)
   prometheusrule.yaml               the infrastructure + plant-health alerts
 ```
+
+## The registry and its database (slice 2, ADR-0011, card #292)
+
+`templates/postgres-cluster.yaml` declares the CloudNativePG **Cluster
+`demeter-pg`** (2 instances, Longhorn, database `demeter`); the operator is
+the platform app `cnpg` (`applications/templates/cnpg`). The operator writes
+the app secret `demeter-pg-app` that `demeter-registry`
+(`templates/registry-deployment.yaml`) reads -- no database password passes
+through git. The registry is the only writer of the facts and the only
+publisher of every unit's retained `demeter/<unit>/sys/config`, `desired`,
+`demeter/sys/units` and `demeter/sys/mode`; its API (`:8080`, in-cluster,
+token-protected writes) is documented in the demeter repo
+(`services/registry/README.md`).
+
+**Onboarding the tower's facts (owner):**
+
+1. Broker: create the `registry` EMQX user (subscribe `demeter/#`; publish
+   `demeter/+/sys/config`, `demeter/+/desired`, `demeter/sys/#`; deny `#`)
+   and add `subscribe demeter/pomona-0001/sys/#` to `pomona-demeter` -- both
+   mirrored in `platform/mqtt/files/acl.conf`. Seal `MQTT_USER` /
+   `MQTT_PASS` / `REGISTRY_TOKEN` for ns `demeter` / secret
+   `demeter-registry-secrets` into `.config/<env>/demeter.yaml`.
+2. Import once, from the document the brain reads today:
+   `kubectl get cm demeter-brain-pomona-0001 -n demeter -o jsonpath='{.data.config\.yaml}' > /tmp/pomona.yaml`
+   then `kubectl cp` it into the registry pod and run
+   `demeter-registry import /tmp/pomona.yaml` there (or `POST` the facts
+   through the API). Check `GET /units/pomona-0001/config` equals the file.
+3. Flip `units.pomona-0001.configSource: mqtt` (per env); the brain restarts,
+   logs `config document adopted vN`, and the `config:` block in the values
+   can go. From then on a refill is `POST /units/pomona-0001/reagents/<r>/fills`.
+
+Backups of the database (pg_dump to the NAS, as InfluxDB does) are a
+follow-up card; until then Longhorn replication is the safety net.

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cnpg-repo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-400"
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: cnpg-repo
+  project: platform-services
+  url: {{ .Values.repos.cnpg.url | quote }}
+  type: helm

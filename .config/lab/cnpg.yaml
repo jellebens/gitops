@@ -1,0 +1,15 @@
+# CloudNativePG operator — lab values (cloudnative-pg chart; card #292).
+# The operator is arm64-capable (official multi-arch images). Monitoring via
+# the chart's PodMonitor is enabled so kube-prometheus-stack scrapes the
+# operator; each Cluster enables its own PodMonitor in its landing zone.
+monitoring:
+  podMonitorEnabled: true
+  podMonitorAdditionalLabels:
+    release: kube-prometheus-stack
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
