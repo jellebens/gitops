@@ -1191,6 +1191,45 @@
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_last_dose_response_ph_drop", "legendFormat": "drop", "instant": true }
       ]
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Dosing vs usual (ml per window)",
+      "description": "ADR-0004: per reagent, the ml pumped in the current dosing window (solid) against what the brain has learned is usual — mean + 2 σ (dashed). Sampled hourly; the limit only means something after one full window of samples (warm-up), and never below 1 ml. Crossing the dashed line raises the alert-only dosing_unusual_<reagent> — the learned replacement for the removed daily caps.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 70 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mlitre",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": true,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ph_down" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }, { "id": "displayName", "value": "pH-Down — this window" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_a" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }, { "id": "displayName", "value": "Nutrient A — this window" } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_b" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "dark-green" } }, { "id": "displayName", "value": "Nutrient B — this window" } ] },
+          { "matcher": { "id": "byName", "options": "ph_down usual+2σ" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }, { "id": "displayName", "value": "pH-Down — usual + 2σ" }, { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [6, 4] } }, { "id": "custom.lineWidth", "value": 1 } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_a usual+2σ" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }, { "id": "displayName", "value": "Nutrient A — usual + 2σ" }, { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [6, 4] } }, { "id": "custom.lineWidth", "value": 1 } ] },
+          { "matcher": { "id": "byName", "options": "nutrient_b usual+2σ" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "dark-green" } }, { "id": "displayName", "value": "Nutrient B — usual + 2σ" }, { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [6, 4] } }, { "id": "custom.lineWidth", "value": 1 } ] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "demeter_dosing_window_ml", "legendFormat": "{{reagent}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "(demeter_dosing_rate_mean_ml + 2 * clamp_min(demeter_dosing_rate_sd_ml, 0.5)) and on(reagent) (demeter_dosing_rate_samples >= scalar(demeter_dosing_window_hours))", "legendFormat": "{{reagent}} usual+2σ" }
+      ]
     }
   ],
   "refresh": "1m",
