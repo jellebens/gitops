@@ -63,6 +63,16 @@ demeter:
     # targets — re-derived every cycle, so the switch needs no release.
     tower:
       established_from: "2026-09-14"
+    # DAILY CAPS REMOVED (owner 2026-09-11): no 24 h acid cap and no A+B
+    # feed-per-day limit — dosing is spaced by the lockout / the brain's
+    # mixed verdict only. Every single dose is still bounded (max 2 ml acid,
+    # posterior guard keeps pH >= 5.4, 5 ml A + 5 ml B per feed, no-response
+    # streak, empty-bottle block). Restore with `ph_daily_cap_ml: null`
+    # (= 4 ml) and `nutrient_feeds_per_24h: 1`. NOTE: 0, not null — a null
+    # in a Helm values override DELETES the key and the chart default wins.
+    rails:
+      ph_daily_cap_ml: 0
+      nutrient_feeds_per_24h: 0
     reagents:
       ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
       nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
