@@ -24,6 +24,7 @@ data:
     mode: {{ $.Values.mode }}
     role: {{ $u.role }}
     contract: {{ $u.contract }}
+    config_source: {{ $u.configSource | default "file" }}
     interval_seconds: {{ $.Values.brain.intervalSeconds }}
     freshness_seconds: {{ $.Values.brain.freshnessSeconds }}
     confirm_minutes: {{ $.Values.brain.confirmMinutes }}
@@ -38,9 +39,11 @@ data:
       own_prefix: {{ $u.mqtt.ownPrefix }}
     rails:
       {{- toYaml $u.rails | nindent 6 }}
+  {{- if ne ($u.configSource | default "file") "mqtt" }}
   config.yaml: |
     # the unit config document — rendered by gitops until the registry (slice 2)
     unit: {{ $id }}
     {{- toYaml $u.config | nindent 4 }}
+  {{- end }}
 {{- end }}
 {{- end }}

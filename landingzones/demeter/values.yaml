@@ -25,7 +25,7 @@ image:
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
   # one brain per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.6.0"
+  tag: "0.7.0"
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
@@ -42,6 +42,12 @@ units:
     enabled: true
     role: active          # effective = min(role, mode, profile.max_role)
     contract: v1          # today's pomona/# tree through the brain's adapter (slice 3 -> v2)
+    # file = the config document below, rendered to /config/config.yaml;
+    # mqtt = the registry's retained demeter/pomona-0001/sys/config (slice 2,
+    # ADR-0011) -- the `config:` block below is then ignored and can go, the
+    # brain observes until the document arrives. Flip per env after the
+    # registry has imported the facts (.config/<env>/demeter.yaml).
+    configSource: file
     mqtt:
       host: mqtt.lab.local   # the EMQX VIP — never a pod/node IP
       port: 1883
@@ -107,6 +113,55 @@ units:
         ph_down:    { channel: 1, full_ml_s: 0.48, slow_ml_s: 0.11, slow_speed: 50 }
         nutrient_a: { channel: 2, full_ml_s: 0.66, slow_ml_s: 0.24, slow_speed: 50 }
         nutrient_b: { channel: 3, full_ml_s: 0.60, slow_ml_s: 0.11, slow_speed: 50 }
+
+# The config database (ADR-0011): a CloudNativePG Cluster in this zone; the
+# operator is the platform app `cnpg`. The operator writes the app secret
+# `<name>-app` (username/password/host/port/dbname) the registry reads.
+postgres:
+  enabled: true
+  name: demeter-pg
+  # CloudNativePG PostgreSQL image (multi-arch, arm64 included). Pin the minor.
+  image: ghcr.io/cloudnative-pg/postgresql:16.4
+  instances: 2
+  storageClass: longhorn
+  size: 5Gi
+  podMonitor: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# The registry (ADR-0010/0011): one replica, the only writer.
+registry:
+  enabled: true
+  image:
+    repository: jellebens/demeter-registry
+    tag: "0.1.0"        # demeter repo tag registry/v0.1.0
+    pullPolicy: IfNotPresent
+  apiPort: 8080
+  republishSeconds: 300
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: registry
+  # MQTT_USER / MQTT_PASS of the dedicated `registry` EMQX user (publish
+  # demeter/+/sys/config, demeter/+/desired, demeter/sys/#) + REGISTRY_TOKEN
+  # for API writes. Seal for ns demeter / secret demeter-registry-secrets.
+  secret:
+    name: demeter-registry-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", REGISTRY_TOKEN: "Ag..." }
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
 
 metrics:
   enabled: true
