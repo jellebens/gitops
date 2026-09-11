@@ -1,0 +1,160 @@
+# demeter landing zone — ONE BRAIN PER UNIT (demeter ADR-0007/0010, card #291).
+#
+# Each entry in `units:` renders a Deployment `demeter-brain-<unit_id>` of the
+# jellebens/demeter-brain image with two documents mounted under /config:
+#   values.yaml  — what gitops decides per brain: the fleet `mode` ceiling,
+#                  this unit's `role` and `contract`, the hard rails, the broker
+#   config.yaml  — the unit's config document: the ADR-0002 facts (reservoir,
+#                  plants, stage, targets, reagent fills, pump calibration).
+#                  From migration slice 2 the registry projects this from
+#                  Postgres onto retained MQTT; the shape does not change.
+# A brain needs the broker and nothing else (no database, no other service
+# on its actuation path).
+#
+# THE LOAD-BEARING SAFETY PROPERTY (do not weaken): `mode` is a CEILING on
+# every unit's `role`. `mode: shadow` here keeps every brain deciding and
+# publishing but NEVER dosing, whatever a unit's role says; flip it per
+# environment (.config/<env>/demeter.yaml) only after the shadow soak, and
+# retire the previous brain of that unit in the same release — two brains
+# must never dose one tank. Single replica + Recreate per brain for the same
+# reason (two controllers would each believe they own the lockout clock).
+
+image:
+  repository: jellebens/demeter-brain
+  # demeter repo release tag brain/v0.6.0 (arm64, --provenance=false — the
+  # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
+  # one brain per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
+  # replay in the repo), unit + unit_type labels on every metric.
+  tag: "0.6.0"
+  pullPolicy: IfNotPresent
+
+# FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
+mode: shadow
+
+# Cadence + freshness, the same for every brain (values, not the document).
+brain:
+  intervalSeconds: 60     # evaluation cadence (doses remain lockout-limited)
+  freshnessSeconds: 120   # readings older than this are not dosing-grade
+  confirmMinutes: 10      # a violation must hold this long before any action
+
+units:
+  pomona-0001:            # the aeroponic tower (demeter ADR-0009: <name>-NNNN)
+    enabled: true
+    role: active          # effective = min(role, mode, profile.max_role)
+    contract: v1          # today's pomona/# tree through the brain's adapter (slice 3 -> v2)
+    mqtt:
+      host: mqtt.lab.local   # the EMQX VIP — never a pod/node IP
+      port: 1883
+      clientId: brain-pomona-0001    # DISTINCT from the live pomona-demeter client id
+      baseTopic: pomona              # v1: the tree the tower's firmware speaks
+      # v1: where THIS brain's own retained documents go
+      # (pomona/<ownPrefix>/{status,mode,decision,ledger}). "demeter-shadow"
+      # while soaking next to the live pomona-demeter (which owns
+      # pomona/demeter/#); flip to "demeter" at the cutover so the new brain
+      # inherits the live retained ledger.
+      ownPrefix: demeter-shadow
+    # Broker creds (MQTT_USER / MQTT_PASS): the same least-privilege
+    # pomona-demeter EMQX user the live brain uses (subscribe pomona/#, publish
+    # ONLY pomona/dose/test + pomona/pump/override + pomona/demeter/#) — its
+    # publish grant must gain pomona/demeter-shadow/# for the soak (owner
+    # runbook in the README). Sealed blobs are NAMESPACE + NAME scoped: seal
+    # again for ns demeter / secret demeter-brain-pomona-0001-secrets in
+    # .config/<env>/demeter.yaml.
+    secret:
+      name: demeter-brain-pomona-0001-secrets
+      sealedSecret:
+        enabled: true
+        encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+    # THE FEW HARD RAILS (demeter ADR-0001 §4). null = derived from the
+    # reservoir volume (acid cap 0.4 ml/L per 24 h, max single dose 0.2 ml/L).
+    # NOTE for overrides: 0, not null — a null in a Helm values override
+    # DELETES the key and the chart default wins.
+    rails:
+      ph_daily_cap_ml: null
+      ph_max_single_dose_ml: null
+      nutrient_feeds_per_24h: 1
+      dosing_window_h: 24
+      adaptive: true
+    # THE CONFIG DOCUMENT (demeter services/brain/config.example.yaml documents
+    # every key). The lab facts — established_from, the bottle fills, the
+    # removed daily caps — live in .config/lab/demeter.yaml.
+    config:
+      type: aeroponic_tower
+      node: giga-r1
+      version: 1
+      reservoir_l: 10
+      plants:
+        - { crop: strawberry, variety: alpine, count: 9, tiers: [3, 4] }
+        - { crop: paprika,                     count: 4, tiers: [1] }
+        - { crop: dulce_italiano,              count: 3, tiers: [2] }
+        - { crop: chili,                       count: 2, tiers: [2] }
+      stage: establishment
+      established_from: null
+      targets:
+        ec_ms_cm:
+          establishment: [0.8, 1.0]
+          established: [1.4, 1.6]
+        ph: [5.8, 6.2]
+        light:
+          hours_per_day: { establishment: 12, established: 14 }
+          canopy_lux_min: null
+        water_temp_max_c: 26.5
+      reagents:
+        ph_down:    { container_ml: null, filled_on: null, line_volume_ml: 0 }
+        nutrient_a: { container_ml: null, filled_on: null, line_volume_ml: 0 }
+        nutrient_b: { container_ml: null, filled_on: null, line_volume_ml: 0 }
+      pumps:
+        ph_down:    { channel: 1, full_ml_s: 0.48, slow_ml_s: 0.11, slow_speed: 50 }
+        nutrient_a: { channel: 2, full_ml_s: 0.66, slow_ml_s: 0.24, slow_speed: 50 }
+        nutrient_b: { channel: 3, full_ml_s: 0.60, slow_ml_s: 0.11, slow_speed: 50 }
+
+metrics:
+  enabled: true
+  port: 9000
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  releaseLabel: kube-prometheus-stack
+
+# Architecture §8 R2: the infrastructure rules Robigus cannot raise about
+# itself (brain down, node offline, readings stale) plus the plant-health
+# mirror on demeter_alert_active. Routed through Alertmanager.
+prometheusRule:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+  readingsStaleSeconds: 600
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (zeus pattern): default-denies
+# inbound while leaving egress open (the broker VIP). Only the Prometheus
+# scrape of the metrics port is admitted.
+networkPolicy:
+  enabled: true
+  metricsScrapeNamespace: observability
+
+runtime:
+  uid: 1000
+  gid: 1000
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+# /metrics answers from prometheus_client's own thread; liveness is
+# deliberately tolerant — a restarted brain sits out a fresh boot lockout,
+# so restarts cost dosing time and buy nothing.
+probes:
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 6
