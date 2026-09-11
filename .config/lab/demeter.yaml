@@ -1,0 +1,38 @@
+# demeter landing zone — lab overrides (one brain per unit, card #291).
+#
+# OWNER PRE-DEPLOY (see landingzones/demeter/README.md "Owner runbook"):
+# 1. add `pomona/demeter-shadow/#` to the pomona-demeter EMQX user's publish
+#    allow-list (live rule + DR mirror) for the shadow soak;
+# 2. seal MQTT_USER / MQTT_PASS of that user for THIS namespace + name
+#    (ns demeter / secret demeter-brain-pomona-0001-secrets):
+#      printf '%s' "$VALUE" | kubeseal --raw \
+#        --controller-name sealed-secrets --controller-namespace argocd \
+#        --namespace demeter --name demeter-brain-pomona-0001-secrets
+#    and paste the blobs below. Until then the pod idles unconnected and
+#    cannot dose (envFrom optional).
+#
+# mode: SHADOW for the soak (chart default). The cutover — `mode: active`
+# here, `mqtt.ownPrefix: demeter`, and `demeter.enabled: false` in
+# landingzones/pomona — is one release: two brains must never dose one tank.
+
+units:
+  pomona-0001:
+    secret:
+      sealedSecret:
+        encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+    # DAILY CAPS REMOVED (owner 2026-09-11), mirrored from the live brain's
+    # lab overrides in .config/lab/pomona.yaml. NOTE: 0, not null — a null in
+    # a Helm values override DELETES the key and the chart default wins.
+    rails:
+      ph_daily_cap_ml: 0
+      nutrient_feeds_per_24h: 0
+    # THE LAB FACTS (mirrored from .config/lab/pomona.yaml so the shadow brain
+    # judges the same tower the live brain doses): the stage ramp date and the
+    # bottle fills as of the 2026-09-11 baseline. Keep both files in step until
+    # the cutover retires the pomona-side block.
+    config:
+      established_from: "2026-09-14"
+      reagents:
+        ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
+        nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
+        nutrient_b: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
