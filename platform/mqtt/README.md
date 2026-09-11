@@ -61,14 +61,18 @@ see "ACL disaster recovery" below):
 
 | user            | allow                                                        | then |
 | --------------- | ------------------------------------------------------------ | ---- |
-| `homeassistant` | `all homeassistant/#` (own tree only — see note below)       | `deny all #` |
+| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, demeter ADR-0005) | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
+| `pomona`        | `all pomona/#` (the GIGA firmware)                           | `deny all #` |
+| `pomona-demeter` | `subscribe pomona/#`, `publish pomona/dose/test`, `publish pomona/pump/override`, `publish pomona/demeter/#` | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
-`homeassistant` is scoped to **`homeassistant/#` only** (card #188 —
-least-privilege hardening). It previously also held `all zeus/#`, which was
+`homeassistant` is scoped to **its own tree plus the pomona relay grants**
+(card #188 — least-privilege hardening; `subscribe pomona/#` since #277 and
+`publish pomona/pump/power` since #278 — the single pomona topic HA writes,
+the pump plug's watts for Demeter). It previously also held `all zeus/#`, which was
 over-provisioning: HA never needs the `zeus/` tree because `zeus-mqtt` publishes
 HA discovery + state under `homeassistant/#` (that is how HA consumes zeus data).
 After the change, **publish under the `zeus/` tree — including the commander
