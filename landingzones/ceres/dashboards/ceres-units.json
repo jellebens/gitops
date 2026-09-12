@@ -10,7 +10,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "expr": "changes(demeter_last_dose_timestamp_seconds{unit=\"${unit}\"}[1m]) > 0",
+        "expr": "changes(ceres_last_dose_timestamp_seconds{unit=\"${unit}\"}[1m]) > 0",
         "step": "1m",
         "titleFormat": "dose",
         "textFormat": "{{reagent}}",
@@ -19,7 +19,7 @@
       }
     ]
   },
-  "description": "Demeter — every hydroponic unit on the v2 tree (demeter/<unit>/…, ADR-0008): the Telegraf archive `demeter` bucket (unit_tele / unit_meta / unit_actuator, tagged unit) plus the brain's and Robigus's Prometheus series. Pick the unit at the top. The pre-cutover tower history is in the pomona bucket (dashboard 'Pomona — Hydroponics').",
+  "description": "Ceres — every hydroponic unit on the v2 tree (ceres/<unit>/…, ADR-0008): the Telegraf archive `ceres` bucket (unit_tele / unit_meta / unit_actuator, tagged unit) plus the Vertumnus's and Robigus's Prometheus series. Pick the unit at the top. The pre-cutover tower history is in the pomona bucket (dashboard 'Pomona — Hydroponics').",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -27,7 +27,7 @@
   "refresh": "1m",
   "schemaVersion": 39,
   "tags": [
-    "demeter",
+    "ceres",
     "hydroponics",
     "influxdb",
     "prometheus"
@@ -46,7 +46,7 @@
         "hide": 0,
         "multi": false,
         "includeAll": false,
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"demeter\", tag: \"unit\", predicate: (r) => r._measurement == \"unit_tele\", start: -30d)",
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"ceres\", tag: \"unit\", predicate: (r) => r._measurement == \"unit_tele\", start: -30d)",
         "definition": "tag values of unit",
         "current": {
           "selected": false,
@@ -63,8 +63,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Demeter — units",
-  "uid": "demeter-units",
+  "title": "Ceres — units",
+  "uid": "ceres-units",
   "version": 1,
   "weekStart": "",
   "panels": [
@@ -72,7 +72,7 @@
       "id": 1,
       "type": "stat",
       "title": "Node",
-      "description": "demeter/${unit}/sys/status (retained LWT) via the archive.",
+      "description": "ceres/${unit}/sys/status (retained LWT) via the archive.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -139,15 +139,15 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"unit_meta\" and r.unit == \"${unit}\" and r.metric == \"status\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"Node\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"unit_meta\" and r.unit == \"${unit}\" and r.metric == \"status\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"Node\"})"
         }
       ]
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "Brain role",
-      "description": "demeter_unit_role for this unit (0 observe, 1 advise, 2 shadow, 3 active).",
+      "title": "Vertumnus role",
+      "description": "ceres_unit_role for this unit (0 observe, 1 advise, 2 shadow, 3 active).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -224,7 +224,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(demeter_unit_role{unit=\"${unit}\"})",
+          "expr": "max(ceres_unit_role{unit=\"${unit}\"})",
           "instant": true,
           "legendFormat": "{{condition}}"
         }
@@ -295,7 +295,7 @@
       "id": 4,
       "type": "stat",
       "title": "Advice",
-      "description": "Robigus: open recommendations on demeter/${unit}/sys/advice.",
+      "description": "Robigus: open recommendations on ceres/${unit}/sys/advice.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -408,7 +408,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"unit_actuator\" and r.unit == \"${unit}\" and r.metric == \"power_w\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"W\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"unit_actuator\" and r.unit == \"${unit}\" and r.metric == \"power_w\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"W\"})"
         }
       ]
     },
@@ -467,7 +467,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"unit_meta\" and r.unit == \"${unit}\" and r.metric == \"fw_version\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"fw\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: -7d) |> filter(fn: (r) => r._measurement == \"unit_meta\" and r.unit == \"${unit}\" and r.metric == \"fw_version\" and r._field == \"value\") |> last() |> keep(columns: [\"_value\"]) |> rename(columns: {_value: \"fw\"})"
         }
       ]
     },
@@ -560,7 +560,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"ph\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"pH\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"ph\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"pH\"})"
         }
       ]
     },
@@ -629,7 +629,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"ec_ms_cm\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"EC\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"ec_ms_cm\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"EC\"})"
         }
       ]
     },
@@ -696,7 +696,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"temp_c\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"water °C\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"temp_c\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"water °C\"})"
         },
         {
           "refId": "B",
@@ -704,7 +704,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"air\" and r.metric == \"temp_c\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"air °C\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"air\" and r.metric == \"temp_c\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"air °C\"})"
         }
       ]
     },
@@ -771,7 +771,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"air\" and r.metric == \"lux\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lux\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"air\" and r.metric == \"lux\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lux\"})"
         },
         {
           "refId": "B",
@@ -779,7 +779,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"level_points\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"level points\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_tele\" and r.unit == \"${unit}\" and r.zone == \"water\" and r.metric == \"level_points\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"level points\"})"
         }
       ]
     },
@@ -787,7 +787,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "Mixing actuator power (W)",
-      "description": "actuator/+/power_w — the mixing evidence a brain needs before judging a dose (ADR-0005).",
+      "description": "actuator/+/power_w — the mixing evidence a Vertumnus needs before judging a dose (ADR-0005).",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -846,7 +846,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_actuator\" and r.unit == \"${unit}\" and r.actuator == \"pump\" and r.metric == \"power_w\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"pump W\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_actuator\" and r.unit == \"${unit}\" and r.actuator == \"pump\" and r.metric == \"power_w\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"pump W\"})"
         },
         {
           "refId": "B",
@@ -854,7 +854,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"demeter\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_actuator\" and r.unit == \"${unit}\" and r.actuator == \"air_pump\" and r.metric == \"power_w\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"air pump W\"})"
+          "query": "from(bucket: \"ceres\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"unit_actuator\" and r.unit == \"${unit}\" and r.actuator == \"air_pump\" and r.metric == \"power_w\" and r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false) |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"air pump W\"})"
         }
       ]
     },
@@ -862,7 +862,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "Doses (ml, 24 h budget)",
-      "description": "demeter_budget_ml_24h per reagent for this unit (Prometheus).",
+      "description": "ceres_budget_ml_24h per reagent for this unit (Prometheus).",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -921,7 +921,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "demeter_budget_ml_24h{unit=\"${unit}\"}",
+          "expr": "ceres_budget_ml_24h{unit=\"${unit}\"}",
           "legendFormat": "{{reagent}}"
         }
       ]

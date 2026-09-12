@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: demeter
+  name: ceres
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -13,18 +13,18 @@ spec:
   project: landing-zones
   destination:
     server: https://kubernetes.default.svc
-    namespace: demeter
+    namespace: ceres
   sources:
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
-      path: landingzones/demeter
+      path: landingzones/ceres
       helm:
-        releaseName: demeter
+        releaseName: ceres
         ignoreMissingValueFiles: true
         valueFiles:
           - $values/.config/shared/values.yaml
           - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
-          - $values/.config/{{ .Values.environment | default "lab" }}/demeter.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/ceres.yaml
     - repoURL: {{ .Values.repos.config.url | quote }}
       targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
       ref: values

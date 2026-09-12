@@ -1,0 +1,22 @@
+apiVersion: v2
+name: ceres
+# version: bump on EVERY release that touches this chart (owner rule 2026-08-31):
+# patch for fixes/docs/reports, minor for features.
+# 0.1.0 = #291 first landing zone: one ceres-vertumnus Deployment per unit
+#         (pomona-0001 in shadow, soaking next to the live pomona-demeter).
+# 0.2.0 = #291 cutover (2026-09-12, soak skipped by the owner): ownPrefix ceres — the
+#         Vertumnus inherits the live retained ledger; pomona-0001 goes ACTIVE in lab.
+# 0.3.0 = #292 slice 2: the config database (CloudNativePG Cluster ceres-pg) + the
+#         registry service; Vertumnus instances can read sys/config from MQTT (configSource).
+# 0.4.0 = #293 Robigus, the plant-health watch, as a service; CeresPlantHealth reads
+#         robigus_alert_active.
+# 0.5.0 = #294 slice 4b: Vertumnus 0.8.0 (observe / advise roles), robigus 0.2.0 (sys/advice:
+#         crop-window validation, the Vertumnus's hand-dose advice), registry 0.1.1 (validation route).
+# 0.6.0 = #295 slice 3 batch 1: the Telegraf archive of the v2 tree (bucket ceres), the
+#         "Ceres — units" dashboard, mqtt.legacyBaseTopic for a v2 Vertumnus in transition.
+# 0.7.0 = #297 ADR-0012: the zone IS Ceres now — namespace ceres, ceres-vertumnus-<unit>, ceres-annona,
+#         ceres-robigus, ceres-telegraf, ceres-pg, bucket ceres; the operator API port + token.
+version: 0.7.0
+type: application
+appVersion: "0.8.0"
+description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

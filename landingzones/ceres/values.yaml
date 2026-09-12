@@ -1,84 +1,90 @@
-# demeter landing zone — ONE BRAIN PER UNIT (demeter ADR-0007/0010, card #291).
+# ceres landing zone — ONE VERTUMNUS PER UNIT (ceres ADR-0007/0010, card #291).
 #
-# Each entry in `units:` renders a Deployment `demeter-brain-<unit_id>` of the
-# jellebens/demeter-brain image with two documents mounted under /config:
-#   values.yaml  — what gitops decides per brain: the fleet `mode` ceiling,
+# Each entry in `units:` renders a Deployment `ceres-vertumnus-<unit_id>` of the
+# jellebens/ceres-vertumnus image with two documents mounted under /config:
+#   values.yaml  — what gitops decides per Vertumnus: the fleet `mode` ceiling,
 #                  this unit's `role` and `contract`, the hard rails, the broker
 #   config.yaml  — the unit's config document: the ADR-0002 facts (reservoir,
 #                  plants, stage, targets, reagent fills, pump calibration).
 #                  From migration slice 2 the registry projects this from
 #                  Postgres onto retained MQTT; the shape does not change.
-# A brain needs the broker and nothing else (no database, no other service
+# A Vertumnus needs the broker and nothing else (no database, no other service
 # on its actuation path).
 #
 # THE LOAD-BEARING SAFETY PROPERTY (do not weaken): `mode` is a CEILING on
-# every unit's `role`. `mode: shadow` here keeps every brain deciding and
+# every unit's `role`. `mode: shadow` here keeps every Vertumnus deciding and
 # publishing but NEVER dosing, whatever a unit's role says; flip it per
-# environment (.config/<env>/demeter.yaml) only after the shadow soak, and
-# retire the previous brain of that unit in the same release — two brains
-# must never dose one tank. Single replica + Recreate per brain for the same
+# environment (.config/<env>/ceres.yaml) only after the shadow soak, and
+# retire the previous Vertumnus of that unit in the same release — two Vertumnus instances
+# must never dose one tank. Single replica + Recreate per Vertumnus for the same
 # reason (two controllers would each believe they own the lockout clock).
 
 image:
-  repository: jellebens/demeter-brain
-  # demeter repo release tag brain/v0.6.0 (arm64, --provenance=false — the
+  repository: jellebens/ceres-vertumnus
+  # ceres repo release tag vertumnus/v0.6.0 (arm64, --provenance=false — the
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
-  # one brain per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
+  # one Vertumnus per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.8.0"        # brain/v0.8.0 (#294): the observe / advise roles are real
+  tag: "0.10.0"       # vertumnus/v0.10.0 (#296/#297): contract v2, the probe dose, the operator API, the Ceres names
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
 mode: shadow
 
-# Cadence + freshness, the same for every brain (values, not the document).
-brain:
+# Cadence + freshness, the same for every Vertumnus (values, not the document).
+vertumnus:
+  # The operator API (ceres services/vertumnus README "The operator API", card #296):
+  # GET /ph /ec /a /b /temp/water /temp/air /light /pump /doses /decision,
+  # POST /<reagent>/doses, PUT /ph/probe, PUT /pump. Reached by kubectl port-forward
+  # (scripts/vertumnusctl.sh); writes need the VERTUMNUS_TOKEN key of the unit's
+  # secret (empty = read-only). 0 disables the listener.
+  apiPort: 9001
   intervalSeconds: 60     # evaluation cadence (doses remain lockout-limited)
   freshnessSeconds: 120   # readings older than this are not dosing-grade
   confirmMinutes: 10      # a violation must hold this long before any action
 
 units:
-  pomona-0001:            # the aeroponic tower (demeter ADR-0009: <name>-NNNN)
+  pomona-0001:            # the aeroponic tower (ceres ADR-0009: <name>-NNNN)
     enabled: true
     role: active          # effective = min(role, mode, profile.max_role)
-    contract: v1          # today's pomona/# tree through the brain's adapter (slice 3 -> v2)
+    contract: v1          # today's pomona/# tree through the Vertumnus's adapter (slice 3 -> v2)
     # file = the config document below, rendered to /config/config.yaml;
-    # mqtt = the registry's retained demeter/pomona-0001/sys/config (slice 2,
+    # mqtt = the registry's retained ceres/pomona-0001/sys/config (slice 2,
     # ADR-0011) -- the `config:` block below is then ignored and can go, the
-    # brain observes until the document arrives. Flip per env after the
-    # registry has imported the facts (.config/<env>/demeter.yaml).
+    # Vertumnus observes until the document arrives. Flip per env after the
+    # registry has imported the facts (.config/<env>/ceres.yaml).
     configSource: file
     mqtt:
       host: mqtt.lab.local   # the EMQX VIP — never a pod/node IP
       port: 1883
-      clientId: brain-pomona-0001    # DISTINCT from the live pomona-demeter client id
+      clientId: vertumnus-pomona-0001    # DISTINCT from the live pomona-demeter client id
       baseTopic: pomona              # v1: the tree the tower's firmware speaks
-      # v1: where THIS brain's own retained documents go
+      # v1: where THIS Vertumnus's own retained documents go
       # (pomona/<ownPrefix>/{status,mode,decision,ledger}). "demeter-shadow"
       # while soaking next to the live pomona-demeter (which owns
-      # pomona/demeter/#); flip to "demeter" at the cutover so the new brain
+      # pomona/demeter/#); flip to "ceres" at the cutover so the new Vertumnus
       # inherits the live retained ledger.
       ownPrefix: demeter
-      # v2 TRANSITION (slice 3, #295): while the node still speaks v1 a brain on
-      # `contract: v2` reads demeter/pomona-0001/# through the EMQX republish
+      # v2 TRANSITION (slice 3, #295): while the node still speaks v1 a Vertumnus on
+      # `contract: v2` reads ceres/pomona-0001/# through the EMQX republish
       # bridge but sends its dose command and pump override on the v1 tree
       # itself (ml -> the bench command with its own calibration) and adopts
       # the retained v1 ledger once. Set to the v1 root; remove it when
       # firmware 2.0.0 is on the tower.
       legacyBaseTopic: ""
     # Broker creds (MQTT_USER / MQTT_PASS): the same least-privilege
-    # pomona-demeter EMQX user the live brain uses (subscribe pomona/#, publish
+    # pomona-demeter EMQX user the live Vertumnus uses (subscribe pomona/#, publish
     # ONLY pomona/dose/test + pomona/pump/override + pomona/demeter/#) — its
     # publish grant must gain pomona/demeter-shadow/# for the soak (owner
     # runbook in the README). Sealed blobs are NAMESPACE + NAME scoped: seal
-    # again for ns demeter / secret demeter-brain-pomona-0001-secrets in
-    # .config/<env>/demeter.yaml.
+    # again for ns ceres / secret ceres-vertumnus-pomona-0001-secrets in
+    # .config/<env>/ceres.yaml.
     secret:
-      name: demeter-brain-pomona-0001-secrets
+      name: ceres-vertumnus-pomona-0001-secrets
       sealedSecret:
         enabled: true
         encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
-    # THE FEW HARD RAILS (demeter ADR-0001 §4). null = derived from the
+    # THE FEW HARD RAILS (ceres ADR-0001 §4). null = derived from the
     # reservoir volume (acid cap 0.4 ml/L per 24 h, max single dose 0.2 ml/L).
     # NOTE for overrides: 0, not null — a null in a Helm values override
     # DELETES the key and the chart default wins.
@@ -88,9 +94,9 @@ units:
       nutrient_feeds_per_24h: 1
       dosing_window_h: 24
       adaptive: true
-    # THE CONFIG DOCUMENT (demeter services/brain/config.example.yaml documents
+    # THE CONFIG DOCUMENT (ceres services/Vertumnus/config.example.yaml documents
     # every key). The lab facts — established_from, the bottle fills, the
-    # removed daily caps — live in .config/lab/demeter.yaml.
+    # removed daily caps — live in .config/lab/ceres.yaml.
     config:
       type: aeroponic_tower
       node: giga-r1
@@ -126,7 +132,7 @@ units:
 # `<name>-app` (username/password/host/port/dbname) the registry reads.
 postgres:
   enabled: true
-  name: demeter-pg
+  name: ceres-pg
   # CloudNativePG PostgreSQL image (multi-arch, arm64 included). Pin the minor.
   image: ghcr.io/cloudnative-pg/postgresql:16.4
   instances: 2
@@ -142,11 +148,11 @@ postgres:
       memory: 512Mi
 
 # The registry (ADR-0010/0011): one replica, the only writer.
-registry:
+annona:
   enabled: true
   image:
-    repository: jellebens/demeter-registry
-    tag: "0.1.1"        # demeter repo tag registry/v0.1.1 (#294: crop-window validation, GET /units/{id}/validation)
+    repository: jellebens/ceres-annona
+    tag: "0.2.0"        # ceres repo tag annona/v0.2.0 (#297: the Ceres names; #294 validation route)
     pullPolicy: IfNotPresent
   apiPort: 8080
   republishSeconds: 300
@@ -154,14 +160,14 @@ registry:
     host: mqtt.lab.local
     port: 1883
     clientId: registry
-  # MQTT_USER / MQTT_PASS of the dedicated `registry` EMQX user (publish
-  # demeter/+/sys/config, demeter/+/desired, demeter/sys/#) + REGISTRY_TOKEN
-  # for API writes. Seal for ns demeter / secret demeter-registry-secrets.
+  # MQTT_USER / MQTT_PASS of the dedicated `annona` EMQX user (publish
+  # ceres/+/sys/config, ceres/+/desired, ceres/sys/#) + ANNONA_TOKEN
+  # for API writes. Seal for ns ceres / secret ceres-annona-secrets.
   secret:
-    name: demeter-registry-secrets
+    name: ceres-annona-secrets
     sealedSecret:
       enabled: true
-      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", REGISTRY_TOKEN: "Ag..." }
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", ANNONA_TOKEN: "Ag..." }
   resources:
     requests:
       cpu: 25m
@@ -174,8 +180,8 @@ registry:
 robigus:
   enabled: true
   image:
-    repository: jellebens/demeter-robigus
-    tag: "0.2.0"        # demeter repo tag robigus/v0.2.0 (#294: sys/advice)
+    repository: jellebens/ceres-robigus
+    tag: "0.3.0"        # ceres repo tag robigus/v0.3.0 (#297: the ceres/ root, vertumnus_offline)
     pullPolicy: IfNotPresent
   intervalSeconds: 30
   republishSeconds: 300
@@ -184,11 +190,11 @@ robigus:
     port: 1883
     clientId: robigus
   # MQTT_USER / MQTT_PASS of the dedicated `robigus` EMQX user (subscribe
-  # demeter/# + pomona/#; publish demeter/+/sys/alerts, demeter/+/sys/advice,
-  # demeter/sys/alerts, demeter/sys/status/robigus). Seal for ns demeter /
-  # secret demeter-robigus-secrets.
+  # ceres/# + pomona/#; publish ceres/+/sys/alerts, ceres/+/sys/advice,
+  # ceres/sys/alerts, ceres/sys/status/robigus). Seal for ns ceres /
+  # secret ceres-robigus-secrets.
   secret:
-    name: demeter-robigus-secrets
+    name: ceres-robigus-secrets
     sealedSecret:
       enabled: true
       encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
@@ -201,9 +207,9 @@ robigus:
       memory: 96Mi
 
 # The long-term ARCHIVE of every unit's v2 tree (architecture §8 R1, ADR-0006,
-# card #295): Telegraf MQTT demeter/# -> InfluxDB bucket `demeter`, every
-# series tagged `unit`. Pure consumer. Owner pre-deploy: the `telegraf-demeter`
-# EMQX user (subscribe demeter/# only), the Influx `demeter` bucket (org zeus,
+# card #295): Telegraf MQTT ceres/# -> InfluxDB bucket `ceres`, every
+# series tagged `unit`. Pure consumer. Owner pre-deploy: the `telegraf-ceres`
+# EMQX user (subscribe ceres/# only), the Influx `ceres` bucket (org zeus,
 # retention "forever" = 0s or the longest the disk allows) + a bucket-scoped
 # write token, then seal MQTT_USER / MQTT_PASS / INFLUX_TOKEN below.
 telegraf:
@@ -215,15 +221,15 @@ telegraf:
   mqtt:
     host: mqtt.lab.local
     port: 1883
-    clientId: telegraf-demeter
+    clientId: telegraf-ceres
     qos: 1
   influx:
     url: http://influxdb-influxdb2.influxdb
     org: zeus
-    bucket: demeter
+    bucket: ceres
   metricsPort: 9273
   secret:
-    name: demeter-telegraf-secrets
+    name: ceres-telegraf-secrets
     sealedSecret:
       enabled: true
       encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", INFLUX_TOKEN: "Ag..." }
@@ -236,13 +242,13 @@ telegraf:
       memory: 256Mi
 
 # Grafana dashboards (architecture §8 R3): dashboards/*.json provisioned via
-# the kube-prometheus-stack sidecar into the `demeter` folder. The InfluxDB
+# the kube-prometheus-stack sidecar into the `ceres` folder. The InfluxDB
 # datasource is static-mounted by observability-config (uid `influxdb`).
 dashboard:
   enabled: true
   sidecarLabel: grafana_dashboard
   folderAnnotation: grafana_folder
-  folder: demeter
+  folder: ceres
 
 metrics:
   enabled: true
@@ -254,8 +260,8 @@ serviceMonitor:
   releaseLabel: kube-prometheus-stack
 
 # Architecture §8 R2: the infrastructure rules Robigus cannot raise about
-# itself (brain down, node offline, readings stale) plus the plant-health
-# mirror on demeter_alert_active. Routed through Alertmanager.
+# itself (Vertumnus down, node offline, readings stale) plus the plant-health
+# mirror on ceres_alert_active. Routed through Alertmanager.
 prometheusRule:
   enabled: true
   releaseLabel: kube-prometheus-stack
@@ -281,7 +287,7 @@ resources:
     memory: 128Mi
 
 # /metrics answers from prometheus_client's own thread; liveness is
-# deliberately tolerant — a restarted brain sits out a fresh boot lockout,
+# deliberately tolerant — a restarted Vertumnus sits out a fresh boot lockout,
 # so restarts cost dosing time and buy nothing.
 probes:
   readiness:

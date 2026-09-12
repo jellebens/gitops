@@ -1,30 +1,30 @@
-{{- if .Values.registry.enabled }}
-# demeter-registry (ADR-0010/0011, card #292): the only writer of the config
+{{- if .Values.annona.enabled }}
+# ceres-annona (ADR-0010/0011, card #292): the only writer of the config
 # database and the only publisher of every unit's retained
-# demeter/<unit>/sys/config + desired, demeter/sys/units and demeter/sys/mode.
+# ceres/<unit>/sys/config + desired, ceres/sys/units and ceres/sys/mode.
 # Brains read MQTT only; a registry outage freezes config at its last
 # projection and changes nothing else. Single replica + Recreate: one writer.
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demeter-registry
-  namespace: demeter
+  name: ceres-annona
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-registry
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: demeter-registry
+      app.kubernetes.io/name: ceres-annona
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: demeter-registry
-        app.kubernetes.io/part-of: demeter
+        app.kubernetes.io/name: ceres-annona
+        app.kubernetes.io/part-of: ceres
       annotations:
         checksum/config: {{ printf "%s|%s" .Values.mode (toYaml .Values.registry) | sha256sum }}
     spec:
@@ -35,8 +35,8 @@ spec:
         fsGroup: {{ .Values.runtime.gid }}
       containers:
         - name: registry
-          image: "{{ .Values.registry.image.repository }}:{{ .Values.registry.image.tag }}"
-          imagePullPolicy: {{ .Values.registry.image.pullPolicy }}
+          image: "{{ .Values.annona.image.repository }}:{{ .Values.annona.image.tag }}"
+          imagePullPolicy: {{ .Values.annona.image.pullPolicy }}
           args: ["serve"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -44,20 +44,20 @@ spec:
             capabilities:
               drop: ["ALL"]
           env:
-            - name: DEMETER_FLEET_MODE
+            - name: CERES_FLEET_MODE
               value: {{ .Values.mode | quote }}
             - name: MQTT_HOST
-              value: {{ .Values.registry.mqtt.host | quote }}
+              value: {{ .Values.annona.mqtt.host | quote }}
             - name: MQTT_PORT
-              value: {{ .Values.registry.mqtt.port | quote }}
+              value: {{ .Values.annona.mqtt.port | quote }}
             - name: MQTT_CLIENT_ID
-              value: {{ .Values.registry.mqtt.clientId | quote }}
-            - name: REGISTRY_PORT
-              value: {{ .Values.registry.apiPort | quote }}
+              value: {{ .Values.annona.mqtt.clientId | quote }}
+            - name: ANNONA_PORT
+              value: {{ .Values.annona.apiPort | quote }}
             - name: METRICS_PORT
               value: {{ .Values.metrics.port | quote }}
             - name: REPUBLISH_SECONDS
-              value: {{ .Values.registry.republishSeconds | quote }}
+              value: {{ .Values.annona.republishSeconds | quote }}
             # the CloudNativePG app secret: PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD
             - name: PGHOST
               valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: host } }
@@ -69,17 +69,17 @@ spec:
               valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: username } }
             - name: PGPASSWORD
               valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: password } }
-          # MQTT_USER / MQTT_PASS (the `registry` broker user) + REGISTRY_TOKEN
+          # MQTT_USER / MQTT_PASS (the `annona` broker user) + ANNONA_TOKEN
           # (API writes). optional: until sealed the registry still serves reads
-          # and projects nothing (it cannot connect) — brains keep their last
+          # and projects nothing (it cannot connect) — Vertumnus instances keep their last
           # retained document.
           envFrom:
             - secretRef:
-                name: {{ .Values.registry.secret.name }}
+                name: {{ .Values.annona.secret.name }}
                 optional: true
           ports:
             - name: api
-              containerPort: {{ .Values.registry.apiPort }}
+              containerPort: {{ .Values.annona.apiPort }}
               protocol: TCP
             {{- if .Values.metrics.enabled }}
             - name: metrics
@@ -100,23 +100,23 @@ spec:
             periodSeconds: 30
             failureThreshold: 6
           resources:
-            {{- toYaml .Values.registry.resources | nindent 12 }}
+            {{- toYaml .Values.annona.resources | nindent 12 }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: demeter-registry
-  namespace: demeter
+  name: ceres-annona
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-registry
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: demeter-registry
+    app.kubernetes.io/name: ceres-annona
   ports:
     - name: api
-      port: {{ .Values.registry.apiPort }}
+      port: {{ .Values.annona.apiPort }}
       targetPort: api
     {{- if .Values.metrics.enabled }}
     - name: metrics
@@ -128,18 +128,18 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: demeter-registry
-  namespace: demeter
+  name: ceres-annona
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-registry
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
     release: {{ .Values.serviceMonitor.releaseLabel | quote }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: demeter-registry
+      app.kubernetes.io/name: ceres-annona
   namespaceSelector:
-    matchNames: [demeter]
+    matchNames: [ceres]
   endpoints:
     - port: metrics
       path: /metrics
@@ -153,20 +153,20 @@ spec:
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: demeter-registry
-  namespace: demeter
+  name: ceres-annona
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-registry
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/name: demeter-registry
+      app.kubernetes.io/name: ceres-annona
   ingress:
     - fromEntities: [cluster]
       toPorts:
         - ports:
-            - port: {{ .Values.registry.apiPort | quote }}
+            - port: {{ .Values.annona.apiPort | quote }}
               protocol: TCP
     {{- if .Values.metrics.enabled }}
     - fromEndpoints:
@@ -178,26 +178,26 @@ spec:
               protocol: TCP
     {{- end }}
 {{- end }}
-{{- if and .Values.registry.secret.sealedSecret.enabled .Values.registry.secret.sealedSecret.encryptedData }}
+{{- if and .Values.annona.secret.sealedSecret.enabled .Values.annona.secret.sealedSecret.encryptedData }}
 ---
-# MQTT_USER / MQTT_PASS of the `registry` broker user + REGISTRY_TOKEN.
-# Seal for ns demeter / secret {{ .Values.registry.secret.name }}.
+# MQTT_USER / MQTT_PASS of the `annona` broker user + ANNONA_TOKEN.
+# Seal for ns ceres / secret {{ .Values.annona.secret.name }}.
 apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
-  name: {{ .Values.registry.secret.name }}
-  namespace: demeter
+  name: {{ .Values.annona.secret.name }}
+  namespace: ceres
 spec:
   encryptedData:
-    {{- range $k, $v := .Values.registry.secret.sealedSecret.encryptedData }}
+    {{- range $k, $v := .Values.annona.secret.sealedSecret.encryptedData }}
     {{- if $v }}
     {{ $k }}: {{ $v | quote }}
     {{- end }}
     {{- end }}
   template:
     metadata:
-      name: {{ .Values.registry.secret.name }}
-      namespace: demeter
+      name: {{ .Values.annona.secret.name }}
+      namespace: ceres
     type: Opaque
 {{- end }}
 {{- end }}

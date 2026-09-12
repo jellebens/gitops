@@ -1,10 +1,10 @@
 {{- range $id, $u := .Values.units }}
 {{- if $u.enabled }}
-# demeter-brain-{{ $id }}: the self-learning chemistry loop for ONE unit
-# (demeter ADR-0007/0010; card #291). It watches the unit's tree on the
+# ceres-vertumnus-{{ $id }}: the self-learning chemistry loop for ONE unit
+# (ceres ADR-0007/0010; card #291). It watches the unit's tree on the
 # platform broker and — only when its effective mode is active — corrects
 # chemistry through the unit's dose channel, inside the tested rails of the
-# demeter repo. It needs the broker and nothing else.
+# ceres repo. It needs the broker and nothing else.
 #
 # Single replica + Recreate is a SAFETY property: two controllers would each
 # believe they own the lockout clock and could double-dose the reservoir.
@@ -12,30 +12,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demeter-brain-{{ $id }}
-  namespace: demeter
+  name: ceres-vertumnus-{{ $id }}
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-brain
-    app.kubernetes.io/instance: demeter-brain-{{ $id }}
-    app.kubernetes.io/part-of: demeter
-    demeter.jellebens.dev/unit: {{ $id | quote }}
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+    app.kubernetes.io/part-of: ceres
+    ceres.jellebens.dev/unit: {{ $id | quote }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/instance: demeter-brain-{{ $id }}
+      app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: demeter-brain
-        app.kubernetes.io/instance: demeter-brain-{{ $id }}
-        app.kubernetes.io/part-of: demeter
-        demeter.jellebens.dev/unit: {{ $id | quote }}
+        app.kubernetes.io/name: ceres-vertumnus
+        app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+        app.kubernetes.io/part-of: ceres
+        ceres.jellebens.dev/unit: {{ $id | quote }}
       annotations:
-        # Roll THIS brain when its documents or the fleet mode change.
-        checksum/config: {{ printf "%s|%s|%s" $.Values.mode (toYaml $u) (toYaml $.Values.brain) | sha256sum }}
+        # Roll THIS Vertumnus when its documents or the fleet mode change.
+        checksum/config: {{ printf "%s|%s|%s" $.Values.mode (toYaml $u) (toYaml $.Values.Vertumnus) | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -43,7 +43,7 @@ spec:
         runAsGroup: {{ $.Values.runtime.gid }}
         fsGroup: {{ $.Values.runtime.gid }}
       containers:
-        - name: brain
+        - name: Vertumnus
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           args:
@@ -69,6 +69,10 @@ spec:
           ports:
             - name: metrics
               containerPort: {{ $.Values.metrics.port }}
+            {{- if $.Values.vertumnus.apiPort }}
+            - name: api
+              containerPort: {{ $.Values.vertumnus.apiPort }}
+            {{- end }}
               protocol: TCP
           {{- with $.Values.probes.readiness }}
           readinessProbe:
@@ -103,6 +107,6 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: demeter-brain-{{ $id }}
+            name: ceres-vertumnus-{{ $id }}
 {{- end }}
 {{- end }}

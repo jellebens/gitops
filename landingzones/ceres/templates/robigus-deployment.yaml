@@ -1,22 +1,22 @@
 {{- if .Values.robigus.enabled }}
-# demeter-robigus (ADR-0009 §6, ADR-0010, card #293): the plant-health watch.
-# One source of every unit's conditions — its own (brain/node offline, stale
-# readings, no config, actuator loss) and the brain's mirrored alerts — on
-# retained demeter/<unit>/sys/alerts and demeter/sys/alerts; the gauge
+# ceres-robigus (ADR-0009 §6, ADR-0010, card #293): the plant-health watch.
+# One source of every unit's conditions — its own (Vertumnus/node offline, stale
+# readings, no config, actuator loss) and the Vertumnus's mirrored alerts — on
+# retained ceres/<unit>/sys/alerts and ceres/sys/alerts; the gauge
 # robigus_alert_active is what the PrometheusRule mirrors. It never doses and
-# never sets an actuator: an outage here changes nothing a brain does.
+# never sets an actuator: an outage here changes nothing a Vertumnus does.
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: demeter-robigus
-  namespace: demeter
+  name: ceres-robigus
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-robigus
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-robigus
+    app.kubernetes.io/part-of: ceres
 data:
   units.yaml: |
-    # rendered by gitops landingzones/demeter — every enabled unit
+    # rendered by gitops landingzones/ceres — every enabled unit
     interval_seconds: {{ .Values.robigus.intervalSeconds }}
     republish_seconds: {{ .Values.robigus.republishSeconds }}
     units:
@@ -35,23 +35,23 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demeter-robigus
-  namespace: demeter
+  name: ceres-robigus
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-robigus
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-robigus
+    app.kubernetes.io/part-of: ceres
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: demeter-robigus
+      app.kubernetes.io/name: ceres-robigus
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: demeter-robigus
-        app.kubernetes.io/part-of: demeter
+        app.kubernetes.io/name: ceres-robigus
+        app.kubernetes.io/part-of: ceres
       annotations:
         checksum/config: {{ printf "%s|%s" (toYaml .Values.robigus) (toYaml .Values.units) | sha256sum }}
     spec:
@@ -109,21 +109,21 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: demeter-robigus
+            name: ceres-robigus
 {{- if .Values.metrics.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: demeter-robigus-metrics
-  namespace: demeter
+  name: ceres-robigus-metrics
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-robigus
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-robigus
+    app.kubernetes.io/part-of: ceres
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: demeter-robigus
+    app.kubernetes.io/name: ceres-robigus
   ports:
     - name: metrics
       port: {{ .Values.metrics.port }}
@@ -133,18 +133,18 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: demeter-robigus
-  namespace: demeter
+  name: ceres-robigus
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-robigus
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-robigus
+    app.kubernetes.io/part-of: ceres
     release: {{ .Values.serviceMonitor.releaseLabel | quote }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: demeter-robigus
+      app.kubernetes.io/name: ceres-robigus
   namespaceSelector:
-    matchNames: [demeter]
+    matchNames: [ceres]
   endpoints:
     - port: metrics
       path: /metrics
@@ -156,15 +156,15 @@ spec:
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: demeter-robigus
-  namespace: demeter
+  name: ceres-robigus
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-robigus
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-robigus
+    app.kubernetes.io/part-of: ceres
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/name: demeter-robigus
+      app.kubernetes.io/name: ceres-robigus
   ingress:
     {{- if .Values.metrics.enabled }}
     - fromEndpoints:
@@ -184,7 +184,7 @@ apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
   name: {{ .Values.robigus.secret.name }}
-  namespace: demeter
+  namespace: ceres
 spec:
   encryptedData:
     {{- range $k, $v := .Values.robigus.secret.sealedSecret.encryptedData }}
@@ -195,7 +195,7 @@ spec:
   template:
     metadata:
       name: {{ .Values.robigus.secret.name }}
-      namespace: demeter
+      namespace: ceres
     type: Opaque
 {{- end }}
 {{- end }}

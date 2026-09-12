@@ -22,7 +22,7 @@ def _client(cid, store, with_retain):
     c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cid)
     c.on_message = on_message
     c.connect("127.0.0.1", PORT)
-    c.subscribe([("demeter/#", 1), ("pomona/#", 1)])
+    c.subscribe([("ceres/#", 1), ("pomona/#", 1)])
     c.loop_start()
     return c
 
@@ -35,22 +35,22 @@ pub.loop_start()
 
 cases = [
     # (publish topic, payload, retain) -> (expected topic, expected payload | None, expected retained)
-    (("pomona/water/ph", "6.10", False), ("demeter/pomona-0001/tele/water/ph", "6.10", False)),
-    (("pomona/air/lux", "812", False), ("demeter/pomona-0001/tele/air/lux", "812", False)),
-    (("pomona/unit/rssi_dbm", "-61", False), ("demeter/pomona-0001/tele/node/rssi_dbm", "-61", False)),
-    (("pomona/unit/status", "online", True), ("demeter/pomona-0001/sys/status", "online", True)),
-    (("pomona/unit/sensors", '{"ph_calibrated":true}', True), ("demeter/pomona-0001/sys/health", '{"ph_calibrated":true}', True)),
-    (("pomona/unit/fw_version", "1.3.8", True), ("demeter/pomona-0001/sys/meta", None, True)),
-    (("pomona/pump/request", "on", True), ("demeter/pomona-0001/actuator/pump/state", "on", True)),
-    (("pomona/pump/reason", "schedule", True), ("demeter/pomona-0001/actuator/pump/reason", "schedule", True)),
-    (("pomona/pump/power", "4.7", True), ("demeter/pomona-0001/actuator/pump/power_w", "4.7", True)),
-    (("pomona/light/request", "off", True), ("demeter/pomona-0001/actuator/light/state", "off", True)),
-    (("pomona/dose/result", "ch1 done", True), ("demeter/pomona-0001/dose/result", "ch1 done", True)),
-    (("pomona/unit/i2c_scan", '{"found":2}', True), ("demeter/pomona-0001/sys/diag/i2c_scan", '{"found":2}', True)),
-    (("demeter/pomona-0001/actuator/pump/set", "on", False), ("pomona/pump/override", "on", False)),
-    (("demeter/pomona-0001/sys/ota/url", "http://x/pomona-2.0.0.ota", False), ("pomona/unit/ota_url", "http://x/pomona-2.0.0.ota", False)),
-    (("demeter/pomona-0001/sys/diag/i2c_scan/get", "1", False), ("pomona/unit/i2c_scan/get", "1", False)),
-    (("demeter/pomona-0001/desired", json.dumps({"stage": "established", "targets": {}}), True), ("pomona/control/mode", "established", True)),
+    (("pomona/water/ph", "6.10", False), ("ceres/pomona-0001/tele/water/ph", "6.10", False)),
+    (("pomona/air/lux", "812", False), ("ceres/pomona-0001/tele/air/lux", "812", False)),
+    (("pomona/unit/rssi_dbm", "-61", False), ("ceres/pomona-0001/tele/node/rssi_dbm", "-61", False)),
+    (("pomona/unit/status", "online", True), ("ceres/pomona-0001/sys/status", "online", True)),
+    (("pomona/unit/sensors", '{"ph_calibrated":true}', True), ("ceres/pomona-0001/sys/health", '{"ph_calibrated":true}', True)),
+    (("pomona/unit/fw_version", "1.3.8", True), ("ceres/pomona-0001/sys/meta", None, True)),
+    (("pomona/pump/request", "on", True), ("ceres/pomona-0001/actuator/pump/state", "on", True)),
+    (("pomona/pump/reason", "schedule", True), ("ceres/pomona-0001/actuator/pump/reason", "schedule", True)),
+    (("pomona/pump/power", "4.7", True), ("ceres/pomona-0001/actuator/pump/power_w", "4.7", True)),
+    (("pomona/light/request", "off", True), ("ceres/pomona-0001/actuator/light/state", "off", True)),
+    (("pomona/dose/result", "ch1 done", True), ("ceres/pomona-0001/dose/result", "ch1 done", True)),
+    (("pomona/unit/i2c_scan", '{"found":2}', True), ("ceres/pomona-0001/sys/diag/i2c_scan", '{"found":2}', True)),
+    (("ceres/pomona-0001/actuator/pump/set", "on", False), ("pomona/pump/override", "on", False)),
+    (("ceres/pomona-0001/sys/ota/url", "http://x/pomona-2.0.0.ota", False), ("pomona/unit/ota_url", "http://x/pomona-2.0.0.ota", False)),
+    (("ceres/pomona-0001/sys/diag/i2c_scan/get", "1", False), ("pomona/unit/i2c_scan/get", "1", False)),
+    (("ceres/pomona-0001/desired", json.dumps({"stage": "established", "targets": {}}), True), ("pomona/control/mode", "established", True)),
 ]
 for (t, p, r), _ in cases:
     pub.publish(t, p, qos=1, retain=r).wait_for_publish(5)
@@ -81,13 +81,13 @@ for (t, p, r), (et, ep, er) in cases:
 
 # a desired without stage must NOT publish control/mode
 before = live.get("pomona/control/mode")
-pub.publish("demeter/pomona-0001/desired", json.dumps({"targets": {}}), qos=1, retain=True).wait_for_publish(5)
+pub.publish("ceres/pomona-0001/desired", json.dumps({"targets": {}}), qos=1, retain=True).wait_for_publish(5)
 time.sleep(1)
 after = live.get("pomona/control/mode")
 print(("PASS" if before == after else "FAIL"), "desired without stage leaves control/mode alone", after)
 fails += 0 if before == after else 1
 # nothing translated twice (a loop would show a v2 topic under pomona/ or vice versa)
-loops = [k for k in live if k.startswith("pomona/demeter/") or k.startswith("demeter/pomona-0001/pomona/")]
+loops = [k for k in live if k.startswith("pomona/demeter/") or k.startswith("ceres/pomona-0001/pomona/")]
 print(("PASS" if not loops else "FAIL"), "no double translation", loops)
 fails += 1 if loops else 0
 for c in (sub, sub2, pub):

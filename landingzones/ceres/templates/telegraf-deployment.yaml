@@ -1,24 +1,24 @@
 {{- if .Values.telegraf.enabled }}
-# demeter-telegraf (demeter architecture §8 R1, ADR-0006, card #295): the
-# long-term archive of every unit's v2 tree, MQTT demeter/# -> InfluxDB bucket
-# `demeter`. PURE CONSUMER: it subscribes and writes time series, publishes
+# ceres-telegraf (ceres architecture §8 R1, ADR-0006, card #295): the
+# long-term archive of every unit's v2 tree, MQTT ceres/# -> InfluxDB bucket
+# `ceres`. PURE CONSUMER: it subscribes and writes time series, publishes
 # nothing, actuates nothing. Every series carries the `unit` tag so training
 # data stays separable per reservoir:
 #   unit_tele{unit,zone,metric}         tele/<zone>/<metric>            float
 #   unit_actuator{unit,actuator,metric} actuator/<name>/power_w         float
 #   unit_meta{unit,metric|actuator}     sys/status|meta|health|role, actuator/<name>/state|reason   string
 #   unit_docs{unit,doc}                 sys/decision|ledger|alerts|advice|config, dose/result, desired  string (JSON verbatim)
-#   demeter_sys{metric|service}         demeter/sys/mode|alerts|units, demeter/sys/status/<service>    string
+#   ceres_sys{metric|service}         ceres/sys/mode|alerts|units, ceres/sys/status/<service>    string
 # The pre-cutover tower history stays in the `pomona` bucket (landingzones/pomona).
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: demeter-telegraf
-  namespace: demeter
+  name: ceres-telegraf
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-telegraf
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
 data:
   telegraf.conf: |
     [agent]
@@ -51,12 +51,12 @@ data:
       password = "${MQTT_PASS}"
       qos = {{ .Values.telegraf.mqtt.qos }}
       persistent_session = false
-      topics = ["demeter/+/tele/+/+"]
+      topics = ["ceres/+/tele/+/+"]
       data_format = "value"
       data_type = "float"
       name_override = "unit_tele"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/tele/+/+"
+        topic = "ceres/+/tele/+/+"
         tags = "_/unit/_/zone/metric"
 
     # The mixing evidence: watts per actuator (Home Assistant publishes them).
@@ -67,12 +67,12 @@ data:
       password = "${MQTT_PASS}"
       qos = {{ .Values.telegraf.mqtt.qos }}
       persistent_session = false
-      topics = ["demeter/+/actuator/+/power_w"]
+      topics = ["ceres/+/actuator/+/power_w"]
       data_format = "value"
       data_type = "float"
       name_override = "unit_actuator"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/actuator/+/+"
+        topic = "ceres/+/actuator/+/+"
         tags = "_/unit/_/actuator/metric"
 
     # Retained state, as strings.
@@ -84,24 +84,24 @@ data:
       qos = {{ .Values.telegraf.mqtt.qos }}
       persistent_session = false
       topics = [
-        "demeter/+/sys/status",
-        "demeter/+/sys/meta",
-        "demeter/+/sys/health",
-        "demeter/+/sys/role",
-        "demeter/+/actuator/+/state",
-        "demeter/+/actuator/+/reason",
+        "ceres/+/sys/status",
+        "ceres/+/sys/meta",
+        "ceres/+/sys/health",
+        "ceres/+/sys/role",
+        "ceres/+/actuator/+/state",
+        "ceres/+/actuator/+/reason",
       ]
       data_format = "value"
       data_type = "string"
       name_override = "unit_meta"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/sys/+"
+        topic = "ceres/+/sys/+"
         tags = "_/unit/_/metric"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/actuator/+/+"
+        topic = "ceres/+/actuator/+/+"
         tags = "_/unit/_/actuator/metric"
 
-    # The documents, verbatim JSON — the brain's decisions and ledger, Robigus's
+    # The documents, verbatim JSON — the Vertumnus's decisions and ledger, Robigus's
     # alerts and advice, the registry's config and desired state, dose acks.
     # Forever (ADR-0006): the model-training corpus.
     [[inputs.mqtt_consumer]]
@@ -112,28 +112,28 @@ data:
       qos = {{ .Values.telegraf.mqtt.qos }}
       persistent_session = false
       topics = [
-        "demeter/+/sys/decision",
-        "demeter/+/sys/ledger",
-        "demeter/+/sys/alerts",
-        "demeter/+/sys/advice",
-        "demeter/+/sys/config",
-        "demeter/+/dose/result",
-        "demeter/+/desired",
+        "ceres/+/sys/decision",
+        "ceres/+/sys/ledger",
+        "ceres/+/sys/alerts",
+        "ceres/+/sys/advice",
+        "ceres/+/sys/config",
+        "ceres/+/dose/result",
+        "ceres/+/desired",
       ]
       data_format = "value"
       data_type = "string"
       name_override = "unit_docs"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/sys/+"
+        topic = "ceres/+/sys/+"
         tags = "_/unit/_/doc"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/dose/+"
+        topic = "ceres/+/dose/+"
         tags = "_/unit/_/doc"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/+/desired"
+        topic = "ceres/+/desired"
         tags = "_/unit/doc"
 
-    # Demeter's own system layer.
+    # Ceres's own system layer.
     [[inputs.mqtt_consumer]]
       servers = ["tcp://{{ .Values.telegraf.mqtt.host }}:{{ .Values.telegraf.mqtt.port }}"]
       client_id = "{{ .Values.telegraf.mqtt.clientId }}-sys"
@@ -142,42 +142,42 @@ data:
       qos = {{ .Values.telegraf.mqtt.qos }}
       persistent_session = false
       topics = [
-        "demeter/sys/mode",
-        "demeter/sys/alerts",
-        "demeter/sys/advice",
-        "demeter/sys/units",
-        "demeter/sys/status/+",
+        "ceres/sys/mode",
+        "ceres/sys/alerts",
+        "ceres/sys/advice",
+        "ceres/sys/units",
+        "ceres/sys/status/+",
       ]
       data_format = "value"
       data_type = "string"
-      name_override = "demeter_sys"
+      name_override = "ceres_sys"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/sys/+"
+        topic = "ceres/sys/+"
         tags = "_/_/metric"
       [[inputs.mqtt_consumer.topic_parsing]]
-        topic = "demeter/sys/status/+"
+        topic = "ceres/sys/status/+"
         tags = "_/_/metric/service"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demeter-telegraf
-  namespace: demeter
+  name: ceres-telegraf
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-telegraf
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: demeter-telegraf
+      app.kubernetes.io/name: ceres-telegraf
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: demeter-telegraf
-        app.kubernetes.io/part-of: demeter
+        app.kubernetes.io/name: ceres-telegraf
+        app.kubernetes.io/part-of: ceres
       annotations:
         checksum/config: {{ toYaml .Values.telegraf | sha256sum }}
     spec:
@@ -195,8 +195,8 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-          # MQTT_USER / MQTT_PASS (the telegraf-demeter broker user) and
-          # INFLUX_TOKEN (a write token scoped to the demeter bucket). optional:
+          # MQTT_USER / MQTT_PASS (the telegraf-ceres broker user) and
+          # INFLUX_TOKEN (a write token scoped to the ceres bucket). optional:
           # until sealed the pod runs and nothing flows (fail-and-retry).
           envFrom:
             - secretRef:
@@ -225,20 +225,20 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: demeter-telegraf
+            name: ceres-telegraf
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: demeter-telegraf-metrics
-  namespace: demeter
+  name: ceres-telegraf-metrics
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-telegraf
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: demeter-telegraf
+    app.kubernetes.io/name: ceres-telegraf
   ports:
     - name: metrics
       port: {{ .Values.telegraf.metricsPort }}
@@ -248,18 +248,18 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: demeter-telegraf
-  namespace: demeter
+  name: ceres-telegraf
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-telegraf
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
     release: {{ .Values.serviceMonitor.releaseLabel | quote }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: demeter-telegraf
+      app.kubernetes.io/name: ceres-telegraf
   namespaceSelector:
-    matchNames: [demeter]
+    matchNames: [ceres]
   endpoints:
     - port: metrics
       path: /metrics
@@ -270,15 +270,15 @@ spec:
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: demeter-telegraf
-  namespace: demeter
+  name: ceres-telegraf
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-telegraf
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/name: demeter-telegraf
+      app.kubernetes.io/name: ceres-telegraf
   ingress:
     - fromEndpoints:
         - matchLabels:
@@ -294,7 +294,7 @@ apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
   name: {{ .Values.telegraf.secret.name }}
-  namespace: demeter
+  namespace: ceres
 spec:
   encryptedData:
     {{- range $k, $v := .Values.telegraf.secret.sealedSecret.encryptedData }}
@@ -305,7 +305,7 @@ spec:
   template:
     metadata:
       name: {{ .Values.telegraf.secret.name }}
-      namespace: demeter
+      namespace: ceres
     type: Opaque
 {{- end }}
 {{- end }}
