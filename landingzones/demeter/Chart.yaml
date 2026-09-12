@@ -8,7 +8,9 @@ name: demeter
 #         brain inherits the live retained ledger; pomona-0001 goes ACTIVE in lab.
 # 0.3.0 = #292 slice 2: the config database (CloudNativePG Cluster demeter-pg) + the
 #         registry service; brains can read sys/config from MQTT (configSource).
-version: 0.3.0
+# 0.4.0 = #293 Robigus, the plant-health watch, as a service; DemeterPlantHealth reads
+#         robigus_alert_active.
+version: 0.4.0
 type: application
 appVersion: "0.7.0"
 description: Demeter landing zone — one self-learning brain per hydroponic unit (demeter ADR-0007/0010), rendered from the units map

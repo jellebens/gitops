@@ -54,10 +54,10 @@ spec:
             summary: "unit {{ "{{" }} $labels.unit {{ "}}" }}: pH readings stale"
             description: "The last pH reading of {{ "{{" }} $labels.unit {{ "}}" }} is older than {{ .Values.prometheusRule.readingsStaleSeconds }} s; the brain holds off dosing until readings are fresh."
         - alert: DemeterPlantHealth
-          # The plant-health mirror: one alert per active condition the brain
-          # raises (pump_not_running, bottle low, no-response streak, unusual
-          # dosing, under-lit, hot water …), named by its condition label.
-          expr: demeter_alert_active == 1
+          # The plant-health mirror (Robigus, card #293): one alert per active condition
+          # Robigus raises or mirrors from the brain (pump_not_running, bottle low,
+          # no-response streak, unusual dosing, node/brain offline, actuator loss …).
+          expr: robigus_alert_active == 1
           for: 5m
           labels:
             severity: warning
