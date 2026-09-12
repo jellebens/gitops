@@ -59,6 +59,13 @@ units:
       # pomona/demeter/#); flip to "demeter" at the cutover so the new brain
       # inherits the live retained ledger.
       ownPrefix: demeter
+      # v2 TRANSITION (slice 3, #295): while the node still speaks v1 a brain on
+      # `contract: v2` reads demeter/pomona-0001/# through the EMQX republish
+      # bridge but sends its dose command and pump override on the v1 tree
+      # itself (ml -> the bench command with its own calibration) and adopts
+      # the retained v1 ledger once. Set to the v1 root; remove it when
+      # firmware 2.0.0 is on the tower.
+      legacyBaseTopic: ""
     # Broker creds (MQTT_USER / MQTT_PASS): the same least-privilege
     # pomona-demeter EMQX user the live brain uses (subscribe pomona/#, publish
     # ONLY pomona/dose/test + pomona/pump/override + pomona/demeter/#) — its
@@ -192,6 +199,50 @@ robigus:
     limits:
       cpu: 200m
       memory: 96Mi
+
+# The long-term ARCHIVE of every unit's v2 tree (architecture §8 R1, ADR-0006,
+# card #295): Telegraf MQTT demeter/# -> InfluxDB bucket `demeter`, every
+# series tagged `unit`. Pure consumer. Owner pre-deploy: the `telegraf-demeter`
+# EMQX user (subscribe demeter/# only), the Influx `demeter` bucket (org zeus,
+# retention "forever" = 0s or the longest the disk allows) + a bucket-scoped
+# write token, then seal MQTT_USER / MQTT_PASS / INFLUX_TOKEN below.
+telegraf:
+  enabled: true
+  image:
+    repository: telegraf
+    tag: "1.31-alpine"
+    pullPolicy: IfNotPresent
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: telegraf-demeter
+    qos: 1
+  influx:
+    url: http://influxdb-influxdb2.influxdb
+    org: zeus
+    bucket: demeter
+  metricsPort: 9273
+  secret:
+    name: demeter-telegraf-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", INFLUX_TOKEN: "Ag..." }
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Grafana dashboards (architecture §8 R3): dashboards/*.json provisioned via
+# the kube-prometheus-stack sidecar into the `demeter` folder. The InfluxDB
+# datasource is static-mounted by observability-config (uid `influxdb`).
+dashboard:
+  enabled: true
+  sidecarLabel: grafana_dashboard
+  folderAnnotation: grafana_folder
+  folder: demeter
 
 metrics:
   enabled: true

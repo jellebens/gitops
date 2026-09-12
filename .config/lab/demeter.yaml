@@ -65,3 +65,12 @@ robigus:
   secret:
     sealedSecret:
       encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+
+# --- telegraf archive (slice 3, #295) --------------------------------------------
+# OWNER PRE-DEPLOY: EMQX user `telegraf-demeter` (subscribe demeter/#), Influx
+# bucket `demeter` + write token, then seal MQTT_USER / MQTT_PASS / INFLUX_TOKEN
+# (ns demeter / secret demeter-telegraf-secrets). Until sealed nothing flows.
+telegraf:
+  secret:
+    sealedSecret:
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", INFLUX_TOKEN: "Ag..." }

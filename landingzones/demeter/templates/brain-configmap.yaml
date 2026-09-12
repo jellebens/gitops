@@ -37,6 +37,9 @@ data:
       password: "${MQTT_PASS}"
       base_topic: {{ $u.mqtt.baseTopic }}
       own_prefix: {{ $u.mqtt.ownPrefix }}
+      {{- if $u.mqtt.legacyBaseTopic }}
+      legacy_base_topic: {{ $u.mqtt.legacyBaseTopic }}
+      {{- end }}
     rails:
       {{- toYaml $u.rails | nindent 6 }}
   {{- if ne ($u.configSource | default "file") "mqtt" }}

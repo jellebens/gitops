@@ -165,3 +165,38 @@ that can never dose (`kratky`). The registry logs the same findings on every
 projection and serves them on `GET /units/{id}/validation`. HA package
 `demeter_robigus.yaml` 1.1.0 shows the advice as `sensor.demeter_<id>_advice`
 plus one notification. No dosing behaviour changes for the tower (role active).
+
+## The archive and the wire change (slice 3, card #295, ADR-0008)
+
+`templates/telegraf-deployment.yaml`: `demeter-telegraf` archives every unit's
+v2 tree into the InfluxDB bucket `demeter` — `unit_tele{unit,zone,metric}`,
+`unit_actuator{unit,actuator,metric}`, `unit_meta`, `unit_docs` (the brain's
+decisions and ledger, Robigus's alerts and advice, the registry's config and
+desired state, dose acks — verbatim JSON, forever: the training corpus) and
+`demeter_sys`. `dashboards/demeter-units.json` ("Demeter — units", folder
+`demeter`) reads it with a `unit` variable; regenerate it from the generator
+script noted in its description rather than editing the JSON. The tower's
+pre-cutover history stays in the `pomona` bucket.
+
+The tower still speaks the v1 tree; the platform broker's republish bridge
+(`platform/mqtt` values `rules`, README "Republish bridge") mirrors it onto
+`demeter/pomona-0001/#` and back, so the archive, Robigus and a brain on
+`contract: v2` see the tower before the firmware moves.
+
+**Owner steps** (in this order):
+1. EMQX: users `telegraf-demeter` (subscribe `demeter/#`), `brain-pomona-0001`
+   and `unit-pomona-0001` with the rules in `platform/mqtt/files/acl.conf`;
+   `homeassistant` gains `publish demeter/+/actuator/+/power_w` and
+   `demeter/+/actuator/+/set`.
+2. InfluxDB: bucket `demeter` (org zeus, retention forever) + a bucket-scoped
+   write token. Seal `MQTT_USER` / `MQTT_PASS` / `INFLUX_TOKEN` for ns demeter /
+   secret `demeter-telegraf-secrets` into `.config/<env>/demeter.yaml`.
+3. Flip the brain: `units.pomona-0001.contract: v2`,
+   `mqtt.legacyBaseTopic: pomona`, `mqtt.clientId: brain-pomona-0001` with the
+   `brain-pomona-0001` creds sealed (brain image ≥ 0.9.0). The brain adopts the
+   retained v1 ledger once and keeps dosing through the bench channel.
+4. Firmware 2.0.0 (pomona repo) over OTA in a maintenance window; Home Assistant
+   packages 2.0.0 (home-assitant repo).
+5. Afterwards: `platform/mqtt` `rules.enabled: false`, clear the old retained
+   `pomona/#` topics, remove `legacyBaseTopic`, retire the v1 users; delete the
+   pomona ingestion bridge (`landingzones/pomona` — the bucket stays).
