@@ -150,3 +150,18 @@ doses and never sets an actuator. Owner steps: the `robigus` broker user (ACL
 mirrored in `platform/mqtt/files/acl.conf`) and its sealed creds. Home
 Assistant notifies from `demeter/+/sys/alerts` (home-assitant package
 `demeter_robigus.yaml`).
+
+### Advice (slice 4b, card #294)
+
+Robigus 0.2.0 also owns `demeter/<unit>/sys/advice`: the unit's `sys/config`
+document validated against the crop windows shipped in `demeter_shared`
+(`placement` — "chili wants EC 1.8–2.4, this unit runs 1.4–1.6",
+`target_outside_windows`, `water_temp_target_high`, `light_short`,
+`heavy_feeder_mix`), a `suggested_targets` compromise when the mix disagrees,
+and the brain's hand-dose recommendations when a unit's `role` is `advise`
+(brain 0.8.0: the steps become `advice`, nothing is sent). Set
+`units.<id>.role: advise` for a unit whose dosers are not calibrated yet or
+that can never dose (`kratky`). The registry logs the same findings on every
+projection and serves them on `GET /units/{id}/validation`. HA package
+`demeter_robigus.yaml` 1.1.0 shows the advice as `sensor.demeter_<id>_advice`
+plus one notification. No dosing behaviour changes for the tower (role active).
