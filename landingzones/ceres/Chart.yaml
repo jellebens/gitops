@@ -16,7 +16,7 @@ name: ceres
 #         "Ceres — units" dashboard, mqtt.legacyBaseTopic for a v2 Vertumnus in transition.
 # 0.7.0 = #297 ADR-0012: the zone IS Ceres now — namespace ceres, ceres-vertumnus-<unit>, ceres-annona,
 #         ceres-robigus, ceres-telegraf, ceres-pg, bucket ceres; the operator API port + token.
-version: 0.7.0
+version: 0.7.1
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
