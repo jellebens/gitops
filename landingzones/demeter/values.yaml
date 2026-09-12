@@ -163,6 +163,36 @@ registry:
       cpu: 250m
       memory: 128Mi
 
+# Robigus (ADR-0009 §6, card #293): the plant-health watch, one replica.
+robigus:
+  enabled: true
+  image:
+    repository: jellebens/demeter-robigus
+    tag: "0.1.0"        # demeter repo tag robigus/v0.1.0
+    pullPolicy: IfNotPresent
+  intervalSeconds: 30
+  republishSeconds: 300
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: robigus
+  # MQTT_USER / MQTT_PASS of the dedicated `robigus` EMQX user (subscribe
+  # demeter/# + pomona/#; publish demeter/+/sys/alerts, demeter/+/sys/advice,
+  # demeter/sys/alerts, demeter/sys/status/robigus). Seal for ns demeter /
+  # secret demeter-robigus-secrets.
+  secret:
+    name: demeter-robigus-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      cpu: 200m
+      memory: 96Mi
+
 metrics:
   enabled: true
   port: 9000

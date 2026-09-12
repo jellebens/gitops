@@ -55,3 +55,13 @@ registry:
   secret:
     sealedSecret:
       encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", REGISTRY_TOKEN: "Ag..." }
+
+# --- robigus (slice 4a, #293) -------------------------------------------------
+# OWNER PRE-DEPLOY: create the `robigus` EMQX user + ACL (platform/mqtt/files/
+# acl.conf is the DR mirror), then seal MQTT_USER / MQTT_PASS (ns demeter /
+# secret demeter-robigus-secrets). Until sealed it cannot connect and publishes
+# nothing; the PrometheusRule's plant-health mirror stays quiet.
+robigus:
+  secret:
+    sealedSecret:
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
