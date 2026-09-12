@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: demeter
-  labels:
-    app.kubernetes.io/name: demeter
-    app.kubernetes.io/part-of: demeter

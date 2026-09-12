@@ -97,7 +97,7 @@ spec:
                   name: {{ .Values.secret.name }}
                   key: dashboard-password
             {{- if .Values.rules.enabled }}
-            # Rule-engine republish bridge (demeter card #295, ADR-0008): each entry
+            # Rule-engine republish bridge (ceres card #295, ADR-0008): each entry
             # of .Values.rules.list becomes one rule_engine.rules.<id> with a single
             # republish action. Env-declared config is read-only in the dashboard
             # and survives a fresh cluster — git is the source of truth.

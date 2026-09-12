@@ -1,7 +1,7 @@
 {{- if .Values.postgres.enabled }}
-# The demeter config database (ADR-0011): a small CloudNativePG Cluster in
+# The ceres config database (ADR-0011): a small CloudNativePG Cluster in
 # the landing zone (the operator is the platform service `cnpg`). Bootstrap
-# creates database `demeter` owned by role `demeter`; the operator writes the
+# creates database `ceres` owned by role `ceres`; the operator writes the
 # app credentials to Secret `{{ .Values.postgres.name }}-app` (keys username,
 # password, host, port, dbname, uri) which the registry reads via envFrom —
 # no password ever passes through git. Facts are append-only rows; the
@@ -11,18 +11,18 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ .Values.postgres.name }}
-  namespace: demeter
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-postgres
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres-postgres
+    app.kubernetes.io/part-of: ceres
 spec:
   instances: {{ .Values.postgres.instances }}
   imageName: {{ .Values.postgres.image | quote }}
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:
-      database: demeter
-      owner: demeter
+      database: ceres
+      owner: ceres
   storage:
     storageClass: {{ .Values.postgres.storageClass }}
     size: {{ .Values.postgres.size }}

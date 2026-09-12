@@ -1,34 +1,36 @@
 {{- range $id, $u := .Values.units }}
 {{- if $u.enabled }}
-# demeter-brain-{{ $id }}: the two documents a brain reads (demeter
-# architecture §6). values.yaml is what gitops decides for this brain;
+# ceres-vertumnus-{{ $id }}: the two documents a Vertumnus reads (ceres
+# architecture §6). values.yaml is what gitops decides for this Vertumnus;
 # config.yaml is the unit's config document (the ADR-0002 facts — from
 # migration slice 2 the registry projects it from Postgres onto retained
-# MQTT, same shape). ${MQTT_USER}/${MQTT_PASS} are expanded by the brain from
+# MQTT, same shape). ${MQTT_USER}/${MQTT_PASS} are expanded by the Vertumnus from
 # the pod env (the unit's sealed secret via envFrom).
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: demeter-brain-{{ $id }}
-  namespace: demeter
+  name: ceres-vertumnus-{{ $id }}
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter-brain
-    app.kubernetes.io/instance: demeter-brain-{{ $id }}
-    app.kubernetes.io/part-of: demeter
-    demeter.jellebens.dev/unit: {{ $id | quote }}
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+    app.kubernetes.io/part-of: ceres
+    ceres.jellebens.dev/unit: {{ $id | quote }}
 data:
   values.yaml: |
-    # rendered by gitops landingzones/demeter — do not edit in the cluster
+    # rendered by gitops landingzones/ceres — do not edit in the cluster
     unit: {{ $id }}
     mode: {{ $.Values.mode }}
     role: {{ $u.role }}
     contract: {{ $u.contract }}
     config_source: {{ $u.configSource | default "file" }}
-    interval_seconds: {{ $.Values.brain.intervalSeconds }}
-    freshness_seconds: {{ $.Values.brain.freshnessSeconds }}
-    confirm_minutes: {{ $.Values.brain.confirmMinutes }}
+    interval_seconds: {{ $.Values.vertumnus.intervalSeconds }}
+    freshness_seconds: {{ $.Values.vertumnus.freshnessSeconds }}
+    confirm_minutes: {{ $.Values.vertumnus.confirmMinutes }}
     metrics_port: {{ $.Values.metrics.port }}
+    api_port: {{ $.Values.vertumnus.apiPort }}
+    api_token: "${VERTUMNUS_TOKEN}"
     mqtt:
       host: {{ $u.mqtt.host }}
       port: {{ $u.mqtt.port }}

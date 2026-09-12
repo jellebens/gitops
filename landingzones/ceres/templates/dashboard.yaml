@@ -1,16 +1,16 @@
 {{- if .Values.dashboard.enabled }}
-# Grafana dashboards for Demeter (architecture §8 R3), provisioned as a
+# Grafana dashboards for Ceres (architecture §8 R3), provisioned as a
 # ConfigMap the kube-prometheus-stack sidecar picks up (label + folder
 # annotation, as landingzones/pomona does). Generated files: edit the
 # generator noted in each JSON's description, not the JSON.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: demeter-dashboards
-  namespace: demeter
+  name: ceres-dashboards
+  namespace: ceres
   labels:
-    app.kubernetes.io/name: demeter
-    app.kubernetes.io/part-of: demeter
+    app.kubernetes.io/name: ceres
+    app.kubernetes.io/part-of: ceres
     {{ .Values.dashboard.sidecarLabel }}: "1"
   {{- if .Values.dashboard.folder }}
   annotations:

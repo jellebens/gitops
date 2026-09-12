@@ -1,4 +1,4 @@
-# Local validation of the republish bridge (demeter #295): renders the chart, boots a throw-away
+# Local validation of the republish bridge (ceres #295): renders the chart, boots a throw-away
 # emqx/emqx:5.8.9 in docker with exactly the rendered rule env vars, checks every mapping.
 #   bash platform/mqtt/tests/bridge_test.sh
 #!/bin/bash

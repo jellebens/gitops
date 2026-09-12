@@ -1,0 +1,68 @@
+{{- if .Values.prometheusRule.enabled }}
+# ceres — the infrastructure rules Robigus cannot raise about itself
+# (architecture §8 R2): a Vertumnus down, a unit's node offline, readings stale;
+# plus the plant-health mirror on ceres_alert_active so every condition a
+# Vertumnus raises on MQTT also reaches Alertmanager under the same name and
+# `unit` label. Severity: critical for what kills plants in hours, warning
+# for the rest. Robigus (slice 4) is the one source of plant-health
+# conditions; Prometheus is the one delivery path.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ceres
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/part-of: ceres
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: ceres-vertumnus-alerts
+      rules:
+        - alert: CeresVertumnusDown
+          # A Vertumnus's /metrics has not been scraped for 10 min: the pod is
+          # gone or wedged. Its unit is unattended (a shadow Vertumnus: only the
+          # soak is unattended).
+          expr: up{namespace="ceres", job=~"ceres-vertumnus-.*"} == 0
+          for: 10m
+          labels:
+            severity: critical
+            service: ceres
+          annotations:
+            summary: "ceres Vertumnus {{ "{{" }} $labels.job {{ "}}" }} is not being scraped"
+            description: "No scrape of {{ "{{" }} $labels.job {{ "}}" }} for 10 min — the Vertumnus is down or wedged; its unit is unattended."
+        - alert: CeresUnitOffline
+          # The node's LWT says offline: no telemetry, no dosing possible.
+          expr: ceres_unit_online == 0
+          for: 15m
+          labels:
+            severity: critical
+            service: ceres
+          annotations:
+            summary: "unit {{ "{{" }} $labels.unit {{ "}}" }} is offline"
+            description: "The node of {{ "{{" }} $labels.unit {{ "}}" }} has reported offline for 15 min (LWT). The Vertumnus cannot see or dose the reservoir."
+        - alert: CeresReadingsStale
+          # pH has not arrived for longer than the Vertumnus's freshness window
+          # allows: the Vertumnus will not dose, and something upstream is wrong.
+          expr: ceres_reading_age_seconds{metric="ph"} > {{ .Values.prometheusRule.readingsStaleSeconds }}
+          for: 15m
+          labels:
+            severity: warning
+            service: ceres
+          annotations:
+            summary: "unit {{ "{{" }} $labels.unit {{ "}}" }}: pH readings stale"
+            description: "The last pH reading of {{ "{{" }} $labels.unit {{ "}}" }} is older than {{ .Values.prometheusRule.readingsStaleSeconds }} s; the Vertumnus holds off dosing until readings are fresh."
+        - alert: CeresPlantHealth
+          # The plant-health mirror (Robigus, card #293): one alert per active condition
+          # Robigus raises or mirrors from the Vertumnus (pump_not_running, bottle low,
+          # no-response streak, unusual dosing, node/Vertumnus offline, actuator loss …).
+          expr: robigus_alert_active == 1
+          for: 5m
+          labels:
+            severity: warning
+            service: ceres
+          annotations:
+            summary: "unit {{ "{{" }} $labels.unit {{ "}}" }}: {{ "{{" }} $labels.condition {{ "}}" }}"
+            description: "The Vertumnus of {{ "{{" }} $labels.unit {{ "}}" }} has raised {{ "{{" }} $labels.condition {{ "}}" }} for 5 min."
+{{- end }}

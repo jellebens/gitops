@@ -62,7 +62,7 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
   optimizer (LIVE, controlling the battery). See its README for wiring, metrics,
   the Grafana dashboard, MQTT, secrets, and the arm64 image build.
 - `landingzones/hermes` — see the directory.
-- [`landingzones/demeter`](landingzones/demeter/README.md) — Demeter's per-unit
-  brains (one `demeter-brain-<unit_id>` Deployment per hydroponic unit, card
-  #291); the tower's brain `pomona-0001` soaks in shadow next to the live
+- [`landingzones/ceres`](landingzones/ceres/README.md) — Ceres's per-unit
+  Vertumnus instances (one `ceres-vertumnus-<unit_id>` Deployment per hydroponic unit, card
+  #291); the tower's Vertumnus `pomona-0001` soaks in shadow next to the live
   `pomona-demeter` in `landingzones/pomona` until the cutover in its README.
