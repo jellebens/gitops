@@ -136,3 +136,17 @@ token-protected writes) is documented in the demeter repo
 
 Backups of the database (pg_dump to the NAS, as InfluxDB does) are a
 follow-up card; until then Longhorn replication is the safety net.
+
+## Robigus — the plant-health watch (slice 4a, card #293)
+
+`templates/robigus-deployment.yaml`: one `demeter-robigus` pod watching every
+enabled unit (its `units.yaml` is rendered from the `units:` map). It raises
+what a brain cannot say about itself (`brain_offline`, `node_offline`,
+`readings_stale`, `no_config`, `actuator_loss` past the profile's critical
+window) and mirrors the brain's alerts, on retained
+`demeter/<unit>/sys/alerts` and the fleet's `demeter/sys/alerts`; the
+`DemeterPlantHealth` rule now reads its gauge `robigus_alert_active`. It never
+doses and never sets an actuator. Owner steps: the `robigus` broker user (ACL
+mirrored in `platform/mqtt/files/acl.conf`) and its sealed creds. Home
+Assistant notifies from `demeter/+/sys/alerts` (home-assitant package
+`demeter_robigus.yaml`).
