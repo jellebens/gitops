@@ -61,12 +61,16 @@ see "ACL disaster recovery" below):
 
 | user            | allow                                                        | then |
 | --------------- | ------------------------------------------------------------ | ---- |
-| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, demeter ADR-0005) | `deny all #` |
+| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, demeter ADR-0005), `subscribe demeter/#` (#293), `publish demeter/+/actuator/+/power_w`, `publish demeter/+/actuator/+/set` (#295, v2) | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
 | `pomona`        | `all pomona/#` (the GIGA firmware)                           | `deny all #` |
 | `pomona-demeter` | `subscribe pomona/#`, `publish pomona/dose/test`, `publish pomona/pump/override`, `publish pomona/demeter/#` | `deny all #` |
+| `unit-pomona-0001` | v2 node (pomona fw 2.0.0, #295): publish `demeter/pomona-0001/{tele/#, actuator/+/state, actuator/+/reason, dose/result, sys/status, sys/meta, sys/health, sys/ota/result, sys/diag/#}`; subscribe `{actuator/+/set, dose/request, desired, sys/ota/url, sys/diag/+/get}` | `deny all #` |
+| `brain-pomona-0001` | v2 brain (#295): subscribe `demeter/pomona-0001/#`, `demeter/sys/mode` (+ `pomona/demeter/ledger` during the transition); publish `demeter/pomona-0001/{actuator/+/set, dose/request, sys/role, sys/decision, sys/ledger}`, `demeter/sys/status/brain-pomona-0001` (+ `pomona/dose/test`, `pomona/pump/override` during the transition) | `deny all #` |
+| `telegraf-demeter` | the v2 archive (#295): `subscribe demeter/#` only | `deny all #` |
+| `registry`, `robigus` | demeter services (#292/#293), see acl.conf | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
 `homeassistant` is scoped to **its own tree plus the pomona relay grants**
@@ -124,6 +128,42 @@ mqtt-0 -- curl ...` (the emqx image ships `curl`).
 password on one stdin to two `read`s — the admin password carries a newline and
 misframes the second read (a wrong password gets set). Pass the admin password
 via stdin (single `read`) and the new password via a `kubectl cp`'d file.
+
+## Republish bridge `pomona/# <-> demeter/pomona-0001/#` (demeter card #295, ADR-0008)
+
+The tower's firmware speaks the v1 tree; everything Demeter (brain on
+`contract: v2`, Robigus, the Telegraf archive) and Home Assistant 2.0 read is
+the v2 tree `demeter/pomona-0001/…`. `values.yaml` `rules.list` declares one
+rule-engine **republish** rule per topic mapping, both directions, rendered
+onto the StatefulSet as `EMQX_RULE_ENGINE__RULES__<id>__…` env vars — config,
+not REST: git is the source of truth and a fresh cluster gets the bridge back
+with the ACL. Env-declared rules are read-only in the dashboard.
+
+| v1 (firmware) | v2 | retained |
+|---|---|---|
+| `pomona/<water\|air>/<metric>`, `unit/rssi_dbm`, `unit/uptime_s` | `tele/<zone>/<metric>`, `tele/node/<metric>` | no |
+| `unit/status`, `unit/sensors`, `unit/fw_version` | `sys/status`, `sys/health`, `sys/meta` (synthesised JSON, `contract: 1`) | yes |
+| `pump/request`, `pump/reason`, `pump/power` (HA), `light/request` | `actuator/pump/state`, `actuator/pump/reason`, `actuator/pump/power_w`, `actuator/light/state` | yes |
+| `dose/result` (v1 event line), `unit/i2c_scan`, `unit/ota_result` | `dose/result`, `sys/diag/i2c_scan`, `sys/ota/result` | yes |
+| `pump/override` ← | ← `actuator/pump/set` | no |
+| `unit/ota_url`, `unit/i2c_scan/get` ← | ← `sys/ota/url`, `sys/diag/i2c_scan/get` | no |
+| `control/mode` ← | ← `desired` (`payload.stage`, the registry's document) | yes |
+
+No loop is possible: no v1→v2 rule reads a topic a v2→v1 rule writes. The
+brain's own documents are not bridged — a v2 brain publishes `sys/*` itself.
+`dose/request` (ml, JSON) is NOT bridged either: while the node is v1 the
+brain converts ml to the bench command on `pomona/dose/test` with its own
+calibration (`legacy_base_topic`, demeter brain ≥ 0.9.0).
+
+A JSON payload template must be HOCON-quoted (outer `"`, inner `\"`) — the
+env parser otherwise reads it as an object and the node refuses to boot.
+Validated 2026-09-12 on a local `emqx/emqx:5.8.9` (all 16 rules load; every
+mapping and retain flag checked by a script). Changing `rules` rolls the
+StatefulSet (one pod at a time; clients reconnect to the VIP).
+
+**Step 5 of the transition** (firmware 2.0.0 on the tower): set
+`rules.enabled: false`, clear the old retained `pomona/#` topics with an empty
+retained publish, retire the users `pomona`, `pomona-demeter`, `pomona-ingest`.
 
 ## ACL disaster recovery (card #156)
 

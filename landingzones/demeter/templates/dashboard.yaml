@@ -1,0 +1,24 @@
+{{- if .Values.dashboard.enabled }}
+# Grafana dashboards for Demeter (architecture §8 R3), provisioned as a
+# ConfigMap the kube-prometheus-stack sidecar picks up (label + folder
+# annotation, as landingzones/pomona does). Generated files: edit the
+# generator noted in each JSON's description, not the JSON.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demeter-dashboards
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter
+    app.kubernetes.io/part-of: demeter
+    {{ .Values.dashboard.sidecarLabel }}: "1"
+  {{- if .Values.dashboard.folder }}
+  annotations:
+    {{ .Values.dashboard.folderAnnotation }}: {{ .Values.dashboard.folder | quote }}
+  {{- end }}
+data:
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+{{- end }}

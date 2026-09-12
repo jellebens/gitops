@@ -96,6 +96,30 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secret.name }}
                   key: dashboard-password
+            {{- if .Values.rules.enabled }}
+            # Rule-engine republish bridge (demeter card #295, ADR-0008): each entry
+            # of .Values.rules.list becomes one rule_engine.rules.<id> with a single
+            # republish action. Env-declared config is read-only in the dashboard
+            # and survives a fresh cluster — git is the source of truth.
+            {{- range .Values.rules.list }}
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__ENABLE
+              value: "true"
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__DESCRIPTION
+              value: {{ .description | quote }}
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__SQL
+              value: {{ .sql | quote }}
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__ACTIONS__1__FUNCTION
+              value: "republish"
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__ACTIONS__1__ARGS__TOPIC
+              value: {{ .topic | quote }}
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__ACTIONS__1__ARGS__QOS
+              value: {{ .qos | quote }}
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__ACTIONS__1__ARGS__RETAIN
+              value: {{ .retain | quote }}
+            - name: EMQX_RULE_ENGINE__RULES__{{ .id }}__ACTIONS__1__ARGS__PAYLOAD
+              value: {{ .payload | quote }}
+            {{- end }}
+            {{- end }}
           readinessProbe:
             httpGet: { path: /status, port: 18083 }
             initialDelaySeconds: 10
