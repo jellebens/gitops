@@ -23,6 +23,21 @@ spec:
     initdb:
       database: ceres
       owner: ceres
+  {{- if .Values.postgres.grafanaRole.enabled }}
+  # A read-only role for the Grafana PostgreSQL datasource (card #298). The
+  # operator creates the role and reads its password from the secret named
+  # here (owner seals `password` for ns ceres; the same value is sealed for
+  # Grafana in ns observability). Annona's migration 0002 grants SELECT on its
+  # tables and views to this role when it exists.
+  managed:
+    roles:
+      - name: grafana
+        ensure: present
+        login: true
+        inherit: true
+        passwordSecret:
+          name: {{ .Values.postgres.grafanaRole.secret }}
+  {{- end }}
   storage:
     storageClass: {{ .Values.postgres.storageClass }}
     size: {{ .Values.postgres.size }}

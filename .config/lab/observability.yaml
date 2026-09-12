@@ -50,6 +50,13 @@ grafana:
   # INFLUXDB_TOKEN; the datasource references it as $INFLUXDB_TOKEN so the token
   # is never stored in plaintext in the provisioned datasource.
   envFromSecret: grafana-influxdb-token
+  # Ceres #298: the Grafana PostgreSQL datasource on Annona reads its password
+  # from CERES_PG_PASSWORD (secret grafana-ceres-postgres, sealed for ns
+  # observability — the same value as ceres-pg-grafana in ns ceres). optional:
+  # Grafana starts without it; the datasource then fails until sealed.
+  envFromSecrets:
+    - name: grafana-ceres-postgres
+      optional: true
 
   # The InfluxDB datasource is provisioned via a statically mounted file (the
   # grafana-influxdb-datasource ConfigMap from observability-config), NOT via the
@@ -72,6 +79,12 @@ grafana:
       mountPath: /etc/grafana/provisioning/datasources/jaeger.yaml
       subPath: jaeger.yaml
       configMap: grafana-jaeger-datasource
+      readOnly: true
+    # Annona (PostgreSQL) — ceres card #298, same static-mount pattern.
+    - name: ceres-postgres-datasource
+      mountPath: /etc/grafana/provisioning/datasources/ceres-postgres.yaml
+      subPath: ceres-postgres.yaml
+      configMap: grafana-ceres-postgres-datasource
       readOnly: true
 
   persistence:

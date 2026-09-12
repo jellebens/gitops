@@ -16,7 +16,9 @@ name: ceres
 #         "Ceres — units" dashboard, mqtt.legacyBaseTopic for a v2 Vertumnus in transition.
 # 0.7.0 = #297 ADR-0012: the zone IS Ceres now — namespace ceres, ceres-vertumnus-<unit>, ceres-annona,
 #         ceres-robigus, ceres-telegraf, ceres-pg, bucket ceres; the operator API port + token.
-version: 0.7.1
+# 0.8.0 = #298 slice 5: ceres-carmenta (pooled priors, fleet advice); Annona nightly pg_dump to the
+#         NAS; the read-only grafana role on ceres-pg for the Grafana datasource.
+version: 0.8.0
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

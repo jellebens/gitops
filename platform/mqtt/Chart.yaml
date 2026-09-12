@@ -7,5 +7,6 @@ type: application
 #         declared in values.rules; v2 users in the ACL DR mirror.
 # 0.3.0 = ceres #297 (ADR-0012): the v2 root is ceres/ — bridge targets, ACL users vertumnus-*,
 #         annona, telegraf-ceres.
-version: 0.3.0
+# 0.3.1 = ceres #298: ACL mirror user carmenta.
+version: 0.3.1
 appVersion: "5.8.9"

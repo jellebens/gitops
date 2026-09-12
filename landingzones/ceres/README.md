@@ -214,3 +214,28 @@ port-forward); the ceres repo's `scripts/vertumnusctl.sh` wraps it. Writes
 need the `VERTUMNUS_TOKEN` key in the unit's secret
 (`ceres-vertumnus-<unit>-secrets`, next to MQTT_USER / MQTT_PASS); without it
 the API is read-only. Seal a random token like any other value.
+
+## Carmenta, backups and the Grafana datasource (slice 5, card #298)
+
+`templates/carmenta-deployment.yaml`: `ceres-carmenta`, the cross-unit
+learner (architecture §5.2). It reads every unit's retained `sys/ledger`,
+`sys/config` and EC telemetry and publishes a widened pooled prior on
+`ceres/<unit>/sys/prior` for units that have learned nothing yet (a Vertumnus
+seeds its model from it at a first boot), plus the fleet's advice — feed
+forecast, shopping, placement — on `ceres/sys/advice`. With one unit it pools
+the tower alone and publishes no prior. Owner: the `carmenta` broker user +
+`ceres-carmenta-secrets`.
+
+`templates/annona-backup.yaml`: a nightly `pg_dump -Fc` of the Annona
+database to the NAS (PVC on the `smb` StorageClass, 30 days kept), using the
+operator's app secret. Restore: copy the dump into the Annona pod or any pod
+with `pg_restore`, then `pg_restore --clean --if-exists -d "$uri" <dump>`; the
+next Annona start re-projects every unit.
+
+`templates/postgres-cluster.yaml`: a read-only role `grafana` managed by the
+operator (`postgres.grafanaRole`), password from the sealed secret
+`ceres-pg-grafana`; Annona's migration 0002 grants it SELECT on the tables
+and views. `platform/observability-config` provisions the matching Grafana
+datasource "Annona (PostgreSQL)" (`ceres-pg-rw.ceres:5432`, database `ceres`,
+`sslmode=require`) with the same password sealed as `CERES_PG_PASSWORD` in ns
+observability. Query the facts from Grafana: `select * from current_plants`.

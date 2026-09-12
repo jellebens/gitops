@@ -139,6 +139,13 @@ postgres:
   storageClass: longhorn
   size: 5Gi
   podMonitor: true
+  # The read-only `grafana` role (Grafana PostgreSQL datasource on Annona,
+  # platform/observability-config): the operator manages it; the owner seals
+  # its password as key `password` in this secret (ns ceres) and as
+  # CERES_PG_PASSWORD in `grafana-ceres-postgres` (ns observability).
+  grafanaRole:
+    enabled: true
+    secret: ceres-pg-grafana
   resources:
     requests:
       cpu: 100m
@@ -155,6 +162,14 @@ annona:
     tag: "0.2.0"        # ceres repo tag annona/v0.2.0 (#297: the Ceres names; #294 validation route)
     pullPolicy: IfNotPresent
   apiPort: 8080
+  # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
+  # backup pattern; restore with `pg_restore -d ceres <file>` (README).
+  backup:
+    enabled: true
+    schedule: "45 3 * * *"   # 03:45 daily, after the InfluxDB full at 03:30
+    retentionDays: 30
+    storageClass: smb
+    size: 2Gi
   republishSeconds: 300
   mqtt:
     host: mqtt.lab.local
@@ -249,6 +264,38 @@ dashboard:
   sidecarLabel: grafana_dashboard
   folderAnnotation: grafana_folder
   folder: ceres
+
+# CARMENTA — the cross-unit learner (architecture §5.2, ADR-0012, card #298):
+# pooled priors on ceres/<unit>/sys/prior for units that have learned nothing
+# yet, the uptake model, shopping and placement advice on ceres/sys/advice.
+# Pure reader of the tree; publishes only those three kinds of document.
+carmenta:
+  enabled: true
+  image:
+    repository: jellebens/ceres-carmenta
+    tag: "0.1.0"        # ceres repo tag carmenta/v0.1.0
+    pullPolicy: IfNotPresent
+  intervalSeconds: 300
+  republishSeconds: 900
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: carmenta
+  # MQTT_USER / MQTT_PASS of the dedicated `carmenta` EMQX user (subscribe
+  # ceres/#; publish ceres/+/sys/prior, ceres/sys/advice, ceres/sys/status/carmenta).
+  # Seal for ns ceres / secret ceres-carmenta-secrets.
+  secret:
+    name: ceres-carmenta-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 metrics:
   enabled: true
