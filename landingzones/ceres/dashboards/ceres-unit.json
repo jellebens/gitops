@@ -148,8 +148,8 @@
      "refId": "A",
      "expr": "ceres_unit_online{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -228,8 +228,8 @@
      "refId": "A",
      "expr": "ceres_unit_role{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -318,8 +318,8 @@
      "refId": "A",
      "expr": "ceres_firmware_running{unit=\"${unit}\"} == 1",
      "legendFormat": "{{version}}",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -381,8 +381,8 @@
      "refId": "A",
      "expr": "ceres_firmware_desired_match{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -404,6 +404,11 @@
          "text": "UPDATE PENDING",
          "color": "orange",
          "index": 1
+        },
+        "-1": {
+         "text": "none set",
+         "color": "text",
+         "index": 2
         }
        }
       }
@@ -461,8 +466,8 @@
      "refId": "A",
      "expr": "count(robigus_alert_active{unit=\"${unit}\"} == 1) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -532,8 +537,8 @@
      "refId": "A",
      "expr": "count(robigus_advice_active{unit=\"${unit}\"} == 1) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -599,8 +604,8 @@
      "refId": "A",
      "expr": "ceres_pump_power_watts{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -668,8 +673,8 @@
      "refId": "A",
      "expr": "ceres_config_version{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -731,8 +736,8 @@
      "refId": "A",
      "expr": "ceres_reading{unit=\"${unit}\", metric=\"ph\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -795,8 +800,8 @@
      "refId": "A",
      "expr": "ceres_budget_used_ml_24h{unit=\"${unit}\", reagent=\"ph_down\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -860,8 +865,8 @@
      "refId": "A",
      "expr": "max(ceres_last_dose_timestamp_seconds{unit=\"${unit}\"}) * 1000",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -924,8 +929,8 @@
      "refId": "A",
      "expr": "ceres_dose_response_pending{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -1004,8 +1009,8 @@
      "refId": "A",
      "expr": "ceres_lockout_remaining_seconds{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -1069,8 +1074,8 @@
      "refId": "A",
      "expr": "ceres_planned_ph_dose_ml{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -1134,8 +1139,8 @@
      "refId": "A",
      "expr": "ceres_reading_age_seconds{unit=\"${unit}\", metric=\"ph\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -1207,8 +1212,8 @@
      "refId": "A",
      "expr": "ceres_unit_stage{unit=\"${unit}\"} == 1",
      "legendFormat": "{{stage}}",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     },
     {
@@ -1219,8 +1224,8 @@
      "refId": "B",
      "expr": "ceres_unit_reservoir_litres{unit=\"${unit}\"}",
      "legendFormat": "reservoir L",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -1288,7 +1293,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_target{unit=\"${unit}\", metric=\"ph\", bound=\"low\"}",
+     "expr": "max without (pod, instance) (ceres_target{unit=\"${unit}\", metric=\"ph\", bound=\"low\"})",
      "legendFormat": "target low",
      "range": true,
      "instant": false,
@@ -1300,7 +1305,7 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "ceres_target{unit=\"${unit}\", metric=\"ph\", bound=\"high\"}",
+     "expr": "max without (pod, instance) (ceres_target{unit=\"${unit}\", metric=\"ph\", bound=\"high\"})",
      "legendFormat": "target high",
      "range": true,
      "instant": false,
@@ -1312,7 +1317,7 @@
       "uid": "prometheus"
      },
      "refId": "D",
-     "expr": "ceres_aim_ph{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_aim_ph{unit=\"${unit}\"})",
      "legendFormat": "aim",
      "range": true,
      "instant": false,
@@ -1472,7 +1477,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_target{unit=\"${unit}\", metric=\"ec_ms_cm\", bound=\"low\"}",
+     "expr": "max without (pod, instance) (ceres_target{unit=\"${unit}\", metric=\"ec_ms_cm\", bound=\"low\"})",
      "legendFormat": "target low",
      "range": true,
      "instant": false,
@@ -1484,7 +1489,7 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "ceres_target{unit=\"${unit}\", metric=\"ec_ms_cm\", bound=\"high\"}",
+     "expr": "max without (pod, instance) (ceres_target{unit=\"${unit}\", metric=\"ec_ms_cm\", bound=\"high\"})",
      "legendFormat": "target high",
      "range": true,
      "instant": false,
@@ -1685,7 +1690,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_light_lit_hours_24h{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_light_lit_hours_24h{unit=\"${unit}\"})",
      "legendFormat": "lit h / 24 h",
      "range": true,
      "instant": false,
@@ -1697,7 +1702,7 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "ceres_light_required_hours{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_light_required_hours{unit=\"${unit}\"})",
      "legendFormat": "required h",
      "range": true,
      "instant": false,
@@ -1930,7 +1935,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_pump_running{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_pump_running{unit=\"${unit}\"})",
      "legendFormat": "pump requested",
      "range": true,
      "instant": false,
@@ -1942,7 +1947,7 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "ceres_pump_powered{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_pump_powered{unit=\"${unit}\"})",
      "legendFormat": "pump powered",
      "range": true,
      "instant": false,
@@ -1954,7 +1959,7 @@
       "uid": "prometheus"
      },
      "refId": "D",
-     "expr": "ceres_mixing{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_mixing{unit=\"${unit}\"})",
      "legendFormat": "mixing",
      "range": true,
      "instant": false,
@@ -2218,7 +2223,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_budget_used_ml_24h{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_budget_used_ml_24h{unit=\"${unit}\"})",
      "legendFormat": "{{reagent}}",
      "range": true,
      "instant": false,
@@ -2345,7 +2350,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_pending_dose_mixed_seconds{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_pending_dose_mixed_seconds{unit=\"${unit}\"})",
      "legendFormat": "mixed s",
      "range": true,
      "instant": false,
@@ -2357,7 +2362,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_pending_dose_powered_seconds{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_pending_dose_powered_seconds{unit=\"${unit}\"})",
      "legendFormat": "powered s",
      "range": true,
      "instant": false,
@@ -2434,8 +2439,8 @@
      "refId": "A",
      "expr": "ceres_reagent_remaining_ml{unit=\"${unit}\"} / ceres_reagent_container_ml{unit=\"${unit}\"} * 100",
      "legendFormat": "{{reagent}}",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -2508,8 +2513,8 @@
      "refId": "A",
      "expr": "ceres_reagent_remaining_ml{unit=\"${unit}\"}",
      "legendFormat": "{{reagent}}",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -2573,8 +2578,8 @@
      "refId": "A",
      "expr": "(ceres_reagent_remaining_ml{unit=\"${unit}\"} * on(unit) group_left() ceres_dosing_window_hours{unit=\"${unit}\"}) / 24 / ceres_dosing_rate_mean_ml{unit=\"${unit}\"}",
      "legendFormat": "{{reagent}}",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -2644,7 +2649,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_reagent_remaining_ml{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_reagent_remaining_ml{unit=\"${unit}\"})",
      "legendFormat": "{{reagent}}",
      "range": true,
      "instant": false,
@@ -2706,7 +2711,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_alert_active{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_alert_active{unit=\"${unit}\"})",
      "legendFormat": "{{condition}}",
      "range": true,
      "instant": false,
@@ -2808,8 +2813,8 @@
      "refId": "A",
      "expr": "ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"}",
      "legendFormat": "k",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     },
     {
@@ -2820,8 +2825,8 @@
      "refId": "B",
      "expr": "ceres_ph_sensitivity_sd{unit=\"${unit}\"}",
      "legendFormat": "sd",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -2884,8 +2889,8 @@
      "refId": "A",
      "expr": "ceres_ph_sensitivity_observations{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -2948,8 +2953,8 @@
      "refId": "A",
      "expr": "ceres_ph_buffer_knee_ph{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -3012,8 +3017,8 @@
      "refId": "A",
      "expr": "ceres_learned_settle_seconds{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -3077,8 +3082,8 @@
      "refId": "A",
      "expr": "ceres_learned_noise_ph{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -3141,8 +3146,8 @@
      "refId": "A",
      "expr": "ceres_learned_rebound_ph_per_hour{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -3205,8 +3210,8 @@
      "refId": "A",
      "expr": "ceres_no_response_streak{unit=\"${unit}\"}",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -3275,7 +3280,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"})",
      "legendFormat": "k",
      "range": true,
      "instant": false,
@@ -3287,7 +3292,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"} + ceres_ph_sensitivity_sd{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"}) + max without (pod, instance) (ceres_ph_sensitivity_sd{unit=\"${unit}\"})",
      "legendFormat": "k + sd",
      "range": true,
      "instant": false,
@@ -3299,7 +3304,7 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"} - ceres_ph_sensitivity_sd{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_ph_sensitivity_ph_per_ml{unit=\"${unit}\"}) - max without (pod, instance) (ceres_ph_sensitivity_sd{unit=\"${unit}\"})",
      "legendFormat": "k − sd",
      "range": true,
      "instant": false,
@@ -3411,7 +3416,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_last_dose_response_ph_drop{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_last_dose_response_ph_drop{unit=\"${unit}\"})",
      "legendFormat": "last drop (pH)",
      "range": true,
      "instant": false,
@@ -3423,7 +3428,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_no_response_streak{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_no_response_streak{unit=\"${unit}\"})",
      "legendFormat": "streak",
      "range": true,
      "instant": false,
@@ -3508,7 +3513,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_dosing_rate_mean_ml{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_dosing_rate_mean_ml{unit=\"${unit}\"})",
      "legendFormat": "usual {{reagent}}",
      "range": true,
      "instant": false,
@@ -3520,7 +3525,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_dosing_window_ml{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_dosing_window_ml{unit=\"${unit}\"})",
      "legendFormat": "this window {{reagent}}",
      "range": true,
      "instant": false,
@@ -3582,7 +3587,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_ph_filtered{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_ph_filtered{unit=\"${unit}\"})",
      "legendFormat": "filtered pH",
      "range": true,
      "instant": false,
@@ -3594,7 +3599,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "ceres_ph_slope_per_hour{unit=\"${unit}\"}",
+     "expr": "max without (pod, instance) (ceres_ph_slope_per_hour{unit=\"${unit}\"})",
      "legendFormat": "slope pH/h",
      "range": true,
      "instant": false,

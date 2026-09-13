@@ -119,8 +119,8 @@
      "refId": "A",
      "expr": "ceres_annona_db_up",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -199,8 +199,8 @@
      "refId": "A",
      "expr": "sum(rate(ceres_annona_requests_total[5m])) * 60 or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -263,8 +263,8 @@
      "refId": "A",
      "expr": "sum(increase(ceres_ota_requests_total[$__range])) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -327,8 +327,8 @@
      "refId": "A",
      "expr": "count(ceres_firmware_desired_match == 0) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -515,8 +515,8 @@
      "refId": "A",
      "expr": "count(ceres_info) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -579,8 +579,8 @@
      "refId": "A",
      "expr": "count(ceres_robigus_info) or vector(0)",
      "legendFormat": "Robigus",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     },
     {
@@ -591,8 +591,8 @@
      "refId": "B",
      "expr": "count(ceres_carmenta_info) or vector(0)",
      "legendFormat": "Carmenta",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -913,7 +913,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_config_version",
+     "expr": "max without (pod, instance) (ceres_config_version)",
      "legendFormat": "{{unit}}",
      "range": true,
      "instant": false,
