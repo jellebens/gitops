@@ -123,6 +123,19 @@ routes:
       name: jaeger-query
       port: 16686
 
+  # Ceres firmware images for the nodes (ceres card #304): PLAIN HTTP ONLY — the
+  # GIGA's OTA client does not trust the lab CA. Read-only static files, nothing
+  # secret; the node checks the file name against its own version.
+  - name: ceres-firmware
+    namespace: ceres
+    listeners:
+      - http
+    hostnames:
+      - firmware.lab.local
+    backend:
+      name: ceres-firmware
+      port: 80
+
   # Longhorn admin UI — HTTPS-ONLY route, INTERIM (#233, owner decision
   # 2026-08-14). This partially rolls back #193 (security review 2026-07-12),
   # which removed the route entirely because the UI is UNAUTHENTICATED admin

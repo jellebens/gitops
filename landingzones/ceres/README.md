@@ -219,6 +219,25 @@ need the `VERTUMNUS_TOKEN` key in the unit's secret
 (`ceres-vertumnus-<unit>-secrets`, next to MQTT_USER / MQTT_PASS); without it
 the API is read-only. Seal a random token like any other value.
 
+## Firmware over the air (card #304)
+
+`templates/firmware-server.yaml` (`firmware.enabled`) runs `ceres-firmware`, an
+nginx serving the `.ota` images from the NAS share (`storageClass: smb`), reached
+from the LAN as **http://firmware.lab.local/** (plain http: the GIGA does not
+trust the lab CA; route in `.config/lab/gateway.yaml`, A record in
+`coredns-lab.yaml`). A rollout:
+
+1. Build the image in the pomona repo and copy it to the share as
+   `pomona/pomona-<version>.ota` (the node's same-version guard reads the name).
+2. `curl -X PUT -H "Authorization: Bearer $ANNONA_TOKEN" http://ceres-annona:8080/units/pomona-0001/firmware \
+      -d '{"version":"2.2.0","url":"http://firmware.lab.local/pomona/pomona-2.2.0.ota"}'`
+3. The unit's Vertumnus (active role, node online, tank settled) publishes the
+   URL to the node's OTA topic once per version per hour; the node stages,
+   reboots and reports the new `fw_version` in `sys/meta`.
+   `ceres_firmware_desired_match` goes 0 → 1; `vertumnusctl.sh pomona-0001 firmware`
+   shows running vs desired and the node's last result. `vertumnusctl.sh
+   pomona-0001 ota <url>` is the manual push through the same rails.
+
 ## Tracing (card #302)
 
 `tracing.enabled` (default on) puts `OTEL_EXPORTER_OTLP_ENDPOINT` on every Ceres

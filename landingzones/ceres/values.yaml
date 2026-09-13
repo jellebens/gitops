@@ -25,7 +25,7 @@ image:
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
   # one Vertumnus per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.13.0"       # vertumnus/v0.13.0 (#302): tracing to Jaeger; 0.12.x (#301/#303): pump-fault clearing, fresh-level verdicts; 0.12.0 (#300): GET /learned
+  tag: "0.14.0"       # vertumnus/v0.14.0 (#304): firmware over the air; 0.13.0 (#302): tracing; 0.12.x (#301/#303); 0.12.0 (#300): GET /learned
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
@@ -170,7 +170,7 @@ annona:
   enabled: true
   image:
     repository: jellebens/ceres-annona
-    tag: "0.3.0"  # annona/v0.3.0 (#302): tracing to Jaeger
+    tag: "0.4.0"  # annona/v0.4.0 (#304): desired firmware per unit; 0.3.0 (#302): tracing
     pullPolicy: IfNotPresent
   apiPort: 8080
   # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
@@ -266,6 +266,20 @@ telegraf:
     limits:
       cpu: 500m
       memory: 256Mi
+
+# --- firmware images for the nodes (card #304) -------------------------------------
+# ceres-firmware: nginx serving the .ota images from a share (templates/firmware-server.yaml).
+# LAN: http://firmware.lab.local/<type>/<type>-<version>.ota (gateway route + DNS in
+# .config/lab/gateway.yaml / coredns-lab.yaml). Rollout = drop the file on the share,
+# `PUT /units/<id>/firmware {version, url}` on Annona, the unit's Vertumnus does the rest.
+firmware:
+  enabled: true
+  storageClass: smb        # the NAS share, like the Annona backups — copy images in by hand or from CI
+  size: 1Gi
+  image:
+    repository: nginxinc/nginx-unprivileged   # official multi-arch (arm64), runs as uid 101 on :8080
+    tag: "1.27-alpine"
+    pullPolicy: IfNotPresent
 
 # Grafana dashboards (architecture §8 R3): dashboards/*.json provisioned via
 # the kube-prometheus-stack sidecar into the `ceres` folder. The InfluxDB
