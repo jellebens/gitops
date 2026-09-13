@@ -43,7 +43,7 @@ HIDE_PROM_LABELS = {"Time": True, "Value": True, "__name__": True, "instance": T
 
 # ----------------------------------------------------------------------------- targets
 
-PLAIN_SELECTOR = re.compile(r"[A-Za-z_:][A-Za-z0-9_:]*(\{[^}]*\})?")
+PLAIN_SELECTOR = re.compile(r"[A-Za-z_:][A-Za-z0-9_:]*(\{(?:[^{}]|\$\{[^}]*\})*\})?")  # {unit="${unit}", …} nests a brace
 
 
 def W(expr):
