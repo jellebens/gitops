@@ -25,7 +25,7 @@ image:
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
   # one Vertumnus per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.14.0"       # vertumnus/v0.14.0 (#304): firmware over the air; 0.13.0 (#302): tracing; 0.12.x (#301/#303); 0.12.0 (#300): GET /learned
+  tag: "0.15.0"       # vertumnus/v0.15.0 (#305): tower -> facts, metrics ceres_unit_*; 0.14.0 (#304): OTA; 0.13.0 (#302): tracing; 0.12.0 (#300): GET /learned
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
@@ -170,7 +170,7 @@ annona:
   enabled: true
   image:
     repository: jellebens/ceres-annona
-    tag: "0.4.0"  # annona/v0.4.0 (#304): desired firmware per unit; 0.3.0 (#302): tracing
+    tag: "0.4.1"  # annona/v0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
     pullPolicy: IfNotPresent
   apiPort: 8080
   # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
@@ -207,7 +207,7 @@ robigus:
   enabled: true
   image:
     repository: jellebens/ceres-robigus
-    tag: "0.4.0"  # robigus/v0.4.0 (#302): tracing to Jaeger
+    tag: "0.4.1"  # robigus/v0.4.1 (#305); 0.4.0 (#302): tracing
     pullPolicy: IfNotPresent
   intervalSeconds: 30
   republishSeconds: 300
@@ -298,7 +298,7 @@ carmenta:
   enabled: true
   image:
     repository: jellebens/ceres-carmenta
-    tag: "0.2.0"  # carmenta/v0.2.0 (#302): tracing to Jaeger
+    tag: "0.2.1"  # carmenta/v0.2.1 (#305); 0.2.0 (#302): tracing
     pullPolicy: IfNotPresent
   intervalSeconds: 300
   republishSeconds: 900
