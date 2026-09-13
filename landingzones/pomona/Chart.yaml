@@ -22,7 +22,9 @@ name: pomona
 #         dose is judged (ADR-0005); homeassistant publishes pomona/pump/power.
 # 0.8.0 = #291 Demeter retired from this zone (demeter.enabled: false): the tower's brain
 #         now runs as demeter-brain-pomona-0001 in landingzones/demeter (cutover 2026-09-12).
-version: 0.8.0
+# 0.8.1 = ceres #301: archive pomona/pump/request|reason|override as strings (pomona_meta) — the
+#         evidence the 2026-09-13 04:13Z re-mix incident lacked.
+version: 0.8.1
 type: application
 appVersion: "1.0.0"
 description: Pomona hydroponic tower landing zone — MQTT -> InfluxDB telemetry ingestion (Telegraf), Grafana dashboard, and Demeter the autodosing controller
