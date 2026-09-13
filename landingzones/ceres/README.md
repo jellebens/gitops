@@ -174,9 +174,13 @@ v2 tree into the InfluxDB bucket `ceres` — `unit_tele{unit,zone,metric}`,
 decisions and ledger, Robigus's alerts and advice, the registry's config and
 desired state, dose acks — verbatim JSON, forever: the training corpus) and
 `ceres_sys`. `dashboards/ceres-units.json` ("Ceres — units", folder
-`ceres`) reads it with a `unit` variable; regenerate it from the generator
-script noted in its description rather than editing the JSON. The tower's
-pre-cutover history stays in the `pomona` bucket.
+`ceres`) reads it with a `unit` variable. Its last row, "What Vertumnus
+learned" (#300), plots the Vertumnus's learned state from the `ceres_*` gauges:
+Model A (k ± sd, n, knee b), the learning curve, settle/noise/rebound, the
+no-response streak against the dose responses, the Model C dosing-rate
+baseline and the filtered pH — the same numbers `GET /learned` on the operator
+API (vertumnus 0.12.0) gives in words. The tower's pre-cutover history stays in
+the `pomona` bucket.
 
 The tower still speaks the v1 tree; the platform broker's republish bridge
 (`platform/mqtt` values `rules`, README "Republish bridge") mirrors it onto
