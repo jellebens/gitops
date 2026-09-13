@@ -225,7 +225,9 @@ templates/
   demeter-service.yaml      pomona-demeter-metrics ClusterIP :9000
   demeter-servicemonitor.yaml Prometheus scrape of demeter
   demeter-ciliumnetworkpolicy.yaml ingress-only: observability -> :9000
-dashboards/pomona.json      the Pomona — Hydroponics dashboard
+dashboards/pomona.json      the Pomona — Hydroponics dashboard: the node's history in the
+                            pomona bucket. Its Demeter row went with the demeter namespace
+                            (#307); the controller view is "Ceres — unit" (landingzones/ceres)
 ```
 
 ## Observability
