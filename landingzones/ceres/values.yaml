@@ -25,11 +25,22 @@ image:
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
   # one Vertumnus per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.12.2"       # vertumnus/v0.12.2 (#303): a verdict needs a level newer than the dose; 0.12.1 (#301): pump fault clears on a sustained request; 0.12.0 (#300): GET /learned
+  tag: "0.13.0"       # vertumnus/v0.13.0 (#302): tracing to Jaeger; 0.12.x (#301/#303): pump-fault clearing, fresh-level verdicts; 0.12.0 (#300): GET /learned
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
 mode: shadow
+
+# --- Distributed tracing (card #302, platform/jaeger) -------------------------------
+# PRESENCE of OTEL_EXPORTER_OTLP_ENDPOINT is the whole switch (ceres_shared.tracing —
+# the jupiter #179 convention): enabled: false renders no env and every service runs
+# byte-identical to before this card. Export is fail-open (a down collector drops
+# spans, never a cycle). Every Vertumnus, Annona, Robigus and Carmenta gets it; a
+# dose request carries the W3C traceparent in its v2 document, firmware >= 2.2 echoes
+# it in dose/result, so one trace spans decision -> broker -> node -> ack -> judgement.
+tracing:
+  enabled: true
+  endpoint: "http://jaeger-collector.jaeger.svc.cluster.local:4317"  # OTLP gRPC
 
 # Cadence + freshness, the same for every Vertumnus (values, not the document).
 vertumnus:
@@ -159,7 +170,7 @@ annona:
   enabled: true
   image:
     repository: jellebens/ceres-annona
-    tag: "0.2.1"        # ceres repo tag annona/v0.2.1 (#298: grafana read role migration; #297 the Ceres names)
+    tag: "0.3.0"  # annona/v0.3.0 (#302): tracing to Jaeger
     pullPolicy: IfNotPresent
   apiPort: 8080
   # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
@@ -196,7 +207,7 @@ robigus:
   enabled: true
   image:
     repository: jellebens/ceres-robigus
-    tag: "0.3.0"        # ceres repo tag robigus/v0.3.0 (#297: the ceres/ root, vertumnus_offline)
+    tag: "0.4.0"  # robigus/v0.4.0 (#302): tracing to Jaeger
     pullPolicy: IfNotPresent
   intervalSeconds: 30
   republishSeconds: 300
@@ -273,7 +284,7 @@ carmenta:
   enabled: true
   image:
     repository: jellebens/ceres-carmenta
-    tag: "0.1.0"        # ceres repo tag carmenta/v0.1.0
+    tag: "0.2.0"  # carmenta/v0.2.0 (#302): tracing to Jaeger
     pullPolicy: IfNotPresent
   intervalSeconds: 300
   republishSeconds: 900

@@ -71,6 +71,11 @@ spec:
             capabilities:
               drop: ["ALL"]
           env:
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #302): presence is the switch (ceres_shared.tracing)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
             - name: MQTT_HOST
               value: {{ .Values.robigus.mqtt.host | quote }}
             - name: MQTT_PORT
