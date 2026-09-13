@@ -1,4 +1,6 @@
-# Pomona ingestion bridge + demeter autodosing controller — lab overrides.
+# Pomona ingestion bridge — lab overrides. (The pomona-demeter controller that lived here
+# was retired 2026-09-12; its successor is landingzones/ceres. Decommissioned for good on
+# 2026-09-13: templates, values and secret removed.)
 #
 # OWNER PRE-DEPLOY (see landingzones/pomona/README.md "Owner runbook" for the
 # full steps): create the EMQX `pomona-ingest` user + subscribe-only ACL on
@@ -20,66 +22,3 @@ secret:
       MQTT_USER: "AgB+CuaLA1ND5x5rGZLBU2jcQdbCeyz8rrATErswBgvIX5fZgQ7XcW4yENpXVU/4aV8HTdEtLd2mSZaziIbtYqXGxymUFjcFpr4yn19T/rpaCm1LUwOUYmDFS63YBw5q9/F6kYfyaAqoC5kuKGd5lFqTg+bw7sv4zPvstuOBl1Nn5XNC7jXHzwkmRFheZ+AAQymGrqO4xD7lB3ToTXCf5mjy+4bbp+4kwV5q2fdNUhnDGKZbgkylsf8I9pZNnVoLLmTEZ43InLT2kaZbI9tCyVO7Ig0ze2RmEhSy/qsqPKyrA6IGBs+xyUyiY+W4CRcwp7RrtDaAqYHyIwlh4ppbmSGxtoGz93PGZRLqXhcC0Y/X3rmMUwXVBMnJ4fciig8j+5hfOvm92Zd/ZQ9NEEZn3pDb1T1Dc/dQLtKxlp0uAhyOqf0HdM/xnSra0y37OQ3L4g6K6k+eF6VFhU+/ZfmpLUl1pgQhjxcCQe9qUm5i9w0gqf9h99/wgsrvA0lRoYiHB9YGOukh+Ml9I4NzgrcCLEdTP62kD6FVVzXfguWzH5ZbsQ48jA6jP0o6SbaKkVhsn9eNvdQVn+NQouDyl6PRknLuXQ5udPj2DyKO2s2SRtK9SEn08oF2snDxUp95YBjIEy4oeH/QQ0ACLoN1go++c3N2mNB2pj6JIIHJZewh6ozB+BdSJ0xK8W7SroIvTMnmqUMKGuIuIFP9u3WvWWUB"
       MQTT_PASS: "AgCvV9ev9R7xGUjAN2QWJb6vKhdAgCouiuUZZboxU5uCwr9KRbV7jXBN7awpO0pmK8ng4IuxTfFfyJoippstcTcMghR6HHKlD+mdn7a7eQmiZ4LxtIp7nbYPiAKdzXwhmT7PPqoJ2K0UHW3HXJs5rgSnQ0jmGMdOyfsZjj5e90Z8shy7arRCPmkDv+LmeVbAmAETm9xv2SV45/7HPNk1+7MUxKMRgyy2bFzREpxOvALhV6Symm4Ks5egCm3F5ZF1/4t1nFYIhZMhstGcyu1UvwuTIVprwIdEiPYGTHsVV6Q6Rca/lRzJu4Ha4/aFwUpBbahZblYsMIht7J5liLMOTZdATlJPNsKbtIyDweX9ifXzBXleC8LC4eUj2kUbT8ve0xgvHNJqHwvx08zsgomtFiYU9fKxFRoWzGcW0CfsDpglqbWgkJI6eRlTFxv9Qq7PS+lD/qCYF6UelcAepzcrBPsw0CMWbuyyIh5cAmeEPjacjJ6p3g1NSYeb1XuOE0RnlgL+KD76P5AkLL7cDz4mvs6lF+NKQGFD9p3QIKIie0PGHI5PfgN6yMIB8Lk+IC7BB6A/R0NZnKtV88C8mUXhj69ja6MDYbNSkL3NJvy8wNdYkixMlRIDLabcQ75p5TA1l+Ao2+wDxABmbU4bPEW+WTbPFots3b57eOZj7plC2c7ctB//8JAhlJP9HzT3t3XOUQ7O/uQj5Vn3xUCNRsvpZQAtxsMJcw=="
       INFLUX_TOKEN: "AgAfobzYmPN98cSUpmI/4zMF7fTM6EGBVr2ZeIBB0Guq3VWYYKDyOnO1Jd1r7YkTlZYavt375V2d3cgI0aanYK5NC91IQBCCSaB8EXjoEzRImjY2H1e7Fi2XdxA6Yg/r6XNhTg84IXkbYVjay5t6zJ6GFXDhlfTJdGHj3owQ2yMAUGEdQ0VJd/XSg15ufu0/QUSvSPRKXpwjURT32F8YJDZMoI8+186BBpC7x81ld93jiYWGlJRs0qmtj4bH/zYIuvo3ZyAdoAy53797VdEuO6I8jh1T1dHPMg82Ct+4Hsjq7fB+SLMKb3OrRDBNqXUQtgeJsOTLXa4aofSFqACBhDuqdjmLrHilQYsMkGOFeC7Dn7VhTWiqVzcUZRoFF5/kjw3TGqzWOE3IXptc0BBmSeFu1kzx58f9uGleQyf7ybYQNjVIRjQTw/cmoO3FAZf6F106hPfPEzzkrWsWGOTSoQukn88Ny8MCCXQk+pzm60IRxHxtAEg03HbUpPNK/p43udaLPZr0z8Hw42oHNqBs+fDge6Z4WKWFaO9o2TTKAL1AE0/MSm0ZIKFrcmhbkFyOW7gBnRCHsX/PrsMr3mI5q6/yXCDSXK25VxHzz/a1TCLErez/ARl/HlkRI0BudFt2iu4Lo61Ymi/FwoVrFVJENdnZMzO/OB4l9BKNq2X+vS/lUC0zaPKpUKdB1Tw+ZwkgQsDr14yvd2tzgmYU0hSNAlOWFxrcLFov8ybpv3HpTJs+uMHhHdYFyuSE/qvtjhWetkAppHq/Ly1oaXq9Ia8KZ+SfGYvtK41ar+5TcwwN/nSFBwnHE+6sNLxn"
-
-# --- Demeter (autodosing controller, #278) ----------------------------------
-# OWNER PRE-DEPLOY: create the EMQX `pomona-demeter` user (subscribe pomona/#;
-# publish ONLY pomona/dose/test + pomona/demeter/#; deny #) per the README
-# owner runbook, then seal MQTT_USER / MQTT_PASS below (ns pomona, secret
-# pomona-demeter-secrets):
-#   printf '%s' "$VALUE" | kubeseal --raw \
-#     --controller-name sealed-secrets --controller-namespace argocd \
-#     --namespace pomona --name pomona-demeter-secrets
-# Until real blobs land here the SealedSecret is not rendered and demeter
-# idles unconnected (envFrom optional) — it cannot dose.
-# Pre-deploy steps completed 2026-09-10: EMQX user `pomona-demeter` created
-# (subscribe pomona/# / publish pomona/dose/test + pomona/demeter/# / deny #),
-# live rules verified via GET, authn + subscribe + own-namespace publish
-# smoke-tested against mqtt.lab.local, both values sealed below.
-#
-# mode: ACTIVE since 2026-09-10 (owner decision — shadow soak skipped). The
-# Tethys hourly task (`tethys-ph-watch`) was paused in the same release and
-# its dosing grant revoked: two brains must never dose one tank. To fall back
-# to observe-only, delete the `mode: active` line (chart default = shadow).
-demeter:
-  mode: active
-  # THE CONTAINERS (ADR-0002, owner 2026-09-11): container_ml is what was IN
-  # the bottle on filled_on — the count of pumped ml starts there. A and B are
-  # 1 L bottles "mostly full" (taken as 950 ml, conservative); pH-Down is a
-  # 250 ml bottle with ~200 ml left. Bottle-low alert < 10 % (95 ml / 20 ml);
-  # a dose the bottle cannot cover is BLOCKED. On a refill: set container_ml
-  # to the new content and bump filled_on (that resets the counter).
-  # line_volume_ml is 0 and correct: the owner flushed the water out of the
-  # lines on 2026-09-11 (BASELINE) — they carry reagent, so every ml pumped
-  # from here on reaches the tank. Set a line volume only after a line is
-  # re-primed with water (pi/4 * ID_mm^2 * m per line).
-  # Baseline 2026-09-11 ~23:10Z: manual A+B feed done by the owner (EC 0.75
-  # -> 0.85), Demeter's learned model reset to its priors (earlier lessons
-  # were taken on water-primed lines and a still tank), dose history and
-  # bottle counters kept.
-  config:
-    # STAGE RAMP (owner 2026-09-11): the plants went in on 2026-08-31; the
-    # planting plan ramps EC 0.8-1.0 -> 1.4-1.6 (and light 12 -> 14 h) 2-3
-    # weeks later. On/after this date demeter derives the "established"
-    # targets — re-derived every cycle, so the switch needs no release.
-    tower:
-      established_from: "2026-09-14"
-    # DAILY CAPS REMOVED (owner 2026-09-11): no 24 h acid cap and no A+B
-    # feed-per-day limit — dosing is spaced by the lockout / the brain's
-    # mixed verdict only. Every single dose is still bounded (max 2 ml acid,
-    # posterior guard keeps pH >= 5.4, 5 ml A + 5 ml B per feed, no-response
-    # streak, empty-bottle block). Restore with `ph_daily_cap_ml: null`
-    # (= 4 ml) and `nutrient_feeds_per_24h: 1`. NOTE: 0, not null — a null
-    # in a Helm values override DELETES the key and the chart default wins.
-    rails:
-      ph_daily_cap_ml: 0
-      nutrient_feeds_per_24h: 0
-    reagents:
-      ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
-      nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
-      nutrient_b: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
-  secret:
-    sealedSecret:
-      enabled: true
-      encryptedData:
-        MQTT_USER: "AgDkW/h7tQ5XSOvxS34B70RrI4PFEFYZC7+xh7fj7tc2S/R1oP4owQIyM7zaxVjuC32dAKJsoXTUClCL+F3Sk22i6hV0XmZUq2adqpgWbg3Gp0iy6L1XAut/uPQmFzCaFqCPtlrDspRHIsEc7NnhzveALzZgK4L7CjcB6e0Lh2OXZGsKzAT1khYC5TD0FGSwnqBquARsy9joWqV86vKL+BB6Insb+75geDY1qoLz0EL9WS845N117x8/VFgR3NggmYIcLx3U7DG8pJYDi1WNCa8GM2298AWBWokjcrGCzcGeSgx+bUaruiCcGHv/Eq+Z6FWS/xLLv2ZpiIR+gmt5N1dPzJxImdzbVpwsQ1m3gk3sQeFFEQViEkC5AKpbJLQjXhcBE20y1KwgjP2K3HxjHii4lY3YsTVdw9yqJkaI3LUn8mvcWabvX7FpEXTA3O0swwyGenfX+H7EHJlhDjBXtC20eEzX54J3zHHr6QOtcOnojIjloUoSTtKNSQ1ewK7VNga0utTj7QUPyeg2Q/Y1OGwHr3dwgABnuRgxSfKYWdtnWofFn9YpHxWM3t/rd11Q78VFnAeKPE6tBElLYEFX/xDh/BDoF9ONd/4httopP1tvTdNmz8QQ4ALE71V+IAHFzjleie/Hu6PSV89sZ3cpQ/I7WxWI9Y/yfpMXANXt1UN+plcNyuwYmuIlHClKkaPvGG0kA5BGR5OOV/EIvE2/Aw=="
-        MQTT_PASS: "AgAU5VcNbgA5KAPsKpkU9Mma3JA+rsdZQahgmaBI/i3e6aeVPdcgWVm15mulSUU/RpjqkMczpeiaLlZzqbX5tnVhTLXKBTOZM9SgcS4F9gVIseTx7qB0gvzrFZXPDnlMTOfTamfuK0EkddYX5od6rk5EKTC7qVO1BqgtCwk/QiwY2iX0+buFwhszL1kEPh7z2WJ5ITWuTvHf6VlppMQYHa0IXXGvhJYev0/4fGYJY8Hs7qp0/gDVngvM7ghf0D4e/34apNNXOG83m+RNiWyBefkT3aja/FRmUrxX0kqYjfLGjoshsGazm8my7v7vE7Sqfsyf+zJSE8YfK21BfyHpnLngTb5J+gUp6of6qHW6Kff6NodEY3OZ57IdrubuV2LKW6tM5m5/3oJNdR0v1ATP4qK5dMNrIdQUdINiSZaACAl/GvRsh+ANm4FoGUTI5fXhfLqOCZH37M3DHhfam/VZ3i1wokaipULf4IGAsAC8Hb2N9e5qW7nMJ9+O+7hezBUPhBlyOldehha8lps3AkiD9l5uq0ZAct8pkxQQecYSS4gWgUVAM1wOzOFM8y9vqWHLOxwtlNN5jlYTuCntw6u5MYWZD/YGwkV4VO5/l+DgSFByK5CeLxFgemzAtVso870plRxbeI6L2SHuFSV64uYEMMYOH1yA/7c+qABY+YEDYZURrhi/9k3Gn7BFBKTLBs5H+WdzoUgHRjhhdXZCjj4UqC4AixdhrhxiKGBlibYE4hMDOQ=="
