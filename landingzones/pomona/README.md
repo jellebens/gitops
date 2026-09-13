@@ -10,43 +10,32 @@ Arduino GIGA with all v1 sensors connected and calibrated (water temp, EC
 K=0.9745, pH 2-point calibrated, 4-point level probe, BME280, BH1750) and
 publishes over MQTT with OTA updates proven untethered.
 
-**#278 update (2026-09-10): the monitoring-first period is ending.** With the
-DFR0523 dosing pumps commissioned and calibrated (pomona cards #284–#287) and
-the interim Tethys dosing regime proven, this landing zone now also hosts
-**Demeter — the k3s autodosing brain** (design of record #224): pH-Down when
-the water drifts alkaline, Nutrients A then B when the EC sags, inside hard
-rails. Demeter ships in **shadow mode** (decides, publishes, doses nothing)
-until the owner flips it active. **Retired from this zone at the #291 cutover
-(2026-09-12):** the tower's brain now runs as `demeter-brain-pomona-0001` in
-[`landingzones/demeter`](../demeter/README.md) (`demeter.enabled: false` here; the
-block below is history).
+**Controller history.** From 2026-09-10 to 2026-09-12 this zone also hosted the
+autodosing controller of the day (Demeter, cards #278/#224); the Ceres cutover of
+2026-09-13 retired it for good — its templates, values and broker secret are gone
+(decommissioned 2026-09-13). The tower's controller is the Vertumnus in
+[`landingzones/ceres`](../ceres/README.md).
 
 - **Application source:** <https://github.com/jellebens/pomona> (firmware,
   calibration lessons, `docs/mqtt.md` topic schema, OTA/deploy tooling).
-- **Demeter source:** <https://github.com/jellebens/demeter> (private;
-  extracted from pomona `controller/` on 2026-09-11, history preserved).
-- This directory ships two workloads: the **Telegraf bridge** (official
+- This directory ships one workload: the **Telegraf bridge** (official
   multi-arch `telegraf` image) that subscribes to `pomona/#` on the platform
-  EMQX broker and writes to InfluxDB, and **pomona-demeter** (the
-  `jellebens/pomona-demeter` arm64 image built from the pomona repo), plus
-  the Grafana dashboard.
+  EMQX broker and writes to InfluxDB, plus the Grafana dashboard.
 
 ## Architecture
 
 ```
 GIGA firmware ──MQTT (user `pomona`)──> EMQX mqtt.lab.local:1883 (ns mqtt)
-     ▲                                      │
-     │ pomona/dose/test                     ├─ subscribe pomona/# (user `pomona-ingest`)
-     │ (active mode only;                   │        │
-     │  firmware caps every                 │  pomona-ingest (Telegraf, ns pomona)
-     │  run at 10 s)                        │        │
-     │                                      │  InfluxDB org zeus / bucket `pomona` (365d)
-     │                                      │        │
-     │                                      │  Grafana "pomona" folder
-     │                                      │
-     └── pomona-demeter (ns pomona) ────────┴─ subscribe pomona/# (user `pomona-demeter`)
-         the autodosing brain (#278/#224)      publish dose/test + demeter/# only
-         Prometheus :9000 — doses, ml, budgets, decisions
+                                            │
+                                            ├─ subscribe pomona/# (user `pomona-ingest`)
+                                            │        │
+                                            │  pomona-ingest (Telegraf, ns pomona)
+                                            │        │
+                                            │  InfluxDB org zeus / bucket `pomona` (365d)
+                                            │        │
+                                            │  Grafana "pomona" folder
+                                            │
+     (dose commands come from the Vertumnus in ns ceres through the republish bridge)
 ```
 
 Why Telegraf and not a custom bridge: every other producer here (zeus, the
@@ -145,67 +134,6 @@ nothing (envFrom is `optional: true` — deploy order is not blocked).
    ```
    Paste the outputs as `MQTT_USER` / `MQTT_PASS` / `INFLUX_TOKEN` under
    `secret.sealedSecret.encryptedData` in `.config/<env>/pomona.yaml`.
-4. **EMQX user `pomona-demeter`** (#278 — do NOT reuse `pomona` or
-   `pomona-ingest`): same REST runbook as step 1, then the scoped ACL —
-   subscribe the tree, publish ONLY the dose command channel and demeter's
-   own namespace:
-   `POST /api/v5/authorization/sources/built_in_database/rules/users`
-   `[{"username":"pomona-demeter","rules":[{"topic":"pomona/#","permission":"allow","action":"subscribe"},{"topic":"pomona/dose/test","permission":"allow","action":"publish"},{"topic":"pomona/pump/override","permission":"allow","action":"publish"},{"topic":"pomona/demeter/#","permission":"allow","action":"publish"},{"topic":"#","permission":"deny","action":"all"}]}]`
-   (`pomona/pump/override` since demeter 0.4.0 / ADR-0003 — Demeter runs
-   the circulation pump around a dose to mix; re-POST the rule set when
-   upgrading from ≤ 0.3.0, it replaces the user's rules.)
-   (DR mirror already in `platform/mqtt/files/acl.conf`; fold the mnesia rule
-   into card #252.) Seal `MQTT_USER` / `MQTT_PASS` for **secret
-   `pomona-demeter-secrets`** and paste under
-   `demeter.secret.sealedSecret.encryptedData` in `.config/<env>/pomona.yaml`.
-
-## Demeter — the autodosing brain (#278, design of record #224)
-
-Demeter productionizes the playbook the interim **Tethys** agent ran hourly
-(`.claude/agents/tethys.md`): pH > 7.0 → 1 ml pH-Down; 6.5 < pH ≤ 7.0 →
-0.5 ml slow; acid hard cap 4 ml/24 h; EC < 0.7 → 5 ml Nutrient A, 2 min,
-5 ml Nutrient B, once/24 h; 60 min lockout after ANY dose; violations must
-be confirmed ≥10 min; stale readings (>2 min) or an offline unit never dose;
-pH < 5.4 / EC > 1.1 / hot water are alert-only (no reagent exists). The
-rails live in tested code (the demeter repo), the quanta and bands
-in `values.yaml` `demeter.config` — an EC-band ramp (#262) or a
-recalibration is a values edit.
-
-**Rollout (owner decisions):**
-1. **Shadow:** `demeter.mode: shadow` (chart default) — it evaluates live
-   water and publishes to `pomona/demeter/decision` + the
-   `demeter_would_dose` metric, but cannot dose. Shipped 2026-09-10 (chart
-   0.3.0); the owner skipped the soak.
-2. **ACTIVE since 2026-09-10 (chart 0.3.1):** `demeter.mode: active` in
-   `.config/lab/pomona.yaml`, released together with **retiring the Tethys
-   hourly task** (`tethys-ph-watch` paused in the Claude scheduled tasks,
-   not deleted) — two brains must never dose one tank. (Belt-and-braces:
-   Demeter treats any live `dose/result` it did not command as a foreign
-   dose and restarts its 60 min lockout.) Fallback to observe-only = delete
-   the `mode: active` line.
-
-**Commissioning note (2026-09-10):** the dosing lines were primed with
-WATER, so the first ~10 ml pumped per channel deliver no reagent. The
-controller's budgets count pumped ml (prime included — that is what gates
-dosing, and it means the first day's 4 ml acid cap may be reached with little
-acid in the tank); the dashboard's delivered-ml panels subtract a
-`prime_ml` variable (default 10, set to 0 after a reagent prime). Priming
-each line with a bench `chN fwd 10000` before going live avoids the wasted
-first day.
-
-**Dashboard:** the `Demeter` row on `Pomona — Hydroponics` (mode,
-acid budget vs cap, nutrients 24 h, lockout, last dose, alert decisions;
-stacked delivered-per-day bars, dose-event bars, decisions by outcome,
-reading freshness), plus dashboard annotations that mark every dose on the
-pH/EC and other time series (red pH-Down, green nutrients).
-
-Restart safety: the rolling dose ledger is retained JSON on
-`pomona/demeter/ledger`; a restarted pod reloads it, and with no ledger it
-assumes a dose just happened (one lockout of patience, never a forgotten
-acid budget). v1 speaks the firmware's bench channel `pomona/dose/test`
-(hard 10 s cap per command, one channel at a time — the firmware-side
-rail); the richer ml-based `dose/request` contract is the #224 firmware
-follow-up.
 
 ## Chart layout
 
@@ -219,12 +147,6 @@ templates/
   servicemonitor.yaml       Prometheus scrape (release=kube-prometheus-stack)
   ciliumnetworkpolicy.yaml  ingress-only: observability -> :9273 (zeus pattern)
   dashboard.yaml            Grafana dashboard ConfigMap (globs dashboards/*.json)
-  demeter-configmap.yaml    demeter config.yaml (mode + playbook + calibration)
-  demeter-deployment.yaml   pomona-demeter (single replica, Recreate — single-writer SAFETY)
-  demeter-sealed-secret.yaml MQTT_USER / MQTT_PASS for the pomona-demeter broker user
-  demeter-service.yaml      pomona-demeter-metrics ClusterIP :9000
-  demeter-servicemonitor.yaml Prometheus scrape of demeter
-  demeter-ciliumnetworkpolicy.yaml ingress-only: observability -> :9000
 dashboards/pomona.json      the Pomona — Hydroponics dashboard: the node's history in the
                             pomona bucket. Its Demeter row went with the demeter namespace
                             (#307); the controller view is "Ceres — unit" (landingzones/ceres)
@@ -254,19 +176,12 @@ dashboards/pomona.json      the Pomona — Hydroponics dashboard: the node's his
 
 ## Follow-ups
 
-- **Card #252**: mirror the `pomona` (device) + `pomona-ingest` (+ now
-  `pomona-demeter`, whose file mirror already exists) ACLs into
+- **Card #252**: mirror the `pomona` (device) + `pomona-ingest` ACLs into
   `platform/mqtt/files/acl.conf` (DR) and reconcile `users.csv`.
-- **Demeter PrometheusRules** (alert on ALERT decisions — acid cap hit,
-  no-reagent conditions — and on demeter-offline / stale readings). The
-  dashboard row + dose annotations shipped in 0.3.1.
 - **#224 firmware half**: first-class `pomona/dose/request` contract
   (ml payloads, idempotency ids, acks, firmware-local ml caps + daily
-  budget) replacing the bench channel; then Demeter's `runtime.py` transport
-  swaps over.
-- ~~Retire Tethys when demeter goes active~~ — done 2026-09-10 (task paused).
-  The dosing-grant version of `.claude/agents/tethys.md` lives on the
-  `docs-tag-policy` branch; when that merges, mark the grant revoked there.
+  budget) replacing the bench channel — shipped as contract v2 (ceres ADR-0008);
+  the tower moves to it with firmware 2.2.0 (#295 items 7-8).
 - Lamp switch state panel (HA entity id TBD) next to the pump-watts panel.
 - PrometheusRule alerts (reservoir CRIT, unit offline, ingest stalled).
 - HA ingestion of `pomona/#` (device topics) for automations/notifications is

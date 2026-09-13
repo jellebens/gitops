@@ -68,14 +68,12 @@ units:
     mqtt:
       host: mqtt.lab.local   # the EMQX VIP — never a pod/node IP
       port: 1883
-      clientId: vertumnus-pomona-0001    # DISTINCT from the live pomona-demeter client id
+      clientId: vertumnus-pomona-0001    # one client id per Vertumnus
       baseTopic: pomona              # v1: the tree the tower's firmware speaks
-      # v1: where THIS Vertumnus's own retained documents go
-      # (pomona/<ownPrefix>/{status,mode,decision,ledger}). "demeter-shadow"
-      # while soaking next to the live pomona-demeter (which owns
-      # pomona/demeter/#); flip to "ceres" at the cutover so the new Vertumnus
-      # inherits the live retained ledger.
-      ownPrefix: demeter
+      # v1 only: where THIS Vertumnus's own retained documents go
+      # (pomona/<ownPrefix>/{status,mode,decision,ledger}). Unused on contract v2;
+      # goes with the v1 wire (#295 item 8).
+      ownPrefix: vertumnus
       # v2 TRANSITION (slice 3, #295): while the node still speaks v1 a Vertumnus on
       # `contract: v2` reads ceres/pomona-0001/# through the EMQX republish
       # bridge but sends its dose command and pump override on the v1 tree
@@ -83,13 +81,10 @@ units:
       # the retained v1 ledger once. Set to the v1 root; remove it when
       # firmware 2.0.0 is on the tower.
       legacyBaseTopic: ""
-    # Broker creds (MQTT_USER / MQTT_PASS): the same least-privilege
-    # pomona-demeter EMQX user the live Vertumnus uses (subscribe pomona/#, publish
-    # ONLY pomona/dose/test + pomona/pump/override + pomona/demeter/#) — its
-    # publish grant must gain pomona/demeter-shadow/# for the soak (owner
-    # runbook in the README). Sealed blobs are NAMESPACE + NAME scoped: seal
-    # again for ns ceres / secret ceres-vertumnus-pomona-0001-secrets in
-    # .config/<env>/ceres.yaml.
+    # Broker creds (MQTT_USER / MQTT_PASS): the least-privilege EMQX user
+    # vertumnus-pomona-0001 (platform/mqtt files/acl.conf), created and sealed by
+    # scripts/onboard-secrets.sh. Sealed blobs are NAMESPACE + NAME scoped
+    # (ns ceres / secret ceres-vertumnus-pomona-0001-secrets in .config/<env>/ceres.yaml).
     secret:
       name: ceres-vertumnus-pomona-0001-secrets
       sealedSecret:
