@@ -1,0 +1,68 @@
+{{- if .Values.prometheusRule.enabled }}
+# demeter — the infrastructure rules Robigus cannot raise about itself
+# (architecture §8 R2): a brain down, a unit's node offline, readings stale;
+# plus the plant-health mirror on demeter_alert_active so every condition a
+# brain raises on MQTT also reaches Alertmanager under the same name and
+# `unit` label. Severity: critical for what kills plants in hours, warning
+# for the rest. Robigus (slice 4) is the one source of plant-health
+# conditions; Prometheus is the one delivery path.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demeter
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-brain
+    app.kubernetes.io/part-of: demeter
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.prometheusRule.releaseLabel | quote }}
+spec:
+  groups:
+    - name: demeter-brain-alerts
+      rules:
+        - alert: DemeterBrainDown
+          # A brain's /metrics has not been scraped for 10 min: the pod is
+          # gone or wedged. Its unit is unattended (a shadow brain: only the
+          # soak is unattended).
+          expr: up{namespace="demeter", job=~"demeter-brain-.*"} == 0
+          for: 10m
+          labels:
+            severity: critical
+            service: demeter
+          annotations:
+            summary: "demeter brain {{ "{{" }} $labels.job {{ "}}" }} is not being scraped"
+            description: "No scrape of {{ "{{" }} $labels.job {{ "}}" }} for 10 min — the brain is down or wedged; its unit is unattended."
+        - alert: DemeterUnitOffline
+          # The node's LWT says offline: no telemetry, no dosing possible.
+          expr: demeter_unit_online == 0
+          for: 15m
+          labels:
+            severity: critical
+            service: demeter
+          annotations:
+            summary: "unit {{ "{{" }} $labels.unit {{ "}}" }} is offline"
+            description: "The node of {{ "{{" }} $labels.unit {{ "}}" }} has reported offline for 15 min (LWT). The brain cannot see or dose the reservoir."
+        - alert: DemeterReadingsStale
+          # pH has not arrived for longer than the brain's freshness window
+          # allows: the brain will not dose, and something upstream is wrong.
+          expr: demeter_reading_age_seconds{metric="ph"} > {{ .Values.prometheusRule.readingsStaleSeconds }}
+          for: 15m
+          labels:
+            severity: warning
+            service: demeter
+          annotations:
+            summary: "unit {{ "{{" }} $labels.unit {{ "}}" }}: pH readings stale"
+            description: "The last pH reading of {{ "{{" }} $labels.unit {{ "}}" }} is older than {{ .Values.prometheusRule.readingsStaleSeconds }} s; the brain holds off dosing until readings are fresh."
+        - alert: DemeterPlantHealth
+          # The plant-health mirror (Robigus, card #293): one alert per active condition
+          # Robigus raises or mirrors from the brain (pump_not_running, bottle low,
+          # no-response streak, unusual dosing, node/brain offline, actuator loss …).
+          expr: robigus_alert_active == 1
+          for: 5m
+          labels:
+            severity: warning
+            service: demeter
+          annotations:
+            summary: "unit {{ "{{" }} $labels.unit {{ "}}" }}: {{ "{{" }} $labels.condition {{ "}}" }}"
+            description: "The brain of {{ "{{" }} $labels.unit {{ "}}" }} has raised {{ "{{" }} $labels.condition {{ "}}" }} for 5 min."
+{{- end }}

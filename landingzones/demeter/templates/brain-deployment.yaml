@@ -1,0 +1,108 @@
+{{- range $id, $u := .Values.units }}
+{{- if $u.enabled }}
+# demeter-brain-{{ $id }}: the self-learning chemistry loop for ONE unit
+# (demeter ADR-0007/0010; card #291). It watches the unit's tree on the
+# platform broker and — only when its effective mode is active — corrects
+# chemistry through the unit's dose channel, inside the tested rails of the
+# demeter repo. It needs the broker and nothing else.
+#
+# Single replica + Recreate is a SAFETY property: two controllers would each
+# believe they own the lockout clock and could double-dose the reservoir.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demeter-brain-{{ $id }}
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-brain
+    app.kubernetes.io/instance: demeter-brain-{{ $id }}
+    app.kubernetes.io/part-of: demeter
+    demeter.jellebens.dev/unit: {{ $id | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: demeter-brain-{{ $id }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demeter-brain
+        app.kubernetes.io/instance: demeter-brain-{{ $id }}
+        app.kubernetes.io/part-of: demeter
+        demeter.jellebens.dev/unit: {{ $id | quote }}
+      annotations:
+        # Roll THIS brain when its documents or the fleet mode change.
+        checksum/config: {{ printf "%s|%s|%s" $.Values.mode (toYaml $u) (toYaml $.Values.brain) | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ $.Values.runtime.uid }}
+        runAsGroup: {{ $.Values.runtime.gid }}
+        fsGroup: {{ $.Values.runtime.gid }}
+      containers:
+        - name: brain
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          args:
+            - --values
+            - /config/values.yaml
+            {{- if ne ($u.configSource | default "file") "mqtt" }}
+            - --config
+            - /config/config.yaml
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # MQTT_USER / MQTT_PASS for this unit's broker user. optional: true so
+          # the chart deploys before the owner seals real creds — until then the
+          # MQTT connect fail-and-retries and nothing can dose.
+          envFrom:
+            - secretRef:
+                name: {{ $u.secret.name }}
+                optional: true
+          {{- if $.Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ $.Values.metrics.port }}
+              protocol: TCP
+          {{- with $.Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with $.Values.probes.liveness }}
+          # Deliberately tolerant (zeus discipline): /metrics is served on
+          # prometheus_client's own thread, so only a truly wedged process
+          # fails it — a restart loop on a dosing controller helps nobody.
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: demeter-brain-{{ $id }}
+{{- end }}
+{{- end }}

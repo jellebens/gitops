@@ -1,0 +1,201 @@
+{{- if .Values.robigus.enabled }}
+# demeter-robigus (ADR-0009 §6, ADR-0010, card #293): the plant-health watch.
+# One source of every unit's conditions — its own (brain/node offline, stale
+# readings, no config, actuator loss) and the brain's mirrored alerts — on
+# retained demeter/<unit>/sys/alerts and demeter/sys/alerts; the gauge
+# robigus_alert_active is what the PrometheusRule mirrors. It never doses and
+# never sets an actuator: an outage here changes nothing a brain does.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demeter-robigus
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-robigus
+    app.kubernetes.io/part-of: demeter
+data:
+  units.yaml: |
+    # rendered by gitops landingzones/demeter — every enabled unit
+    interval_seconds: {{ .Values.robigus.intervalSeconds }}
+    republish_seconds: {{ .Values.robigus.republishSeconds }}
+    units:
+    {{- range $id, $u := .Values.units }}
+    {{- if $u.enabled }}
+      {{ $id }}:
+        type: {{ $u.config.type }}
+        contract: {{ $u.contract }}
+        {{- if eq $u.contract "v1" }}
+        base_topic: {{ $u.mqtt.baseTopic }}
+        own_prefix: {{ $u.mqtt.ownPrefix }}
+        {{- end }}
+    {{- end }}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demeter-robigus
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-robigus
+    app.kubernetes.io/part-of: demeter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demeter-robigus
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demeter-robigus
+        app.kubernetes.io/part-of: demeter
+      annotations:
+        checksum/config: {{ printf "%s|%s" (toYaml .Values.robigus) (toYaml .Values.units) | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: robigus
+          image: "{{ .Values.robigus.image.repository }}:{{ .Values.robigus.image.tag }}"
+          imagePullPolicy: {{ .Values.robigus.image.pullPolicy }}
+          args: ["--units", "/config/units.yaml"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: MQTT_HOST
+              value: {{ .Values.robigus.mqtt.host | quote }}
+            - name: MQTT_PORT
+              value: {{ .Values.robigus.mqtt.port | quote }}
+            - name: MQTT_CLIENT_ID
+              value: {{ .Values.robigus.mqtt.clientId | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
+          # MQTT_USER / MQTT_PASS of the `robigus` broker user. optional: until
+          # sealed the pod runs, cannot connect, and publishes nothing.
+          envFrom:
+            - secretRef:
+                name: {{ .Values.robigus.secret.name }}
+                optional: true
+          {{- if .Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 6
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            {{- toYaml .Values.robigus.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: demeter-robigus
+{{- if .Values.metrics.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demeter-robigus-metrics
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-robigus
+    app.kubernetes.io/part-of: demeter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: demeter-robigus
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demeter-robigus
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-robigus
+    app.kubernetes.io/part-of: demeter
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demeter-robigus
+  namespaceSelector:
+    matchNames: [demeter]
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: demeter-robigus
+  namespace: demeter
+  labels:
+    app.kubernetes.io/name: demeter-robigus
+    app.kubernetes.io/part-of: demeter
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: demeter-robigus
+  ingress:
+    {{- if .Values.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.metrics.port | quote }}
+              protocol: TCP
+    {{- else }}
+    []
+    {{- end }}
+{{- end }}
+{{- if and .Values.robigus.secret.sealedSecret.enabled .Values.robigus.secret.sealedSecret.encryptedData }}
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ .Values.robigus.secret.name }}
+  namespace: demeter
+spec:
+  encryptedData:
+    {{- range $k, $v := .Values.robigus.secret.sealedSecret.encryptedData }}
+    {{- if $v }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+  template:
+    metadata:
+      name: {{ .Values.robigus.secret.name }}
+      namespace: demeter
+    type: Opaque
+{{- end }}
+{{- end }}
