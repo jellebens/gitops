@@ -43,7 +43,7 @@ spec:
         runAsGroup: {{ $.Values.runtime.gid }}
         fsGroup: {{ $.Values.runtime.gid }}
       containers:
-        - name: Vertumnus
+        - name: vertumnus
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           args:
