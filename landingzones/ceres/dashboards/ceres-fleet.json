@@ -83,8 +83,8 @@
      "refId": "A",
      "expr": "ceres_annona_units",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -147,8 +147,8 @@
      "refId": "A",
      "expr": "sum(ceres_unit_online) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -215,8 +215,8 @@
      "refId": "A",
      "expr": "ceres_annona_info",
      "legendFormat": "{{fleet_mode}}",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -278,8 +278,8 @@
      "refId": "A",
      "expr": "count(robigus_alert_active{severity=\"critical\"} == 1) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -346,8 +346,8 @@
      "refId": "A",
      "expr": "count(robigus_alert_active{severity=\"warning\"} == 1) or vector(0)",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -414,8 +414,8 @@
      "refId": "A",
      "expr": "(count(robigus_advice_active == 1) or vector(0)) + (count(carmenta_advice_active == 1) or vector(0))",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -482,8 +482,8 @@
      "refId": "A",
      "expr": "carmenta_pool_contributors",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -546,8 +546,8 @@
      "refId": "A",
      "expr": "carmenta_priors_published",
      "legendFormat": "__auto",
-     "range": true,
-     "instant": false,
+     "range": false,
+     "instant": true,
      "editorMode": "code"
     }
    ],
@@ -900,7 +900,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_reading{metric=\"ph\"}",
+     "expr": "max without (pod, instance) (ceres_reading{metric=\"ph\"})",
      "legendFormat": "{{unit}}",
      "range": true,
      "instant": false,
@@ -961,7 +961,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_reading{metric=\"ec\"}",
+     "expr": "max without (pod, instance) (ceres_reading{metric=\"ec\"})",
      "legendFormat": "{{unit}}",
      "range": true,
      "instant": false,
@@ -1022,7 +1022,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "ceres_ph_sensitivity_ph_per_ml",
+     "expr": "max without (pod, instance) (ceres_ph_sensitivity_ph_per_ml)",
      "legendFormat": "{{unit}}",
      "range": true,
      "instant": false,
@@ -1034,7 +1034,7 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "carmenta_pool_kv_mean",
+     "expr": "max without (pod, instance) (carmenta_pool_kv_mean)",
      "legendFormat": "pool mean",
      "range": true,
      "instant": false,
@@ -1046,7 +1046,7 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "carmenta_pool_kv_mean + carmenta_pool_kv_sd",
+     "expr": "max without (pod, instance) (carmenta_pool_kv_mean) + max without (pod, instance) (carmenta_pool_kv_sd)",
      "legendFormat": "pool + sd",
      "range": true,
      "instant": false,
@@ -1058,7 +1058,7 @@
       "uid": "prometheus"
      },
      "refId": "D",
-     "expr": "carmenta_pool_kv_mean - carmenta_pool_kv_sd",
+     "expr": "max without (pod, instance) (carmenta_pool_kv_mean) - max without (pod, instance) (carmenta_pool_kv_sd)",
      "legendFormat": "pool − sd",
      "range": true,
      "instant": false,
@@ -1211,7 +1211,7 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "robigus_alerts",
+     "expr": "max without (pod, instance) (robigus_alerts)",
      "legendFormat": "{{unit}}",
      "range": true,
      "instant": false,
