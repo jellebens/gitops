@@ -237,6 +237,18 @@ trust the lab CA; route in `.config/lab/gateway.yaml`, A record in
    `ceres_firmware_desired_match` goes 0 → 1; `vertumnusctl.sh pomona-0001 firmware`
    shows running vs desired and the node's last result. `vertumnusctl.sh
    pomona-0001 ota <url>` is the manual push through the same rails.
+## Cutover in two steps — coexistence (owner decision 2026-09-13, card #295)
+
+The first release of this zone lands **next to** the live demeter brain
+(`landingzones/demeter`, ns `demeter`), not instead of it: `.config/lab/ceres.yaml`
+keeps `mode: shadow` and `contract: v2` (the tower's tree through the republish
+bridge), so every Vertumnus decides and publishes but none doses, and the five
+secrets may still be empty (the pods retry the broker, harmless). Soak: compare
+`ceres/pomona-0001/sys/decision` with `pomona/demeter/decision`. The **cutover is
+one commit**: `mode: active` here and the deletion of `landingzones/demeter`,
+`applications/templates/demeter/demeter-app.yaml` and `.config/lab/demeter.yaml`
+(Argo prunes ns demeter, incl. its Postgres — re-import the tower document into
+Annona first). Two controllers must never dose one tank.
 
 ## Tracing (card #302)
 

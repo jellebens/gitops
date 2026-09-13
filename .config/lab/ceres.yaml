@@ -1,29 +1,33 @@
-# ceres landing zone — lab overrides (one Vertumnus per unit, card #291).
+# ceres landing zone — lab overrides (one Vertumnus per unit, card #291/#295).
 #
-# mode: ACTIVE since the #291 cutover (owner 2026-09-12, shadow soak skipped —
-# the golden replay in the ceres repo proves bit-for-bit 0.5.1 behaviour).
-# The old pomona-demeter Deployment is retired in the same release
-# (landingzones/pomona ceres.enabled: false): two Vertumnus instances must never dose one
-# tank. To fall back to observe-only, delete the `mode: active` line (chart
-# default = shadow).
+# COEXISTENCE (owner decision 2026-09-13, card #295): Ceres lands NEXT TO the live
+# demeter brain (landingzones/demeter, ns demeter, brain 0.8.x on the tower) —
+# it does not replace it in the same release. Until the cutover commit:
+#   mode: shadow        every Vertumnus decides and publishes, NONE doses
+#   contract: v2        the tower's tree through the EMQX republish bridge
+#                       (platform/mqtt 0.3.1), legacyBaseTopic pomona for the
+#                       bench dose line / override once it goes active
+# Two controllers must never dose one tank (architecture §4), so the cutover is
+# ONE commit that (a) sets `mode: active` here, (b) deletes landingzones/demeter,
+# applications/templates/demeter and .config/lab/demeter.yaml. Do it only after
+# the shadow soak shows the Vertumnus's decisions matching the brain's
+# (ceres/pomona-0001/sys/decision vs pomona/demeter/decision) and every secret
+# below is sealed.
 #
-# BROKER CREDS (ns ceres / secret ceres-vertumnus-pomona-0001-secrets): the
-# same pomona-demeter EMQX user the retired pod used. Until a SealedSecret
-# is pasted below, the Secret is a hand-copied stopgap of
-# pomona/pomona-demeter-secrets (owner, at the cutover):
-#   kubectl get secret pomona-demeter-secrets -n pomona -o json \
-#     | jq '{apiVersion, kind, type, data, metadata: {name: "ceres-vertumnus-pomona-0001-secrets", namespace: "ceres"}}' \
-#     | kubectl apply -f -
-# Replace it with the sealed form when convenient (a rebuilt namespace would
-# lose the stopgap):
+# BROKER CREDS: every encryptedData below is empty until the owner seals the
+# ns-ceres secrets (#295 checklist items 1a-3):
 #   printf '%s' "$VALUE" | kubeseal --raw \
 #     --controller-name sealed-secrets --controller-namespace argocd \
-#     --namespace ceres --name ceres-vertumnus-pomona-0001-secrets
+#     --namespace ceres --name <secret-name>
+# Until then the pods start, fail to connect and retry — harmless.
 
-mode: active
+mode: shadow
 
 units:
   pomona-0001:
+    contract: v2          # coexistence soak on the v2 tree (bridge); the brain owns the tank
+    mqtt:
+      legacyBaseTopic: pomona
     secret:
       sealedSecret:
         encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
