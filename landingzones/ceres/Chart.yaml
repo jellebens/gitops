@@ -26,7 +26,9 @@ name: ceres
 #          http://firmware.lab.local), vertumnus 0.14.0 (desired firmware -> OTA), annona 0.4.0 (PUT /firmware).
 # 0.11.1 = #305 images: vertumnus 0.15.0, annona 0.4.1, robigus 0.4.1, carmenta 0.2.1 (tower -> facts;
 #          metrics ceres_tower_* are ceres_unit_*).
-version: 0.11.1
+# 0.11.2 = fix: the Vertumnus container was named "Vertumnus" (the #297 rename capitalised a k8s name) — the API
+#          refused the Deployment, so no Vertumnus pod started in the first ceres release.
+version: 0.11.2
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
