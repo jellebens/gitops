@@ -29,7 +29,7 @@ name: ceres
 # 0.11.2 = fix: the Vertumnus container was named "Vertumnus" (the #297 rename capitalised a k8s name) — the API
 #          refused the Deployment, so no Vertumnus pod started in the first ceres release.
 # 0.11.3 = #295 coexistence: vertumnus 0.15.1 (the shadow mirrors the live ledger), pomona-0001 configSource mqtt.
-version: 0.11.4
+version: 0.11.5
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

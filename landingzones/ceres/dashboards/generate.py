@@ -23,6 +23,7 @@ Sources (uids are provisioned in platform/observability-config):
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -42,7 +43,19 @@ HIDE_PROM_LABELS = {"Time": True, "Value": True, "__name__": True, "instance": T
 
 # ----------------------------------------------------------------------------- targets
 
+PLAIN_SELECTOR = re.compile(r"[A-Za-z_:][A-Za-z0-9_:]*(\{(?:[^{}]|\$\{[^}]*\})*\})?")  # {unit="${unit}", …} nests a brace
+
+
+def W(expr):
+    """Fold the pod churn away: every rollout gives a gauge a new {pod, instance} series and a
+    range query then returns one series per pod that lived in the window (found on the first
+    render of the unit board — three ONLINEs in one stat)."""
+    return f"max without (pod, instance) ({expr})"
+
+
 def prom(expr, legend="", ref="A", instant=False, table=False):
+    if not instant and PLAIN_SELECTOR.fullmatch(expr):
+        expr = W(expr)
     t = {"datasource": PROM, "refId": ref, "expr": expr, "legendFormat": legend or "__auto",
          "range": not instant, "instant": instant, "editorMode": "code"}
     if table:
@@ -124,6 +137,15 @@ def _panel(kind, title, targets, pos, description="", datasource=None, unit=None
     return p
 
 
+def instant_only(targets):
+    """Single-value panels ask Prometheus for now, not for the range: no pod-churn duplicates."""
+    for t in targets:
+        if t["datasource"] is PROM:
+            t["instant"], t["range"] = True, False
+            if t["expr"].startswith("max without (pod, instance) ("):
+                t["expr"] = t["expr"][len("max without (pod, instance) ("):-1]
+
+
 def steps(*pairs):
     """thresholds: steps(("green", None), ("orange", 1), ("red", 3))"""
     return [{"color": c, "value": v} for c, v in pairs]
@@ -139,6 +161,7 @@ def stat(title, targets, pos, description="", unit=None, decimals=None, mappings
     opts = {"reduceOptions": {"calcs": [reduce], "fields": "", "values": False}, "orientation": "auto",
             "textMode": text_mode, "colorMode": color_mode, "graphMode": "area" if graph else "none",
             "justifyMode": "center", "wideLayout": True}
+    instant_only(targets)
     p = _panel("stat", title, targets, pos, description, unit=unit, decimals=decimals, mappings=mappings,
                thresholds=thresholds or steps(("text", None)), options=opts)
     p["fieldConfig"]["defaults"]["noValue"] = no_value
@@ -176,6 +199,7 @@ def state_timeline(title, targets, pos, description="", mappings=None, threshold
 
 
 def bargauge(title, targets, pos, description="", unit=None, min=0, max=100, thresholds=None, decimals=0):
+    instant_only(targets)
     p = _panel("bargauge", title, targets, pos, description, unit=unit, decimals=decimals, thresholds=thresholds,
                options={"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
                         "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": True,
@@ -293,8 +317,8 @@ def unit_board():
                   "The version the node reports (sys/meta).", text_mode="name", color_mode="none"))
     P.append(stat("Firmware desired", [prom(f"ceres_firmware_desired_match{U}")], g.place(3, 4),
                   "1 when the running version equals the one Annona wants (card #304); absent when no firmware is set.",
-                  mappings=value_map(**{"1": ("MATCH", "green"), "0": ("UPDATE PENDING", "orange")}), color_mode="background",
-                  no_value="none set"))
+                  mappings=value_map(**{"1": ("MATCH", "green"), "0": ("UPDATE PENDING", "orange"), "-1": ("none set", "text")}),
+                  color_mode="background", no_value="none set"))
     P.append(stat("Active alerts", [prom(f"count(robigus_alert_active{U} == 1) or vector(0)")], g.place(3, 4),
                   "Robigus's alert count for this unit.", thresholds=steps(("green", None), ("orange", 1), ("red", 3)),
                   color_mode="background"))
@@ -415,9 +439,10 @@ def unit_board():
     P.append(stat("Rebound (pH/h)", [prom(f"ceres_learned_rebound_ph_per_hour{U}")], g.place(3, 4), "How fast pH drifts back up between doses.", decimals=3, color_mode="none"))
     P.append(stat("No-response streak", [prom(f"ceres_no_response_streak{U}")], g.place(4, 4), "Consecutive doses without a measurable drop. Three in a row is an alert.",
                   decimals=0, thresholds=steps(("green", None), ("orange", 1), ("red", 3)), color_mode="value"))
+    K, SD = W(f"ceres_ph_sensitivity_ph_per_ml{U}"), W(f"ceres_ph_sensitivity_sd{U}")
     P.append(timeseries("Sensitivity k over time (learning curve)", [prom(f"ceres_ph_sensitivity_ph_per_ml{U}", "k"),
-                                                                     prom(f"ceres_ph_sensitivity_ph_per_ml{U} + ceres_ph_sensitivity_sd{U}", "k + sd", "B"),
-                                                                     prom(f"ceres_ph_sensitivity_ph_per_ml{U} - ceres_ph_sensitivity_sd{U}", "k − sd", "C")],
+                                                                     prom(f"{K} + {SD}", "k + sd", "B"),
+                                                                     prom(f"{K} - {SD}", "k − sd", "C")],
                         g.place(12, 8), "k with its ±1 sd band.", decimals=3, fill=0,
                         overrides=[override("k + sd", color="gray", dash=True), override("k − sd", color="gray", dash=True)]))
     P.append(timeseries("Dose responses (pH drop) and the streak", [prom(f"ceres_last_dose_response_ph_drop{U}", "last drop (pH)"),
@@ -478,8 +503,8 @@ def fleet_board():
     P.append(timeseries("EC, every unit", [prom('ceres_reading{metric="ec"}', "{{unit}}")], g.place(12, 8), "Raw EC per unit (mS/cm).", decimals=2, fill=0))
     P.append(timeseries("Sensitivity k: units against Carmenta's pool", [prom("ceres_ph_sensitivity_ph_per_ml", "{{unit}}"),
                                                                           prom("carmenta_pool_kv_mean", "pool mean", "B"),
-                                                                          prom("carmenta_pool_kv_mean + carmenta_pool_kv_sd", "pool + sd", "C"),
-                                                                          prom("carmenta_pool_kv_mean - carmenta_pool_kv_sd", "pool − sd", "D")],
+                                                                          prom(f"{W('carmenta_pool_kv_mean')} + {W('carmenta_pool_kv_sd')}", "pool + sd", "C"),
+                                                                          prom(f"{W('carmenta_pool_kv_mean')} - {W('carmenta_pool_kv_sd')}", "pool − sd", "D")],
                         g.place(12, 8), "Each unit's learned pH-Down sensitivity next to the pooled prior (ADR-0012).", decimals=3, fill=0,
                         overrides=[override("pool mean", color="gray", dash=True), override("pool + sd", color="gray", dash=True, hide_legend=True),
                                    override("pool − sd", color="gray", dash=True, hide_legend=True)]))
