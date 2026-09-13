@@ -84,6 +84,12 @@ data:
         "pomona/unit/status",
         "pomona/unit/fw_version",
         "pomona/unit/sensors",
+        # ceres #301 (2026-09-13): the pump request/reason and the brain's override, as
+        # strings — the 04:13Z re-mix that never registered left no evidence because the
+        # request was not archived. zone=pump, metric=request|reason|override.
+        "pomona/pump/request",
+        "pomona/pump/reason",
+        "pomona/pump/override",
       ]
       data_format = "value"
       data_type = "string"
