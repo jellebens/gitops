@@ -21,7 +21,7 @@
 #     --namespace ceres --name <secret-name>
 # Until then the pods start, fail to connect and retry — harmless.
 
-mode: shadow
+mode: active          # CUTOVER (#295 item 4b): the Vertumnus owns the tank; the demeter zone is deleted in this same commit
 
 units:
   pomona-0001:
