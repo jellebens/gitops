@@ -26,6 +26,8 @@ mode: shadow
 units:
   pomona-0001:
     contract: v2          # coexistence soak on the v2 tree (bridge); the brain owns the tank
+    configSource: mqtt    # #295 item 5b (2026-09-13): Annona projected the tower document (config v1);
+                          # the  block below stays as the import source of record only
     mqtt:
       legacyBaseTopic: pomona
     secret:
