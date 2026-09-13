@@ -1,0 +1,137 @@
+{{- if .Values.firmware.enabled }}
+# ceres-firmware (card #304): the .ota images the nodes pull over the air.
+# A plain nginx serving a read-only share — drop `pomona-<version>.ota` into
+# `<share>/pomona/`, record the version in Annona (PUT /units/<id>/firmware),
+# and the unit's Vertumnus publishes the URL to the node. Reached from the LAN
+# as http://firmware.lab.local/… through the shared gateway (plain http: the
+# GIGA does not trust the lab CA). Nothing here is on any control path.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ceres-firmware
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-firmware
+    app.kubernetes.io/part-of: ceres
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.firmware.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.firmware.size | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceres-firmware-nginx
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-firmware
+    app.kubernetes.io/part-of: ceres
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      server_name _;
+      root /srv/firmware;
+      autoindex on;                       # browse the images by hand
+      autoindex_exact_size off;
+      location = /healthz { return 200 "ok\n"; add_header Content-Type text/plain; }
+      location / {
+        types { application/octet-stream ota; }
+        default_type application/octet-stream;
+        add_header Cache-Control "no-store";   # the node compares names, not caches
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ceres-firmware
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-firmware
+    app.kubernetes.io/part-of: ceres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-firmware
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ceres-firmware
+        app.kubernetes.io/part-of: ceres
+      annotations:
+        checksum/config: {{ toYaml .Values.firmware | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+        - name: nginx
+          image: "{{ .Values.firmware.image.repository }}:{{ .Values.firmware.image.tag }}"
+          imagePullPolicy: {{ .Values.firmware.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: images
+              mountPath: /srv/firmware
+              readOnly: true
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /tmp
+      volumes:
+        - name: images
+          persistentVolumeClaim:
+            claimName: ceres-firmware
+        - name: nginx-conf
+          configMap:
+            name: ceres-firmware-nginx
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres-firmware
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-firmware
+    app.kubernetes.io/part-of: ceres
+spec:
+  selector:
+    app.kubernetes.io/name: ceres-firmware
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}
