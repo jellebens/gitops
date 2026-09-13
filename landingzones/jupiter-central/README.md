@@ -5,6 +5,8 @@ Landing zone for the **central** (one-per-fleet) jupiter services, per
 **price-service** (card #106), **forecast-service** + its training
 CronJob (card #126), and **reporting-service** — the central fleet-reporting /
 savings service (jupiter reporting card #161, deployed by gitops card #161-F).
+Since card #308 the reporting-service also owns the **long-term ledger**, a
+CloudNativePG `Cluster` `jupiter-pg` in this namespace (see the section below).
 
 **Central-only:** nothing in this namespace touches zeus behavior. Zeus keeps
 fetching ENTSO-E directly until card #107 flips `prices.source: jupiter` —
@@ -312,6 +314,64 @@ EMQX VIP (`mqtt.lab.local:1883`, off-cluster) and in-cluster InfluxDB
 (`influxdb-influxdb2.influxdb:80`). An egress lockdown is a human-reviewed
 **opt-in** (`reporting.networkPolicy.egress.enabled`, default `false`) with both
 destinations pre-wired, so flipping it on is a value-only change.
+
+## The long-term reporting ledger — `jupiter-pg` (card #308, jupiter ADR-0030)
+
+InfluxDB keeps the per-refresh trajectory; the **ledger keeps the day**. A small
+**CloudNativePG** `Cluster` `jupiter-pg` in this namespace (operator: the platform
+app `cnpg`, wave 14 — the same shape as `ceres-pg` in `landingzones/ceres`):
+database `jupiter`, owner role `jupiter`, `ghcr.io/cloudnative-pg/postgresql:16.4`,
+**2 instances on Longhorn (5Gi)**, PodMonitor on. The reporting-service is the
+**only writer**: one `daily_savings` row per (site, local day) carrying the whole
+ADR-0005 result, upserted every refresh while the day is open and frozen
+(`final`) at the first refresh past local midnight; `monthly_peaks` (the greatest
+`running_peak_kw` the lar reported per month — the capacity-tariff base); views
+`monthly_savings` / `yearly_savings` / `cumulative_savings` / `site_totals`. It
+applies its own SQL migrations on the first connection, so the schema appears
+with the first refresh after the Cluster is Ready.
+
+| template | what |
+| --- | --- |
+| `reporting-postgres-cluster.yaml` | the `Cluster` + the operator-managed read-only `grafana` role (`reporting.postgres.grafanaRole`) |
+| `reporting-postgres-grafana-sealed-secret.yaml` | `jupiter-pg-grafana` (keys `username` / `password`), rendered only once sealed |
+| `reporting-postgres-backup.yaml` | PVC `jupiter-ledger-backups` on the `smb` NAS class + CronJob `jupiter-ledger-backup` — nightly `pg_dump -Fc` at 03:50 (after InfluxDB 03:30 and Annona 03:45), 30 days kept |
+| `reporting-deployment.yaml` | maps the operator's `jupiter-pg-app` secret to `PGHOST` / `PGPORT` / `PGDATABASE` / `PGUSER` / `PGPASSWORD` (every key `optional: true`, so the pod starts before the secret exists — the ledger is then best-effort off) |
+| `dashboards/jupiter-savings-long-term.json` | "Jupiter — Savings long-term" (uid `jupiter-savings-long-term`, folder Jupiter) on the Grafana datasource **Jupiter ledger (PostgreSQL)** (uid `jupiter-ledger`, `platform/observability-config`) |
+
+**The reporting-service is unchanged on the InfluxDB path.** A missing or
+unreachable ledger degrades only the long-term views (the open day converges on
+the next refresh); it never touches the InfluxDB write, the `jupiter_savings_*`
+gauges or `/healthz`. Watch `jupiter_reporting_ledger_connected` and
+`jupiter_reporting_ledger_last_write_timestamp_seconds{site_id}`; failures count
+at `jupiter_savings_update_failures_total{stage="ledger_write"}`. (The "no PVC
+and no CronJob" note above is about the reporting *pod*; the ledger's backup
+CronJob and PVC belong to the Cluster.)
+
+### Owner steps (in order)
+
+1. **Seal the `grafana` role password twice** — for ns `jupiter-central` /
+   secret `jupiter-pg-grafana` (keys `username`, `password`) into
+   [`.config/lab/jupiter-central.yaml`](../../.config/lab/jupiter-central.yaml)
+   and as `JUPITER_PG_PASSWORD` for ns `observability` / secret
+   `grafana-jupiter-postgres` into
+   [`.config/lab/observability.yaml`](../../.config/lab/observability.yaml)
+   (the exact `kubeseal` lines are in those files). Until then the role is
+   absent and only the Grafana datasource fails to connect.
+2. **Release**: this chart (0.2.0) with the jupiter release that ships
+   `jupiter_reporting/ledger.py` (bump `reporting.image.tag`). Older images
+   ignore the `PG*` env, so the chart can go first.
+3. **Backfill once** (idempotent, prod-touching, owner-run) after the Cluster is
+   `Ready` and the new image is up:
+   `kubectl -n jupiter-central exec deploy/reporting-service -- jupiter-reporting backfill-ledger --site tervuren --days 120 --include-zeus`
+   — re-derives every jupiter-era day through the live loop's own derivation and
+   imports `zeus_daily_savings.eur` for the zeus era. Then set the commissioning
+   date by hand (`update sites set commissioned_on = '<date>' where site_id = 'tervuren'`).
+
+**Restore:** copy a dump from the NAS share into any pod with `pg_restore` and run
+`pg_restore --clean --if-exists -d "$uri" <dump>` with the `uri` key of
+`jupiter-pg-app`; anything after the dump is re-derivable with `backfill-ledger`.
+
+**Query it:** `kubectl -n jupiter-central exec jupiter-pg-1 -- psql -U postgres -d jupiter -c "select * from monthly_savings order by month"`.
 
 ## Argo CD
 
