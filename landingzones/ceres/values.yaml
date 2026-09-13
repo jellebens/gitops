@@ -25,7 +25,7 @@ image:
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
   # one Vertumnus per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.12.1"       # vertumnus/v0.12.1 (#301): a pump fault clears on a sustained pump request when no plug reading exists; 0.12.0 (#300): GET /learned
+  tag: "0.12.2"       # vertumnus/v0.12.2 (#303): a verdict needs a level newer than the dose; 0.12.1 (#301): pump fault clears on a sustained request; 0.12.0 (#300): GET /learned
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
