@@ -173,9 +173,32 @@ v2 tree into the InfluxDB bucket `ceres` — `unit_tele{unit,zone,metric}`,
 `unit_actuator{unit,actuator,metric}`, `unit_meta`, `unit_docs` (the Vertumnus's
 decisions and ledger, Robigus's alerts and advice, the registry's config and
 desired state, dose acks — verbatim JSON, forever: the training corpus) and
-`ceres_sys`. `dashboards/ceres-units.json` ("Ceres — units", folder
-`ceres`) reads it with a `unit` variable. Its last row, "What Vertumnus
-learned" (#300), plots the Vertumnus's learned state from the `ceres_*` gauges:
+`ceres_sys`. Telegraf's own `internal_*` stats go to its Prometheus output
+only (`namedrop` on the Influx output, #307): the bucket is the units' archive,
+not the agent's.
+
+`dashboards/` holds three boards in the Grafana folder `ceres`, all written by
+`dashboards/generate.py` (card #307) — edit the generator and rerun it
+(`python3 generate.py`; `--check` fails when the JSON is stale), never the JSON:
+
+- `ceres-unit.json` — "Ceres — unit" (uid `ceres-units`, variable `unit`): a
+  status strip (node, role, firmware running vs desired, alerts, advice, the
+  plug's watts, config version), the dosing state (pH, 24 h pH-Down, last and
+  pending dose, lockout, planned ml, reading age, stage), pH and EC from the
+  archive with the stage's target band and the aim from `ceres_target` /
+  `ceres_aim_ph`, doses and blocked doses as annotations, the mixing evidence
+  (measured watts against requested / powered / mixing), pump state and reason,
+  decisions per hour, bottles (remaining, days left at the learned rate), the
+  alert timeline, and the "What Vertumnus learned" row.
+- `ceres-fleet.json` — "Ceres — fleet": every unit side by side — Robigus's
+  alerts and advice as tables, Annona's registry (SQL, datasource
+  `ceres-annona`), pH/EC per unit, each unit's k against Carmenta's pool.
+- `ceres-operations.json` — "Ceres — operations": firmware desired (Annona
+  SQL) vs running (`ceres_firmware_*`), OTA requests, config versions, service
+  liveness from `ceres/sys/status/*`, and the archive's health (newest point
+  per measurement, points per hour).
+
+The "What Vertumnus learned" row (#300) plots the Vertumnus's learned state from the `ceres_*` gauges:
 Model A (k ± sd, n, knee b), the learning curve, settle/noise/rebound, the
 no-response streak against the dose responses, the Model C dosing-rate
 baseline and the filtered pH — the same numbers `GET /learned` on the operator

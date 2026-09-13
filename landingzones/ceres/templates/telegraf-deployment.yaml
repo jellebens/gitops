@@ -34,6 +34,10 @@ data:
       token = "${INFLUX_TOKEN}"
       organization = "{{ .Values.telegraf.influx.org }}"
       bucket = "{{ .Values.telegraf.influx.bucket }}"
+      # Telegraf's own stats (inputs.internal) go to the Prometheus output only — the ceres
+      # bucket is the forever archive of the units, not of the agent (card #307: ~70k points
+      # a day of internal_* noise were landing in it).
+      namedrop = ["internal_*"]
 
     [[inputs.internal]]
       collect_memstats = false
