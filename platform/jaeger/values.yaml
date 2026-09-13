@@ -62,6 +62,7 @@ networkPolicy:
     - zeus
     - jupiter-central
     - jupiter-tervuren
+    - ceres  # card #302: Vertumnus / Annona / Robigus / Carmenta (ceres_shared.tracing)
   # Namespace of the Prometheus that scrapes /metrics (kube-prometheus-stack).
   metricsScrapeNamespace: observability
 

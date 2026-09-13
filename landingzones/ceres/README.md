@@ -219,6 +219,21 @@ need the `VERTUMNUS_TOKEN` key in the unit's secret
 (`ceres-vertumnus-<unit>-secrets`, next to MQTT_USER / MQTT_PASS); without it
 the API is read-only. Seal a random token like any other value.
 
+## Tracing (card #302)
+
+`tracing.enabled` (default on) puts `OTEL_EXPORTER_OTLP_ENDPOINT` on every Ceres
+deployment — the presence of that one env var is the whole switch in
+`ceres_shared.tracing` (jupiter's #179 convention). Spans go OTLP/gRPC to the
+platform Jaeger (`platform/jaeger`, which lists `ceres` in `otlpNamespaces`);
+browse at https://jaeger.lab.local or in Grafana Explore (datasource `jaeger`).
+What to look for: `vertumnus.cycle` (one per evaluation, with the decision and the
+judgement as attributes), `vertumnus.dose` → `vertumnus.dose_result` (one trace per
+dose once the node echoes the `traceparent` — firmware ≥ 2.2), `vertumnus.pump_override`,
+`vertumnus.api …` / `annona.api …` (server spans; a caller's `traceparent` header
+stitches in), `robigus.tick`, `carmenta.tick`. Export is fail-open: a down collector
+costs spans, never a cycle. `enabled: false` removes the env and the services run
+exactly as before.
+
 ## Carmenta, backups and the Grafana datasource (slice 5, card #298)
 
 `templates/carmenta-deployment.yaml`: `ceres-carmenta`, the cross-unit

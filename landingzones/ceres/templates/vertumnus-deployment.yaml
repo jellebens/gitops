@@ -61,6 +61,12 @@ spec:
           # MQTT_USER / MQTT_PASS for this unit's broker user. optional: true so
           # the chart deploys before the owner seals real creds — until then the
           # MQTT connect fail-and-retries and nothing can dose.
+          env:
+            {{- if $.Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #302): presence is the switch (ceres_shared.tracing)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ $.Values.tracing.endpoint | quote }}
+            {{- end }}
           envFrom:
             - secretRef:
                 name: {{ $u.secret.name }}
