@@ -24,7 +24,9 @@ name: ceres
 #          every Ceres deployment; vertumnus 0.13.0, annona 0.3.0, robigus 0.4.0, carmenta 0.2.0.
 # 0.11.0 = #304 firmware over the air from Ceres: the ceres-firmware image server (nginx on the NAS share,
 #          http://firmware.lab.local), vertumnus 0.14.0 (desired firmware -> OTA), annona 0.4.0 (PUT /firmware).
-version: 0.11.0
+# 0.11.1 = #305 images: vertumnus 0.15.0, annona 0.4.1, robigus 0.4.1, carmenta 0.2.1 (tower -> facts;
+#          metrics ceres_tower_* are ceres_unit_*).
+version: 0.11.1
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
