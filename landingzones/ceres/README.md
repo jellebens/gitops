@@ -188,13 +188,16 @@ The tower still speaks the v1 tree; the platform broker's republish bridge
 `contract: v2` see the tower before the firmware moves.
 
 **Owner steps** (in this order):
-1. EMQX: users `telegraf-ceres` (subscribe `ceres/#`), `vertumnus-pomona-0001`
-   and `unit-pomona-0001` with the rules in `platform/mqtt/files/acl.conf`;
-   `homeassistant` gains `publish ceres/+/actuator/+/power_w` and
-   `ceres/+/actuator/+/set`.
-2. InfluxDB: bucket `ceres` (org zeus, retention forever) + a bucket-scoped
-   write token. Seal `MQTT_USER` / `MQTT_PASS` / `INFLUX_TOKEN` for ns ceres /
-   secret `ceres-telegraf-secrets` into `.config/<env>/ceres.yaml`.
+1. + 2. **One script**: `bash landingzones/ceres/scripts/onboard-secrets.sh`
+   (`--dry-run` first if you like). It creates or resets the broker users
+   `vertumnus-pomona-0001`, `annona`, `robigus`, `carmenta`, `telegraf-ceres`,
+   `unit-pomona-0001` with their `acl.conf` ACLs through the EMQX admin API, adds
+   the ceres grants to `homeassistant`, ensures the InfluxDB bucket `ceres`
+   (retention forever) with a bucket-scoped write token, seals every value for
+   ns ceres into `.config/lab/ceres.yaml`, seals the Grafana read-role password
+   into two SealedSecret manifests, saves the node's password to `.secrets/ceres/`
+   (gitignored, for `firmware/pomona/secrets.h`), and opens the PR to develop.
+   No password ever reaches the terminal or git. Then develop → master.
 3. Flip the Vertumnus: `units.pomona-0001.contract: v2`,
    `mqtt.legacyBaseTopic: pomona`, `mqtt.clientId: vertumnus-pomona-0001` with the
    `vertumnus-pomona-0001` creds sealed (Vertumnus image ≥ 0.9.0). The Vertumnus adopts the
