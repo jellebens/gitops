@@ -25,7 +25,7 @@ image:
   # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
   # one brain per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
   # replay in the repo), unit + unit_type labels on every metric.
-  tag: "0.8.1"        # brain/v0.8.1 hotfix 2026-09-13: a pump fault clears on a sustained pump request when no plug reading exists (0.8.0 #294: the observe / advise roles are real)
+  tag: "0.8.2"        # brain/v0.8.2 hotfix 2026-09-13: fault-cleared log line without a plug reading; 0.8.1: a pump fault clears on a sustained pump request when no plug reading exists
   pullPolicy: IfNotPresent
 
 # FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
