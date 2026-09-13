@@ -1,0 +1,208 @@
+{{- if .Values.annona.enabled }}
+# ceres-annona (ADR-0010/0011, card #292): the only writer of the config
+# database and the only publisher of every unit's retained
+# ceres/<unit>/sys/config + desired, ceres/sys/units and ceres/sys/mode.
+# Brains read MQTT only; a registry outage freezes config at its last
+# projection and changes nothing else. Single replica + Recreate: one writer.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ceres-annona
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-annona
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ceres-annona
+        app.kubernetes.io/part-of: ceres
+      annotations:
+        checksum/config: {{ printf "%s|%s" .Values.mode (toYaml .Values.registry) | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: registry
+          image: "{{ .Values.annona.image.repository }}:{{ .Values.annona.image.tag }}"
+          imagePullPolicy: {{ .Values.annona.image.pullPolicy }}
+          args: ["serve"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #302): presence is the switch (ceres_shared.tracing)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
+            - name: CERES_FLEET_MODE
+              value: {{ .Values.mode | quote }}
+            - name: MQTT_HOST
+              value: {{ .Values.annona.mqtt.host | quote }}
+            - name: MQTT_PORT
+              value: {{ .Values.annona.mqtt.port | quote }}
+            - name: MQTT_CLIENT_ID
+              value: {{ .Values.annona.mqtt.clientId | quote }}
+            - name: ANNONA_PORT
+              value: {{ .Values.annona.apiPort | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
+            - name: REPUBLISH_SECONDS
+              value: {{ .Values.annona.republishSeconds | quote }}
+            # the CloudNativePG app secret: PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD
+            - name: PGHOST
+              valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: host } }
+            - name: PGPORT
+              valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: port } }
+            - name: PGDATABASE
+              valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: dbname } }
+            - name: PGUSER
+              valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: username } }
+            - name: PGPASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: password } }
+          # MQTT_USER / MQTT_PASS (the `annona` broker user) + ANNONA_TOKEN
+          # (API writes). optional: until sealed the registry still serves reads
+          # and projects nothing (it cannot connect) — Vertumnus instances keep their last
+          # retained document.
+          envFrom:
+            - secretRef:
+                name: {{ .Values.annona.secret.name }}
+                optional: true
+          ports:
+            - name: api
+              containerPort: {{ .Values.annona.apiPort }}
+              protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.annona.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres-annona
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ceres-annona
+  ports:
+    - name: api
+      port: {{ .Values.annona.apiPort }}
+      targetPort: api
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+    {{- end }}
+{{- if and .Values.metrics.enabled .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ceres-annona
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-annona
+  namespaceSelector:
+    matchNames: [ceres]
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+# Ingress-only policy for the registry: the Prometheus scrape, and the API
+# from inside the cluster (Home Assistant reaches it through the gateway in a
+# later card; the advisors run in-cluster). Egress stays open (broker, DB).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ceres-annona
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-annona
+  ingress:
+    - fromEntities: [cluster]
+      toPorts:
+        - ports:
+            - port: {{ .Values.annona.apiPort | quote }}
+              protocol: TCP
+    {{- if .Values.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.metrics.port | quote }}
+              protocol: TCP
+    {{- end }}
+{{- end }}
+{{- if and .Values.annona.secret.sealedSecret.enabled .Values.annona.secret.sealedSecret.encryptedData }}
+---
+# MQTT_USER / MQTT_PASS of the `annona` broker user + ANNONA_TOKEN.
+# Seal for ns ceres / secret {{ .Values.annona.secret.name }}.
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ .Values.annona.secret.name }}
+  namespace: ceres
+spec:
+  encryptedData:
+    {{- range $k, $v := .Values.annona.secret.sealedSecret.encryptedData }}
+    {{- if $v }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+  template:
+    metadata:
+      name: {{ .Values.annona.secret.name }}
+      namespace: ceres
+    type: Opaque
+{{- end }}
+{{- end }}

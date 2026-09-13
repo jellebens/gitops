@@ -1,0 +1,40 @@
+{{- if .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for every Vertumnus (zeus/pomona
+# pattern): default-denies inbound while leaving egress open (the Vertumnus instances
+# must reach the EMQX VIP). The only ingress admitted is the Prometheus
+# scrape of the metrics port from the observability namespace.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ceres-vertumnus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/part-of: ceres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-vertumnus
+  ingress:
+    {{- if .Values.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.metrics.port | quote }}
+              protocol: TCP
+    {{- end }}
+    {{- if .Values.vertumnus.apiPort }}
+    # The operator API: only from the node itself — kubectl port-forward (the
+    # kubelet proxies from the host), never from other pods or the LAN.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - port: {{ .Values.vertumnus.apiPort | quote }}
+              protocol: TCP
+    {{- end }}
+    {{- if not (or .Values.metrics.enabled .Values.vertumnus.apiPort) }}
+    []
+    {{- end }}
+{{- end }}

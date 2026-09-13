@@ -1,0 +1,32 @@
+apiVersion: v2
+name: ceres
+# version: bump on EVERY release that touches this chart (owner rule 2026-08-31):
+# patch for fixes/docs/reports, minor for features.
+# 0.1.0 = #291 first landing zone: one ceres-vertumnus Deployment per unit
+#         (pomona-0001 in shadow, soaking next to the live pomona-demeter).
+# 0.2.0 = #291 cutover (2026-09-12, soak skipped by the owner): ownPrefix ceres — the
+#         Vertumnus inherits the live retained ledger; pomona-0001 goes ACTIVE in lab.
+# 0.3.0 = #292 slice 2: the config database (CloudNativePG Cluster ceres-pg) + the
+#         registry service; Vertumnus instances can read sys/config from MQTT (configSource).
+# 0.4.0 = #293 Robigus, the plant-health watch, as a service; CeresPlantHealth reads
+#         robigus_alert_active.
+# 0.5.0 = #294 slice 4b: Vertumnus 0.8.0 (observe / advise roles), robigus 0.2.0 (sys/advice:
+#         crop-window validation, the Vertumnus's hand-dose advice), registry 0.1.1 (validation route).
+# 0.6.0 = #295 slice 3 batch 1: the Telegraf archive of the v2 tree (bucket ceres), the
+#         "Ceres — units" dashboard, mqtt.legacyBaseTopic for a v2 Vertumnus in transition.
+# 0.7.0 = #297 ADR-0012: the zone IS Ceres now — namespace ceres, ceres-vertumnus-<unit>, ceres-annona,
+#         ceres-robigus, ceres-telegraf, ceres-pg, bucket ceres; the operator API port + token.
+# 0.8.0 = #298 slice 5: ceres-carmenta (pooled priors, fleet advice); Annona nightly pg_dump to the
+#         NAS; the read-only grafana role on ceres-pg for the Grafana datasource.
+# 0.9.0 = #300 the "What Vertumnus learned" row on the Ceres — units dashboard (Model A/B/C gauges,
+#         the learning curve, the streak) — pairs with GET /learned of vertumnus 0.12.0.
+# 0.10.0 = #302 tracing to the platform Jaeger: tracing.enabled/endpoint -> OTEL_EXPORTER_OTLP_ENDPOINT on
+#          every Ceres deployment; vertumnus 0.13.0, annona 0.3.0, robigus 0.4.0, carmenta 0.2.0.
+# 0.11.0 = #304 firmware over the air from Ceres: the ceres-firmware image server (nginx on the NAS share,
+#          http://firmware.lab.local), vertumnus 0.14.0 (desired firmware -> OTA), annona 0.4.0 (PUT /firmware).
+# 0.11.1 = #305 images: vertumnus 0.15.0, annona 0.4.1, robigus 0.4.1, carmenta 0.2.1 (tower -> facts;
+#          metrics ceres_tower_* are ceres_unit_*).
+version: 0.11.1
+type: application
+appVersion: "0.8.0"
+description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

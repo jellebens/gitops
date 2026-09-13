@@ -34,6 +34,7 @@ corednsLab:
     hermes       IN A   192.168.50.200
     chaos-mesh   IN A   192.168.50.200
     jaeger       IN A   192.168.50.200
+    firmware     IN A   192.168.50.200   ; ceres #304: .ota images for the nodes (http only)
     longhorn     IN A   192.168.50.200
     ; platform services (dedicated Cilium LB VIPs, platform pool .180-.199)
     mqtt         IN A   192.168.50.181   ; EMQX HA broker (platform/mqtt)

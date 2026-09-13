@@ -1,0 +1,311 @@
+{{- if .Values.telegraf.enabled }}
+# ceres-telegraf (ceres architecture §8 R1, ADR-0006, card #295): the
+# long-term archive of every unit's v2 tree, MQTT ceres/# -> InfluxDB bucket
+# `ceres`. PURE CONSUMER: it subscribes and writes time series, publishes
+# nothing, actuates nothing. Every series carries the `unit` tag so training
+# data stays separable per reservoir:
+#   unit_tele{unit,zone,metric}         tele/<zone>/<metric>            float
+#   unit_actuator{unit,actuator,metric} actuator/<name>/power_w         float
+#   unit_meta{unit,metric|actuator}     sys/status|meta|health|role, actuator/<name>/state|reason   string
+#   unit_docs{unit,doc}                 sys/decision|ledger|alerts|advice|config, dose/result, desired  string (JSON verbatim)
+#   ceres_sys{metric|service}         ceres/sys/mode|alerts|units, ceres/sys/status/<service>    string
+# The pre-cutover tower history stays in the `pomona` bucket (landingzones/pomona).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceres-telegraf
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
+data:
+  telegraf.conf: |
+    [agent]
+      interval = "30s"
+      round_interval = true
+      flush_interval = "30s"
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      omit_hostname = true
+
+    [[outputs.influxdb_v2]]
+      urls = ["{{ .Values.telegraf.influx.url }}"]
+      token = "${INFLUX_TOKEN}"
+      organization = "{{ .Values.telegraf.influx.org }}"
+      bucket = "{{ .Values.telegraf.influx.bucket }}"
+
+    [[inputs.internal]]
+      collect_memstats = false
+
+    [[outputs.prometheus_client]]
+      listen = ":{{ .Values.telegraf.metricsPort }}"
+      metric_version = 2
+      expiration_interval = "5m"
+
+    # Numeric telemetry: one number per topic (ADR-0008 rule 1).
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.telegraf.mqtt.host }}:{{ .Values.telegraf.mqtt.port }}"]
+      client_id = "{{ .Values.telegraf.mqtt.clientId }}"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.telegraf.mqtt.qos }}
+      persistent_session = false
+      topics = ["ceres/+/tele/+/+"]
+      data_format = "value"
+      data_type = "float"
+      name_override = "unit_tele"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/tele/+/+"
+        tags = "_/unit/_/zone/metric"
+
+    # The mixing evidence: watts per actuator (Home Assistant publishes them).
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.telegraf.mqtt.host }}:{{ .Values.telegraf.mqtt.port }}"]
+      client_id = "{{ .Values.telegraf.mqtt.clientId }}-actuator"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.telegraf.mqtt.qos }}
+      persistent_session = false
+      topics = ["ceres/+/actuator/+/power_w"]
+      data_format = "value"
+      data_type = "float"
+      name_override = "unit_actuator"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/actuator/+/+"
+        tags = "_/unit/_/actuator/metric"
+
+    # Retained state, as strings.
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.telegraf.mqtt.host }}:{{ .Values.telegraf.mqtt.port }}"]
+      client_id = "{{ .Values.telegraf.mqtt.clientId }}-meta"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.telegraf.mqtt.qos }}
+      persistent_session = false
+      topics = [
+        "ceres/+/sys/status",
+        "ceres/+/sys/meta",
+        "ceres/+/sys/health",
+        "ceres/+/sys/role",
+        "ceres/+/actuator/+/state",
+        "ceres/+/actuator/+/reason",
+      ]
+      data_format = "value"
+      data_type = "string"
+      name_override = "unit_meta"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/sys/+"
+        tags = "_/unit/_/metric"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/actuator/+/+"
+        tags = "_/unit/_/actuator/metric"
+
+    # The documents, verbatim JSON — the Vertumnus's decisions and ledger, Robigus's
+    # alerts and advice, the registry's config and desired state, dose acks.
+    # Forever (ADR-0006): the model-training corpus.
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.telegraf.mqtt.host }}:{{ .Values.telegraf.mqtt.port }}"]
+      client_id = "{{ .Values.telegraf.mqtt.clientId }}-docs"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.telegraf.mqtt.qos }}
+      persistent_session = false
+      topics = [
+        "ceres/+/sys/decision",
+        "ceres/+/sys/ledger",
+        "ceres/+/sys/alerts",
+        "ceres/+/sys/advice",
+        "ceres/+/sys/config",
+        "ceres/+/dose/result",
+        "ceres/+/desired",
+      ]
+      data_format = "value"
+      data_type = "string"
+      name_override = "unit_docs"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/sys/+"
+        tags = "_/unit/_/doc"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/dose/+"
+        tags = "_/unit/_/doc"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/+/desired"
+        tags = "_/unit/doc"
+
+    # Ceres's own system layer.
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://{{ .Values.telegraf.mqtt.host }}:{{ .Values.telegraf.mqtt.port }}"]
+      client_id = "{{ .Values.telegraf.mqtt.clientId }}-sys"
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = {{ .Values.telegraf.mqtt.qos }}
+      persistent_session = false
+      topics = [
+        "ceres/sys/mode",
+        "ceres/sys/alerts",
+        "ceres/sys/advice",
+        "ceres/sys/units",
+        "ceres/sys/status/+",
+      ]
+      data_format = "value"
+      data_type = "string"
+      name_override = "ceres_sys"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/sys/+"
+        tags = "_/_/metric"
+      [[inputs.mqtt_consumer.topic_parsing]]
+        topic = "ceres/sys/status/+"
+        tags = "_/_/metric/service"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ceres-telegraf
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-telegraf
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ceres-telegraf
+        app.kubernetes.io/part-of: ceres
+      annotations:
+        checksum/config: {{ toYaml .Values.telegraf | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: telegraf
+          image: "{{ .Values.telegraf.image.repository }}:{{ .Values.telegraf.image.tag }}"
+          imagePullPolicy: {{ .Values.telegraf.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # MQTT_USER / MQTT_PASS (the telegraf-ceres broker user) and
+          # INFLUX_TOKEN (a write token scoped to the ceres bucket). optional:
+          # until sealed the pod runs and nothing flows (fail-and-retry).
+          envFrom:
+            - secretRef:
+                name: {{ .Values.telegraf.secret.name }}
+                optional: true
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.telegraf.metricsPort }}
+              protocol: TCP
+          readinessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 6
+          volumeMounts:
+            - name: config
+              mountPath: /etc/telegraf/telegraf.conf
+              subPath: telegraf.conf
+              readOnly: true
+          resources:
+            {{- toYaml .Values.telegraf.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: ceres-telegraf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres-telegraf-metrics
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ceres-telegraf
+  ports:
+    - name: metrics
+      port: {{ .Values.telegraf.metricsPort }}
+      targetPort: metrics
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ceres-telegraf
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-telegraf
+  namespaceSelector:
+    matchNames: [ceres]
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ceres-telegraf
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-telegraf
+    app.kubernetes.io/part-of: ceres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-telegraf
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.telegraf.metricsPort | quote }}
+              protocol: TCP
+{{- end }}
+{{- if and .Values.telegraf.secret.sealedSecret.enabled .Values.telegraf.secret.sealedSecret.encryptedData }}
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ .Values.telegraf.secret.name }}
+  namespace: ceres
+spec:
+  encryptedData:
+    {{- range $k, $v := .Values.telegraf.secret.sealedSecret.encryptedData }}
+    {{- if $v }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+  template:
+    metadata:
+      name: {{ .Values.telegraf.secret.name }}
+      namespace: ceres
+    type: Opaque
+{{- end }}
+{{- end }}

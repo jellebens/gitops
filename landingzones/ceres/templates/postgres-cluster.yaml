@@ -1,0 +1,52 @@
+{{- if .Values.postgres.enabled }}
+# The ceres config database (ADR-0011): a small CloudNativePG Cluster in
+# the landing zone (the operator is the platform service `cnpg`). Bootstrap
+# creates database `ceres` owned by role `ceres`; the operator writes the
+# app credentials to Secret `{{ .Values.postgres.name }}-app` (keys username,
+# password, host, port, dbname, uri) which the registry reads via envFrom —
+# no password ever passes through git. Facts are append-only rows; the
+# registry is the only writer. Backups (pg_dump to the NAS, like InfluxDB)
+# are a follow-up card; Longhorn keeps the volumes replicated meanwhile.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.postgres.name }}
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-postgres
+    app.kubernetes.io/part-of: ceres
+spec:
+  instances: {{ .Values.postgres.instances }}
+  imageName: {{ .Values.postgres.image | quote }}
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: ceres
+      owner: ceres
+  {{- if .Values.postgres.grafanaRole.enabled }}
+  # A read-only role for the Grafana PostgreSQL datasource (card #298). The
+  # operator creates the role and reads its password from the secret named
+  # here (owner seals `password` for ns ceres; the same value is sealed for
+  # Grafana in ns observability). Annona's migration 0002 grants SELECT on its
+  # tables and views to this role when it exists.
+  managed:
+    roles:
+      - name: grafana
+        ensure: present
+        login: true
+        inherit: true
+        passwordSecret:
+          name: {{ .Values.postgres.grafanaRole.secret }}
+  {{- end }}
+  storage:
+    storageClass: {{ .Values.postgres.storageClass }}
+    size: {{ .Values.postgres.size }}
+  resources:
+    {{- toYaml .Values.postgres.resources | nindent 4 }}
+  monitoring:
+    enablePodMonitor: {{ .Values.postgres.podMonitor }}
+  postgresql:
+    parameters:
+      max_connections: "50"
+      shared_buffers: "64MB"
+{{- end }}

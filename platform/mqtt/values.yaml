@@ -91,3 +91,139 @@ dashboard:
   enabled: true
   # Label the sidecar watches for (kube-prometheus-stack default).
   sidecarLabel: grafana_dashboard
+
+# Rule-engine REPUBLISH BRIDGE (ceres card #295, ADR-0008 "Transition" step 2).
+# The tower's firmware still speaks the v1 tree (pomona/<zone>/<metric>,
+# pomona/pump/*, pomona/unit/*); every v2 consumer (the ceres Vertumnus on
+# `contract: v2`, Robigus, the Telegraf archive, Home Assistant 2.0) reads
+# ceres/pomona-0001/… (ADR-0008). These rules mirror one tree onto the other,
+# both ways, so the four repos can move in any order and the firmware is the
+# LAST thing to flip. Declared as config (env vars on the StatefulSet), not via
+# the REST API: git is the source of truth and a fresh cluster gets them back.
+# Retain and QoS follow the source message (${flags.retain}, ${qos}) unless a
+# rule says otherwise; a v1 metric is non-retained, a v1 request is retained,
+# exactly as ADR-0008 rule 1 wants. NO loop is possible: no v1->v2 rule reads a
+# topic a v2->v1 rule writes (override, ota_url, i2c_scan/get, control/mode).
+# Delete this block (rules.enabled: false) in the step-5 release after firmware
+# 2.0.0 is on the tower; the old retained pomona/# topics are cleared by hand.
+rules:
+  enabled: true
+  unit: pomona-0001            # the one v1 unit; a second v1 unit is not planned
+  list:
+    # ---- v1 -> v2: the node's process data and self-description ------------
+    - id: pomona_v2_tele
+      description: "pomona/<water|air>/<metric> -> ceres/pomona-0001/tele/<zone>/<metric> (non-retained numbers)"
+      sql: SELECT *, nth(2, tokens(topic, '/')) as zone, nth(3, tokens(topic, '/')) as metric FROM "pomona/water/+", "pomona/air/+"
+      topic: ceres/pomona-0001/tele/${zone}/${metric}
+      qos: "${qos}"
+      retain: "false"
+      payload: "${payload}"
+    - id: pomona_v2_node
+      description: "pomona/unit/rssi_dbm|uptime_s -> tele/node/<metric>"
+      sql: SELECT *, nth(3, tokens(topic, '/')) as metric FROM "pomona/unit/rssi_dbm", "pomona/unit/uptime_s"
+      topic: ceres/pomona-0001/tele/node/${metric}
+      qos: "${qos}"
+      retain: "false"
+      payload: "${payload}"
+    - id: pomona_v2_status
+      description: "pomona/unit/status -> sys/status (the LWT, retained)"
+      sql: SELECT * FROM "pomona/unit/status"
+      topic: ceres/pomona-0001/sys/status
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_health
+      description: "pomona/unit/sensors -> sys/health (availability map, retained)"
+      sql: SELECT * FROM "pomona/unit/sensors"
+      topic: ceres/pomona-0001/sys/health
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_meta
+      description: "pomona/unit/fw_version -> sys/meta (a v1 node's self-description, synthesised)"
+      sql: SELECT * FROM "pomona/unit/fw_version"
+      topic: ceres/pomona-0001/sys/meta
+      qos: "1"
+      retain: "true"
+      # A JSON payload must be HOCON-quoted (outer quotes, inner escaped) or the
+      # env parser reads it as an object and the node refuses to boot (tested
+      # locally 2026-09-12 against emqx/emqx:5.8.9).
+      payload: '"{\"type\":\"aeroponic_tower\",\"node\":\"giga-r1\",\"fw_version\":\"${payload}\",\"contract\":1,\"via\":\"emqx-bridge\",\"actuators\":[\"pump\",\"light\"]}"'
+    - id: pomona_v2_pump_state
+      description: "pomona/pump/request -> actuator/pump/state (the node's decision, retained)"
+      sql: SELECT * FROM "pomona/pump/request"
+      topic: ceres/pomona-0001/actuator/pump/state
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_pump_reason
+      description: "pomona/pump/reason -> actuator/pump/reason"
+      sql: SELECT * FROM "pomona/pump/reason"
+      topic: ceres/pomona-0001/actuator/pump/reason
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_pump_power
+      description: "pomona/pump/power (HA, the plug's watts) -> actuator/pump/power_w"
+      sql: SELECT * FROM "pomona/pump/power"
+      topic: ceres/pomona-0001/actuator/pump/power_w
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_light_state
+      description: "pomona/light/request -> actuator/light/state"
+      sql: SELECT * FROM "pomona/light/request"
+      topic: ceres/pomona-0001/actuator/light/state
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_dose_result
+      description: "pomona/dose/result (v1 event line) -> dose/result; a Vertumnus on v2 reads a non-JSON result as a v1 line"
+      sql: SELECT * FROM "pomona/dose/result"
+      topic: ceres/pomona-0001/dose/result
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_diag
+      description: "pomona/unit/i2c_scan -> sys/diag/i2c_scan"
+      sql: SELECT * FROM "pomona/unit/i2c_scan"
+      topic: ceres/pomona-0001/sys/diag/i2c_scan
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    - id: pomona_v2_ota_result
+      description: "pomona/unit/ota_result -> sys/ota/result"
+      sql: SELECT * FROM "pomona/unit/ota_result"
+      topic: ceres/pomona-0001/sys/ota/result
+      qos: "1"
+      retain: "true"
+      payload: "${payload}"
+    # ---- v2 -> v1: the requests a v2 publisher makes of a v1 node ----------------
+    - id: v2_pomona_pump_set
+      description: "actuator/pump/set (Ceres / HA) -> pomona/pump/override (never retained)"
+      sql: SELECT * FROM "ceres/pomona-0001/actuator/pump/set"
+      topic: pomona/pump/override
+      qos: "1"
+      retain: "false"
+      payload: "${payload}"
+    - id: v2_pomona_ota_url
+      description: "sys/ota/url -> pomona/unit/ota_url (never retained: a retained URL re-flashes on every reconnect)"
+      sql: SELECT * FROM "ceres/pomona-0001/sys/ota/url"
+      topic: pomona/unit/ota_url
+      qos: "1"
+      retain: "false"
+      payload: "${payload}"
+    - id: v2_pomona_diag_get
+      description: "sys/diag/i2c_scan/get -> pomona/unit/i2c_scan/get"
+      sql: SELECT * FROM "ceres/pomona-0001/sys/diag/i2c_scan/get"
+      topic: pomona/unit/i2c_scan/get
+      qos: "0"
+      retain: "false"
+      payload: "${payload}"
+    - id: v2_pomona_stage
+      description: "desired.stage (the registry) -> pomona/control/mode (establishment|established, retained)"
+      sql: SELECT payload.stage as stage FROM "ceres/pomona-0001/desired" WHERE payload.stage <> ''
+      topic: pomona/control/mode
+      qos: "1"
+      retain: "true"
+      payload: "${stage}"

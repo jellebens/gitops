@@ -1,0 +1,374 @@
+# ceres landing zone — ONE VERTUMNUS PER UNIT (ceres ADR-0007/0010, card #291).
+#
+# Each entry in `units:` renders a Deployment `ceres-vertumnus-<unit_id>` of the
+# jellebens/ceres-vertumnus image with two documents mounted under /config:
+#   values.yaml  — what gitops decides per Vertumnus: the fleet `mode` ceiling,
+#                  this unit's `role` and `contract`, the hard rails, the broker
+#   config.yaml  — the unit's config document: the ADR-0002 facts (reservoir,
+#                  plants, stage, targets, reagent fills, pump calibration).
+#                  From migration slice 2 the registry projects this from
+#                  Postgres onto retained MQTT; the shape does not change.
+# A Vertumnus needs the broker and nothing else (no database, no other service
+# on its actuation path).
+#
+# THE LOAD-BEARING SAFETY PROPERTY (do not weaken): `mode` is a CEILING on
+# every unit's `role`. `mode: shadow` here keeps every Vertumnus deciding and
+# publishing but NEVER dosing, whatever a unit's role says; flip it per
+# environment (.config/<env>/ceres.yaml) only after the shadow soak, and
+# retire the previous Vertumnus of that unit in the same release — two Vertumnus instances
+# must never dose one tank. Single replica + Recreate per Vertumnus for the same
+# reason (two controllers would each believe they own the lockout clock).
+
+image:
+  repository: jellebens/ceres-vertumnus
+  # ceres repo release tag vertumnus/v0.6.0 (arm64, --provenance=false — the
+  # cluster is arm64). 0.6.0 = migration slice 1: the 0.5.1 controller as
+  # one Vertumnus per unit; bit-for-bit 0.5.1 behaviour on the tower (golden
+  # replay in the repo), unit + unit_type labels on every metric.
+  tag: "0.15.0"       # vertumnus/v0.15.0 (#305): tower -> facts, metrics ceres_unit_*; 0.14.0 (#304): OTA; 0.13.0 (#302): tracing; 0.12.0 (#300): GET /learned
+  pullPolicy: IfNotPresent
+
+# FLEET CEILING: observe | shadow | active. A unit can be lower, never higher.
+mode: shadow
+
+# --- Distributed tracing (card #302, platform/jaeger) -------------------------------
+# PRESENCE of OTEL_EXPORTER_OTLP_ENDPOINT is the whole switch (ceres_shared.tracing —
+# the jupiter #179 convention): enabled: false renders no env and every service runs
+# byte-identical to before this card. Export is fail-open (a down collector drops
+# spans, never a cycle). Every Vertumnus, Annona, Robigus and Carmenta gets it; a
+# dose request carries the W3C traceparent in its v2 document, firmware >= 2.2 echoes
+# it in dose/result, so one trace spans decision -> broker -> node -> ack -> judgement.
+tracing:
+  enabled: true
+  endpoint: "http://jaeger-collector.jaeger.svc.cluster.local:4317"  # OTLP gRPC
+
+# Cadence + freshness, the same for every Vertumnus (values, not the document).
+vertumnus:
+  # The operator API (ceres services/vertumnus README "The operator API", card #296):
+  # GET /ph /ec /a /b /temp/water /temp/air /light /pump /doses /decision,
+  # POST /<reagent>/doses, PUT /ph/probe, PUT /pump. Reached by kubectl port-forward
+  # (scripts/vertumnusctl.sh); writes need the VERTUMNUS_TOKEN key of the unit's
+  # secret (empty = read-only). 0 disables the listener.
+  apiPort: 9001
+  intervalSeconds: 60     # evaluation cadence (doses remain lockout-limited)
+  freshnessSeconds: 120   # readings older than this are not dosing-grade
+  confirmMinutes: 10      # a violation must hold this long before any action
+
+units:
+  pomona-0001:            # the aeroponic tower (ceres ADR-0009: <name>-NNNN)
+    enabled: true
+    role: active          # effective = min(role, mode, profile.max_role)
+    contract: v1          # today's pomona/# tree through the Vertumnus's adapter (slice 3 -> v2)
+    # file = the config document below, rendered to /config/config.yaml;
+    # mqtt = the registry's retained ceres/pomona-0001/sys/config (slice 2,
+    # ADR-0011) -- the `config:` block below is then ignored and can go, the
+    # Vertumnus observes until the document arrives. Flip per env after the
+    # registry has imported the facts (.config/<env>/ceres.yaml).
+    configSource: file
+    mqtt:
+      host: mqtt.lab.local   # the EMQX VIP — never a pod/node IP
+      port: 1883
+      clientId: vertumnus-pomona-0001    # DISTINCT from the live pomona-demeter client id
+      baseTopic: pomona              # v1: the tree the tower's firmware speaks
+      # v1: where THIS Vertumnus's own retained documents go
+      # (pomona/<ownPrefix>/{status,mode,decision,ledger}). "demeter-shadow"
+      # while soaking next to the live pomona-demeter (which owns
+      # pomona/demeter/#); flip to "ceres" at the cutover so the new Vertumnus
+      # inherits the live retained ledger.
+      ownPrefix: demeter
+      # v2 TRANSITION (slice 3, #295): while the node still speaks v1 a Vertumnus on
+      # `contract: v2` reads ceres/pomona-0001/# through the EMQX republish
+      # bridge but sends its dose command and pump override on the v1 tree
+      # itself (ml -> the bench command with its own calibration) and adopts
+      # the retained v1 ledger once. Set to the v1 root; remove it when
+      # firmware 2.0.0 is on the tower.
+      legacyBaseTopic: ""
+    # Broker creds (MQTT_USER / MQTT_PASS): the same least-privilege
+    # pomona-demeter EMQX user the live Vertumnus uses (subscribe pomona/#, publish
+    # ONLY pomona/dose/test + pomona/pump/override + pomona/demeter/#) — its
+    # publish grant must gain pomona/demeter-shadow/# for the soak (owner
+    # runbook in the README). Sealed blobs are NAMESPACE + NAME scoped: seal
+    # again for ns ceres / secret ceres-vertumnus-pomona-0001-secrets in
+    # .config/<env>/ceres.yaml.
+    secret:
+      name: ceres-vertumnus-pomona-0001-secrets
+      sealedSecret:
+        enabled: true
+        encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+    # THE FEW HARD RAILS (ceres ADR-0001 §4). null = derived from the
+    # reservoir volume (acid cap 0.4 ml/L per 24 h, max single dose 0.2 ml/L).
+    # NOTE for overrides: 0, not null — a null in a Helm values override
+    # DELETES the key and the chart default wins.
+    rails:
+      ph_daily_cap_ml: null
+      ph_max_single_dose_ml: null
+      nutrient_feeds_per_24h: 1
+      dosing_window_h: 24
+      adaptive: true
+    # THE CONFIG DOCUMENT (ceres services/Vertumnus/config.example.yaml documents
+    # every key). The lab facts — established_from, the bottle fills, the
+    # removed daily caps — live in .config/lab/ceres.yaml.
+    config:
+      type: aeroponic_tower
+      node: giga-r1
+      version: 1
+      reservoir_l: 10
+      plants:
+        - { crop: strawberry, variety: alpine, count: 9, tiers: [3, 4] }
+        - { crop: paprika,                     count: 4, tiers: [1] }
+        - { crop: dulce_italiano,              count: 3, tiers: [2] }
+        - { crop: chili,                       count: 2, tiers: [2] }
+      stage: establishment
+      established_from: null
+      targets:
+        ec_ms_cm:
+          establishment: [0.8, 1.0]
+          established: [1.4, 1.6]
+        ph: [5.8, 6.2]
+        light:
+          hours_per_day: { establishment: 12, established: 14 }
+          canopy_lux_min: null
+        water_temp_max_c: 26.5
+      reagents:
+        ph_down:    { container_ml: null, filled_on: null, line_volume_ml: 0 }
+        nutrient_a: { container_ml: null, filled_on: null, line_volume_ml: 0 }
+        nutrient_b: { container_ml: null, filled_on: null, line_volume_ml: 0 }
+      pumps:
+        ph_down:    { channel: 1, full_ml_s: 0.48, slow_ml_s: 0.11, slow_speed: 50 }
+        nutrient_a: { channel: 2, full_ml_s: 0.66, slow_ml_s: 0.24, slow_speed: 50 }
+        nutrient_b: { channel: 3, full_ml_s: 0.60, slow_ml_s: 0.11, slow_speed: 50 }
+
+# The config database (ADR-0011): a CloudNativePG Cluster in this zone; the
+# operator is the platform app `cnpg`. The operator writes the app secret
+# `<name>-app` (username/password/host/port/dbname) the registry reads.
+postgres:
+  enabled: true
+  name: ceres-pg
+  # CloudNativePG PostgreSQL image (multi-arch, arm64 included). Pin the minor.
+  image: ghcr.io/cloudnative-pg/postgresql:16.4
+  instances: 2
+  storageClass: longhorn
+  size: 5Gi
+  podMonitor: true
+  # The read-only `grafana` role (Grafana PostgreSQL datasource on Annona,
+  # platform/observability-config): the operator manages it; the owner seals
+  # its password as key `password` in this secret (ns ceres) and as
+  # CERES_PG_PASSWORD in `grafana-ceres-postgres` (ns observability).
+  grafanaRole:
+    enabled: true
+    secret: ceres-pg-grafana
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# The registry (ADR-0010/0011): one replica, the only writer.
+annona:
+  enabled: true
+  image:
+    repository: jellebens/ceres-annona
+    tag: "0.4.1"  # annona/v0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
+    pullPolicy: IfNotPresent
+  apiPort: 8080
+  # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
+  # backup pattern; restore with `pg_restore -d ceres <file>` (README).
+  backup:
+    enabled: true
+    schedule: "45 3 * * *"   # 03:45 daily, after the InfluxDB full at 03:30
+    retentionDays: 30
+    storageClass: smb
+    size: 2Gi
+  republishSeconds: 300
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: registry
+  # MQTT_USER / MQTT_PASS of the dedicated `annona` EMQX user (publish
+  # ceres/+/sys/config, ceres/+/desired, ceres/sys/#) + ANNONA_TOKEN
+  # for API writes. Seal for ns ceres / secret ceres-annona-secrets.
+  secret:
+    name: ceres-annona-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", ANNONA_TOKEN: "Ag..." }
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+# Robigus (ADR-0009 §6, card #293): the plant-health watch, one replica.
+robigus:
+  enabled: true
+  image:
+    repository: jellebens/ceres-robigus
+    tag: "0.4.1"  # robigus/v0.4.1 (#305); 0.4.0 (#302): tracing
+    pullPolicy: IfNotPresent
+  intervalSeconds: 30
+  republishSeconds: 300
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: robigus
+  # MQTT_USER / MQTT_PASS of the dedicated `robigus` EMQX user (subscribe
+  # ceres/# + pomona/#; publish ceres/+/sys/alerts, ceres/+/sys/advice,
+  # ceres/sys/alerts, ceres/sys/status/robigus). Seal for ns ceres /
+  # secret ceres-robigus-secrets.
+  secret:
+    name: ceres-robigus-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      cpu: 200m
+      memory: 96Mi
+
+# The long-term ARCHIVE of every unit's v2 tree (architecture §8 R1, ADR-0006,
+# card #295): Telegraf MQTT ceres/# -> InfluxDB bucket `ceres`, every
+# series tagged `unit`. Pure consumer. Owner pre-deploy: the `telegraf-ceres`
+# EMQX user (subscribe ceres/# only), the Influx `ceres` bucket (org zeus,
+# retention "forever" = 0s or the longest the disk allows) + a bucket-scoped
+# write token, then seal MQTT_USER / MQTT_PASS / INFLUX_TOKEN below.
+telegraf:
+  enabled: true
+  image:
+    repository: telegraf
+    tag: "1.31-alpine"
+    pullPolicy: IfNotPresent
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: telegraf-ceres
+    qos: 1
+  influx:
+    url: http://influxdb-influxdb2.influxdb
+    org: zeus
+    bucket: ceres
+  metricsPort: 9273
+  secret:
+    name: ceres-telegraf-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", INFLUX_TOKEN: "Ag..." }
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# --- firmware images for the nodes (card #304) -------------------------------------
+# ceres-firmware: nginx serving the .ota images from a share (templates/firmware-server.yaml).
+# LAN: http://firmware.lab.local/<type>/<type>-<version>.ota (gateway route + DNS in
+# .config/lab/gateway.yaml / coredns-lab.yaml). Rollout = drop the file on the share,
+# `PUT /units/<id>/firmware {version, url}` on Annona, the unit's Vertumnus does the rest.
+firmware:
+  enabled: true
+  storageClass: smb        # the NAS share, like the Annona backups — copy images in by hand or from CI
+  size: 1Gi
+  image:
+    repository: nginxinc/nginx-unprivileged   # official multi-arch (arm64), runs as uid 101 on :8080
+    tag: "1.27-alpine"
+    pullPolicy: IfNotPresent
+
+# Grafana dashboards (architecture §8 R3): dashboards/*.json provisioned via
+# the kube-prometheus-stack sidecar into the `ceres` folder. The InfluxDB
+# datasource is static-mounted by observability-config (uid `influxdb`).
+dashboard:
+  enabled: true
+  sidecarLabel: grafana_dashboard
+  folderAnnotation: grafana_folder
+  folder: ceres
+
+# CARMENTA — the cross-unit learner (architecture §5.2, ADR-0012, card #298):
+# pooled priors on ceres/<unit>/sys/prior for units that have learned nothing
+# yet, the uptake model, shopping and placement advice on ceres/sys/advice.
+# Pure reader of the tree; publishes only those three kinds of document.
+carmenta:
+  enabled: true
+  image:
+    repository: jellebens/ceres-carmenta
+    tag: "0.2.1"  # carmenta/v0.2.1 (#305); 0.2.0 (#302): tracing
+    pullPolicy: IfNotPresent
+  intervalSeconds: 300
+  republishSeconds: 900
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: carmenta
+  # MQTT_USER / MQTT_PASS of the dedicated `carmenta` EMQX user (subscribe
+  # ceres/#; publish ceres/+/sys/prior, ceres/sys/advice, ceres/sys/status/carmenta).
+  # Seal for ns ceres / secret ceres-carmenta-secrets.
+  secret:
+    name: ceres-carmenta-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+metrics:
+  enabled: true
+  port: 9000
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  releaseLabel: kube-prometheus-stack
+
+# Architecture §8 R2: the infrastructure rules Robigus cannot raise about
+# itself (Vertumnus down, node offline, readings stale) plus the plant-health
+# mirror on ceres_alert_active. Routed through Alertmanager.
+prometheusRule:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+  readingsStaleSeconds: 600
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (zeus pattern): default-denies
+# inbound while leaving egress open (the broker VIP). Only the Prometheus
+# scrape of the metrics port is admitted.
+networkPolicy:
+  enabled: true
+  metricsScrapeNamespace: observability
+
+runtime:
+  uid: 1000
+  gid: 1000
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+# /metrics answers from prometheus_client's own thread; liveness is
+# deliberately tolerant — a restarted Vertumnus sits out a fresh boot lockout,
+# so restarts cost dosing time and buy nothing.
+probes:
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 6

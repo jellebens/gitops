@@ -1,0 +1,95 @@
+# ceres landing zone — lab overrides (one Vertumnus per unit, card #291/#295).
+#
+# COEXISTENCE (owner decision 2026-09-13, card #295): Ceres lands NEXT TO the live
+# demeter brain (landingzones/demeter, ns demeter, brain 0.8.x on the tower) —
+# it does not replace it in the same release. Until the cutover commit:
+#   mode: shadow        every Vertumnus decides and publishes, NONE doses
+#   contract: v2        the tower's tree through the EMQX republish bridge
+#                       (platform/mqtt 0.3.1), legacyBaseTopic pomona for the
+#                       bench dose line / override once it goes active
+# Two controllers must never dose one tank (architecture §4), so the cutover is
+# ONE commit that (a) sets `mode: active` here, (b) deletes landingzones/demeter,
+# applications/templates/demeter and .config/lab/demeter.yaml. Do it only after
+# the shadow soak shows the Vertumnus's decisions matching the brain's
+# (ceres/pomona-0001/sys/decision vs pomona/demeter/decision) and every secret
+# below is sealed.
+#
+# BROKER CREDS: every encryptedData below is empty until the owner seals the
+# ns-ceres secrets (#295 checklist items 1a-3):
+#   printf '%s' "$VALUE" | kubeseal --raw \
+#     --controller-name sealed-secrets --controller-namespace argocd \
+#     --namespace ceres --name <secret-name>
+# Until then the pods start, fail to connect and retry — harmless.
+
+mode: shadow
+
+units:
+  pomona-0001:
+    contract: v2          # coexistence soak on the v2 tree (bridge); the brain owns the tank
+    mqtt:
+      legacyBaseTopic: pomona
+    secret:
+      sealedSecret:
+        encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+    # DAILY CAPS REMOVED (owner 2026-09-11), carried over from the retired
+    # pod's lab overrides in .config/lab/pomona.yaml. NOTE: 0, not null — a
+    # null in a Helm values override DELETES the key and the chart default wins.
+    rails:
+      ph_daily_cap_ml: 0
+      nutrient_feeds_per_24h: 0
+    # THE LAB FACTS (carried over from .config/lab/pomona.yaml): the stage
+    # ramp date and the bottle fills as of the 2026-09-11 baseline. This file
+    # is now the source of truth for the tower's facts until the registry
+    # (migration slice 2) takes over.
+    config:
+      established_from: "2026-09-14"
+      reagents:
+        ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
+        nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
+        nutrient_b: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
+
+# --- registry (slice 2, #292) -----------------------------------------------
+# OWNER PRE-DEPLOY: create the `annona` EMQX user + ACL, then seal
+# MQTT_USER / MQTT_PASS / ANNONA_TOKEN (ns ceres / secret
+# ceres-annona-secrets). Until sealed the registry serves reads only and
+# projects nothing; the Vertumnus keeps reading its file (configSource: file).
+# After the one-off import (landing-zone README), set
+# units.pomona-0001.configSource: mqtt here and drop the `config:` block above.
+annona:
+  secret:
+    sealedSecret:
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", ANNONA_TOKEN: "Ag..." }
+
+# --- robigus (slice 4a, #293) -------------------------------------------------
+# OWNER PRE-DEPLOY: create the `robigus` EMQX user + ACL (platform/mqtt/files/
+# acl.conf is the DR mirror), then seal MQTT_USER / MQTT_PASS (ns ceres /
+# secret ceres-robigus-secrets). Until sealed it cannot connect and publishes
+# nothing; the PrometheusRule's plant-health mirror stays quiet.
+robigus:
+  secret:
+    sealedSecret:
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+
+# --- telegraf archive (slice 3, #295) --------------------------------------------
+# OWNER PRE-DEPLOY: EMQX user `telegraf-ceres` (subscribe ceres/#), Influx
+# bucket `ceres` + write token, then seal MQTT_USER / MQTT_PASS / INFLUX_TOKEN
+# (ns ceres / secret ceres-telegraf-secrets). Until sealed nothing flows.
+telegraf:
+  secret:
+    sealedSecret:
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", INFLUX_TOKEN: "Ag..." }
+
+# --- carmenta (slice 5, #298) -----------------------------------------------------
+# OWNER PRE-DEPLOY: EMQX user `carmenta` (subscribe ceres/#; publish
+# ceres/+/sys/prior, ceres/sys/advice, ceres/sys/status/carmenta), then seal
+# MQTT_USER / MQTT_PASS (ns ceres / secret ceres-carmenta-secrets).
+carmenta:
+  secret:
+    sealedSecret:
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag..." }
+
+# --- the grafana read-only role on ceres-pg (#298) -----------------------------------
+# OWNER: pick a password, seal it as key `password` for ns ceres / secret
+# ceres-pg-grafana (a plain SealedSecret; add it to this file as an extra
+# manifest or seal by hand), and as CERES_PG_PASSWORD for ns observability /
+# secret grafana-ceres-postgres (.config/lab/observability.yaml).

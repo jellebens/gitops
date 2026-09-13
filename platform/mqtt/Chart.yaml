@@ -3,5 +3,10 @@ name: mqtt
 description: Platform MQTT broker — EMQX 3-node HA cluster at mqtt.lab.local
 type: application
 # 0.1.1 = #278 pomona-demeter ACL added to the DR mirror (files/acl.conf).
-version: 0.1.1
+# 0.2.0 = ceres #295 (ADR-0008): rule-engine republish bridge pomona/# <-> ceres/pomona-0001/#
+#         declared in values.rules; v2 users in the ACL DR mirror.
+# 0.3.0 = ceres #297 (ADR-0012): the v2 root is ceres/ — bridge targets, ACL users vertumnus-*,
+#         annona, telegraf-ceres.
+# 0.3.1 = ceres #298: ACL mirror user carmenta.
+version: 0.3.1
 appVersion: "5.8.9"

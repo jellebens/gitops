@@ -1,0 +1,175 @@
+{{- if .Values.carmenta.enabled }}
+# ceres-carmenta (architecture §5.2, ADR-0007 §6, ADR-0012, card #298): the
+# cross-unit learner. Reads every unit's retained sys/ledger, sys/config and EC
+# telemetry; publishes a widened pooled prior on ceres/<unit>/sys/prior for
+# units that have learned nothing yet, and the fleet's advice (feed forecast,
+# shopping, placement) on ceres/sys/advice. Never doses, never sets an
+# actuator, never writes config; an outage changes nothing a Vertumnus does.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ceres-carmenta
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-carmenta
+    app.kubernetes.io/part-of: ceres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-carmenta
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ceres-carmenta
+        app.kubernetes.io/part-of: ceres
+      annotations:
+        checksum/config: {{ toYaml .Values.carmenta | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: carmenta
+          image: "{{ .Values.carmenta.image.repository }}:{{ .Values.carmenta.image.tag }}"
+          imagePullPolicy: {{ .Values.carmenta.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #302): presence is the switch (ceres_shared.tracing)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
+            - name: MQTT_HOST
+              value: {{ .Values.carmenta.mqtt.host | quote }}
+            - name: MQTT_PORT
+              value: {{ .Values.carmenta.mqtt.port | quote }}
+            - name: MQTT_CLIENT_ID
+              value: {{ .Values.carmenta.mqtt.clientId | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
+            - name: INTERVAL_SECONDS
+              value: {{ .Values.carmenta.intervalSeconds | quote }}
+            - name: REPUBLISH_SECONDS
+              value: {{ .Values.carmenta.republishSeconds | quote }}
+          # MQTT_USER / MQTT_PASS of the `carmenta` broker user. optional: until
+          # sealed the pod runs, cannot connect, and publishes nothing.
+          envFrom:
+            - secretRef:
+                name: {{ .Values.carmenta.secret.name }}
+                optional: true
+          {{- if .Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          readinessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 6
+          {{- end }}
+          resources:
+            {{- toYaml .Values.carmenta.resources | nindent 12 }}
+{{- if .Values.metrics.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres-carmenta-metrics
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-carmenta
+    app.kubernetes.io/part-of: ceres
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ceres-carmenta
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ceres-carmenta
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-carmenta
+    app.kubernetes.io/part-of: ceres
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-carmenta
+  namespaceSelector:
+    matchNames: [ceres]
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ceres-carmenta
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-carmenta
+    app.kubernetes.io/part-of: ceres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-carmenta
+  ingress:
+    {{- if .Values.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.metrics.port | quote }}
+              protocol: TCP
+    {{- else }}
+    []
+    {{- end }}
+{{- end }}
+{{- if and .Values.carmenta.secret.sealedSecret.enabled .Values.carmenta.secret.sealedSecret.encryptedData }}
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ .Values.carmenta.secret.name }}
+  namespace: ceres
+spec:
+  encryptedData:
+    {{- range $k, $v := .Values.carmenta.secret.sealedSecret.encryptedData }}
+    {{- if $v }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+  template:
+    metadata:
+      name: {{ .Values.carmenta.secret.name }}
+      namespace: ceres
+    type: Opaque
+{{- end }}
+{{- end }}
