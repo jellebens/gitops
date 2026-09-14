@@ -291,6 +291,22 @@ stitches in), `robigus.tick`, `carmenta.tick`. Export is fail-open: a down colle
 costs spans, never a cycle. `enabled: false` removes the env and the services run
 exactly as before.
 
+Since 2026-09-14 (ceres ADR-0013; vertumnus ≥ 0.16.0, annona ≥ 0.5.0, robigus
+≥ 0.5.0, carmenta ≥ 0.3.0) the trace crosses the broker: every JSON document a
+service publishes carries the `traceparent` of the span that wrote it, a reader's
+consumer span (`vertumnus.message`, `robigus.message`, `carmenta.message`) is a
+child of the sender's when the broker delivers the document live and only links
+to it for a retained replay — so one `vertumnus.cycle` holds the decision, Robigus
+reading it and, through Home Assistant's ack (`…/sys/alerts/ack`, `…/sys/advice/ack`,
+`ceres/sys/alerts/ack`; HA package `ceres_robigus.yaml` ≥ 1.3.0, the notification's
+title + message since 1.4.0), `robigus.notified`. The `homeassistant` broker user
+publishes the three ack topics (mqtt chart 0.3.2 ACL mirror; live rule applied
+2026-09-14). Every consumer span carries the message body as `mqtt.payload` and
+every publish is an `mqtt.publish` event (vertumnus ≥ 0.17.0, robigus ≥ 0.6.0,
+carmenta ≥ 0.4.0, annona ≥ 0.6.0); `CERES_TRACE_PAYLOAD_CHARS=0` on a deployment
+turns the body off. Known gap: after a restart a Vertumnus decides `none` for
+`confirm_minutes` and publishes no decision (ceres Trello #310).
+
 ## Carmenta, backups and the Grafana datasource (slice 5, card #298)
 
 `templates/carmenta-deployment.yaml`: `ceres-carmenta`, the cross-unit
