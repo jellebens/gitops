@@ -32,7 +32,8 @@ name: ceres
 # 0.11.7 = ceres #302 follow-up: the trace across every MQTT document and through HA — vertumnus 0.16.0,
 #          annona 0.5.0, robigus 0.5.0 (reads the HA notifier acks), carmenta 0.3.0.
 # 0.11.8 = ceres #302: the message body in every trace span — vertumnus 0.17.0, annona 0.6.0, robigus 0.6.0, carmenta 0.4.0.
-version: 0.11.8
+# 0.11.9 = ceres #302: robigus 0.6.1 — what the notifier said (ack.title / ack.message).
+version: 0.11.9
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

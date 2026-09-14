@@ -202,7 +202,7 @@ robigus:
   enabled: true
   image:
     repository: jellebens/ceres-robigus
-    tag: "0.6.0"  # robigus/v0.6.0 (#302): the message body in every span; 0.5.0 (#302): documents carry the tick trace, HA ack -> robigus.notified; 0.4.2: decommission Demeter; 0.4.1 (#305); 0.4.0 (#302): tracing
+    tag: "0.6.1"  # robigus/v0.6.1 (#302): ack.title / ack.message from the HA notification; 0.6.0 (#302): the message body in every span; 0.5.0 (#302): documents carry the tick trace, HA ack -> robigus.notified; 0.4.2: decommission Demeter; 0.4.1 (#305); 0.4.0 (#302): tracing
     pullPolicy: IfNotPresent
   intervalSeconds: 30
   republishSeconds: 300
