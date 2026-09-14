@@ -9,6 +9,12 @@ metadata:
     # After the platform data services it consumes: mqtt (broker). Same
     # landing-zone wave as pomona/zeus/jupiter.
     argocd.argoproj.io/sync-wave: "30"
+    # Diff via a server-side dry-run instead of Argo's local structured-merge
+    # diff. The local diff drops CRD-schema defaults inside atomic lists (the
+    # CNPG operator defaults `connectionLimit: -1` on every managed role), so
+    # the ceres-pg Cluster was forever OutOfSync and self-healed every 5 min
+    # with a no-op apply. See AGENTS.md "Known Pitfalls".
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: landing-zones
   destination:

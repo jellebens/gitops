@@ -15,7 +15,11 @@ is a **stock `argo-cd` Helm release** (release name `argocd`, chart
 This chart layers a small set of **partial patches / ConfigMaps** on top of that
 Helm-owned install so the important knobs are declarative and version-controlled:
 
-- `cm.yaml` — `argocd-cm` (`application.resourceTrackingMethod: annotation`).
+- `cm.yaml` — `argocd-cm` (`application.resourceTrackingMethod: annotation`,
+  plus a system-level `ignoreDifferences` for `Application` that hides the
+  `pre-delete-finalizer.argocd.argoproj.io` / `post-delete-finalizer...`
+  finalizers the controller itself stamps on children with Helm delete hooks —
+  otherwise the `bootstrap` app-of-apps is forever OutOfSync on longhorn/kyverno).
 - `cmd-params.yaml` — `argocd-cmd-params-cm` (`server.insecure`).
 - `service.yaml` — patches the `argocd-server` Service to `ClusterIP` (reached
   via the gateway).
