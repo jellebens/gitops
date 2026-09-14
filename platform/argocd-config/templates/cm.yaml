@@ -5,3 +5,13 @@ metadata:
   namespace: argocd
 data:
   application.resourceTrackingMethod: annotation
+  # Argo CD 3.x stamps `pre-delete-finalizer.argocd.argoproj.io` (and the
+  # `/cleanup` stage; likewise `post-delete-finalizer...`) on every child
+  # Application whose chart ships Helm pre-/post-delete hooks (longhorn,
+  # kyverno). Git only declares `resources-finalizer.argocd.argoproj.io`, so
+  # the app-of-apps (`bootstrap`) showed those children OutOfSync forever.
+  # The controller owns these finalizers (adds/removes them itself each
+  # reconcile), so they are noise in the diff, not drift.
+  resource.customizations.ignoreDifferences.argoproj.io_Application: |
+    jqPathExpressions:
+      - '.metadata.finalizers[]? | select(startswith("pre-delete-finalizer.argocd.argoproj.io") or startswith("post-delete-finalizer.argocd.argoproj.io"))'
