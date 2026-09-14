@@ -17,7 +17,9 @@ type: application
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
 # 0.1.1 = ceres + kyverno-config opt into server-side diff (compare-options
 #         ServerSideDiff=true) — ends the phantom-diff self-heal loop.
-version: 0.1.1
+# 0.1.2 = kyverno too: its policies.kyverno.io CRDs showed the same phantom diff
+#         once the SyncError condition was cleared.
+version: 0.1.2
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
