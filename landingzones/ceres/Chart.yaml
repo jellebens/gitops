@@ -33,7 +33,10 @@ name: ceres
 #          annona 0.5.0, robigus 0.5.0 (reads the HA notifier acks), carmenta 0.3.0.
 # 0.11.8 = ceres #302: the message body in every trace span — vertumnus 0.17.0, annona 0.6.0, robigus 0.6.0, carmenta 0.4.0.
 # 0.11.9 = ceres #302: robigus 0.6.1 — what the notifier said (ack.title / ack.message).
-version: 0.11.9
+# 0.12.0 = #295 item 8 (slice 3, the wire): firmware 2.x (2.3.0, pomona PR #102) on the tower, so the lab
+#          override drops mqtt.legacyBaseTopic — the Vertumnus doses through ml-based dose/request with acks
+#          (ADR-0008). RELEASE ONLY AFTER THE FLASH: on firmware 1.3.8 a v2 dose/request reaches nothing.
+version: 0.12.0
 type: application
 appVersion: "0.8.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

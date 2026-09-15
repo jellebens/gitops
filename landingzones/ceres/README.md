@@ -221,15 +221,30 @@ The tower still speaks the v1 tree; the platform broker's republish bridge
    into two SealedSecret manifests, saves the node's password to `.secrets/ceres/`
    (gitignored, for `firmware/pomona/secrets.h`), and opens the PR to develop.
    No password ever reaches the terminal or git. Then develop → master.
-3. Flip the Vertumnus: `units.pomona-0001.contract: v2`,
-   `mqtt.legacyBaseTopic: pomona`, `mqtt.clientId: vertumnus-pomona-0001` with the
-   `vertumnus-pomona-0001` creds sealed (Vertumnus image ≥ 0.9.0). The Vertumnus adopts the
-   retained v1 ledger once and keeps dosing through the bench channel.
-4. Firmware 2.0.0 (pomona repo) over OTA in a maintenance window; Home Assistant
-   packages 2.0.0 (home-assitant repo).
-5. Afterwards: `platform/mqtt` `rules.enabled: false`, clear the old retained
-   `pomona/#` topics, remove `legacyBaseTopic`, retire the v1 users; delete the
-   pomona ingestion bridge (`landingzones/pomona` — the bucket stays).
+3. ✅ 2026-09-13 — the Vertumnus on `units.pomona-0001.contract: v2` with
+   `mqtt.legacyBaseTopic: pomona` (`.config/lab/ceres.yaml`); it adopted the retained v1
+   ledger once and doses through the bench channel while the node is on 1.3.8. Home
+   Assistant reads and publishes the v2 tree already (`pomona_schedule.yaml`).
+4. **Firmware 2.3.0 (pomona PR #102: the v2 wire of 2.0.0–2.2.0 plus the home screen —
+   not flashed yet) over OTA in a maintenance window, then chart 0.12.0 in the same
+   window.** The image is made in `~/ota-tools` (WSL): compile, `lzss.py --encode`,
+   `bin2ota.py GIGA`, named `pomona-<version>.ota`. Order matters: 2.x drops
+   the v1 bench topic, so between the node's reboot and the release below the Vertumnus's
+   dose commands reach nothing (a dose is recorded ahead of the pump and never undone — a
+   false no-response). Do it when `GET /` on the operator API shows no pending violation,
+   and keep the gap to minutes:
+   1. copy `pomona-2.3.0.ota` onto the share (`/srv/firmware/pomona/` in the
+      `ceres-firmware` pod, PVC `ceres-firmware`);
+   2. `PUT /units/pomona-0001/firmware {"version":"2.3.0","url":"http://firmware.lab.local/pomona/pomona-2.3.0.ota"}`
+      on Annona (see "Firmware over the air"); the Vertumnus pushes the URL, the node
+      stages, reboots and reports `2.3.0` in `sys/meta`;
+   3. release chart 0.12.0 (`develop → master`): the lab override without
+      `legacyBaseTopic` — the Vertumnus sends ml-based `dose/request` and judges the acks
+      (`ceres_dose_ack_total`).
+5. Afterwards (a later release, once a dose has been acked on 2.2.0): `platform/mqtt`
+   `rules.enabled: false`, clear the old retained `pomona/#` topics, retire the v1 users,
+   delete `v1_pomona.py` in the ceres repo; delete the pomona ingestion bridge
+   (`landingzones/pomona` — the bucket stays).
 
 ## The operator API of a unit (Vertumnus 0.10.0, card #296)
 
