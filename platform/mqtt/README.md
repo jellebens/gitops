@@ -61,7 +61,7 @@ see "ACL disaster recovery" below):
 
 | user            | allow                                                        | then |
 | --------------- | ------------------------------------------------------------ | ---- |
-| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, ceres ADR-0005), `subscribe ceres/#` (#293), `publish ceres/+/actuator/+/power_w`, `publish ceres/+/actuator/+/set` (#295, v2) | `deny all #` |
+| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, ceres ADR-0005), `subscribe ceres/#` (#293), `publish ceres/+/actuator/+/power_w`, `publish ceres/+/actuator/+/set` (#295, v2), `publish ceres/+/sys/alerts/ack`, `ceres/+/sys/advice/ack`, `ceres/sys/alerts/ack` (#302: the ack HA publishes after notifying, echoing the document's traceparent; Robigus opens the span) | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
