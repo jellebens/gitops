@@ -3,8 +3,10 @@
 # HISTORY: Ceres landed in shadow next to the previous controller (the Demeter brain,
 # retired at the cutover of 2026-09-13 18:32Z, its namespace and chart deleted in the
 # same commit as `mode: active` below — two controllers must never dose one tank,
-# architecture §4). The tower still speaks the v1 tree through the EMQX republish
-# bridge (platform/mqtt) until firmware 2.2.0 is flashed (#295 items 7-8).
+# architecture §4). Until firmware 2.2.0 (#295 item 7) the tower spoke the v1 tree through
+# the EMQX republish bridge (platform/mqtt) and the Vertumnus dosed through
+# `mqtt.legacyBaseTopic: pomona`; item 8 (chart 0.12.0) removed the legacy root — the
+# Vertumnus sends ml-based dose/request and judges the node's acks (ADR-0008).
 #
 # BROKER CREDS: every encryptedData below is sealed by landingzones/ceres/scripts/
 # onboard-secrets.sh (ns ceres):
@@ -16,11 +18,9 @@ mode: active          # since the cutover (#295 item 4b, 2026-09-13): the Vertum
 
 units:
   pomona-0001:
-    contract: v2          # coexistence soak on the v2 tree (bridge); the brain owns the tank
+    contract: v2          # ADR-0008 native since firmware 2.2.0 (#295 item 8): no legacy root
     configSource: mqtt    # #295 item 5b (2026-09-13): Annona projected the tower document (config v1);
                           # the config: block below stays as the import source of record only
-    mqtt:
-      legacyBaseTopic: pomona
     secret:
       sealedSecret:
         encryptedData:
