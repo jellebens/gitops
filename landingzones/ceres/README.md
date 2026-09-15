@@ -225,17 +225,19 @@ The tower still speaks the v1 tree; the platform broker's republish bridge
    `mqtt.legacyBaseTopic: pomona` (`.config/lab/ceres.yaml`); it adopted the retained v1
    ledger once and doses through the bench channel while the node is on 1.3.8. Home
    Assistant reads and publishes the v2 tree already (`pomona_schedule.yaml`).
-4. **Firmware 2.2.0 (pomona repo, tag v2.2.0 — built, not flashed) over OTA in a
-   maintenance window, then chart 0.12.0 in the same window.** Order matters: 2.x drops
+4. **Firmware 2.3.0 (pomona PR #102: the v2 wire of 2.0.0–2.2.0 plus the home screen —
+   not flashed yet) over OTA in a maintenance window, then chart 0.12.0 in the same
+   window.** The image is made in `~/ota-tools` (WSL): compile, `lzss.py --encode`,
+   `bin2ota.py GIGA`, named `pomona-<version>.ota`. Order matters: 2.x drops
    the v1 bench topic, so between the node's reboot and the release below the Vertumnus's
    dose commands reach nothing (a dose is recorded ahead of the pump and never undone — a
    false no-response). Do it when `GET /` on the operator API shows no pending violation,
    and keep the gap to minutes:
-   1. copy `pomona-2.2.0.ota` onto the share (`/srv/firmware/pomona/` in the
+   1. copy `pomona-2.3.0.ota` onto the share (`/srv/firmware/pomona/` in the
       `ceres-firmware` pod, PVC `ceres-firmware`);
-   2. `PUT /units/pomona-0001/firmware {"version":"2.2.0","url":"http://firmware.lab.local/pomona/pomona-2.2.0.ota"}`
+   2. `PUT /units/pomona-0001/firmware {"version":"2.3.0","url":"http://firmware.lab.local/pomona/pomona-2.3.0.ota"}`
       on Annona (see "Firmware over the air"); the Vertumnus pushes the URL, the node
-      stages, reboots and reports `2.2.0` in `sys/meta`;
+      stages, reboots and reports `2.3.0` in `sys/meta`;
    3. release chart 0.12.0 (`develop → master`): the lab override without
       `legacyBaseTopic` — the Vertumnus sends ml-based `dose/request` and judges the acks
       (`ceres_dose_ack_total`).
