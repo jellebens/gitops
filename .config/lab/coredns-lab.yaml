@@ -18,7 +18,7 @@ corednsLab:
     $ORIGIN lab.local.
     $TTL 86400
     @   IN SOA ns.lab.local. hostmaster.lab.local. (
-            2026071002 ; serial — BUMP on every change (YYYYMMDDnn)
+            2026091501 ; serial — BUMP on every change (YYYYMMDDnn)
             3600       ; refresh (1h backstop if NOTIFY to the slave is missed)
             180        ; retry
             1209600    ; expire
