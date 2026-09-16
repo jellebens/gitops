@@ -165,7 +165,7 @@ annona:
   enabled: true
   image:
     repository: jellebens/ceres-annona
-    tag: "0.7.0"  # annona/v0.7.0 (ADR-0014): the unit's location (PUT /units/<id>/location) + location in sys/config; the firmware upload (#315) ships as 0.8.0; 0.6.0 (#302): publishes as trace events; 0.5.0 (#302): sys/config + sys/units carry the trace; 0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
+    tag: "0.8.0"  # annona/v0.8.0 (#315): POST /firmware/{type}/{version} — the .ota image through the API (firmware.lab.local/firmware); 0.7.0 (ADR-0014): the unit's location + sys/config location; 0.6.0 (#302): publishes as trace events; 0.5.0 (#302): sys/config + sys/units carry the trace; 0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
     pullPolicy: IfNotPresent
   apiPort: 8080
   # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
