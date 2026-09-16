@@ -63,6 +63,13 @@ spec:
               value: {{ .Values.metrics.port | quote }}
             - name: REPUBLISH_SECONDS
               value: {{ .Values.annona.republishSeconds | quote }}
+            {{- if and .Values.firmware.enabled .Values.annona.firmware.upload }}
+            # card #315: POST /firmware/{type}/{version} writes the .ota onto the share ceres-firmware serves
+            - name: FIRMWARE_DIR
+              value: /srv/firmware
+            - name: FIRMWARE_BASE_URL
+              value: {{ .Values.annona.firmware.baseUrl | quote }}
+            {{- end }}
             # the CloudNativePG app secret: PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD
             - name: PGHOST
               valueFrom: { secretKeyRef: { name: {{ .Values.postgres.name }}-app, key: host } }
@@ -106,6 +113,19 @@ spec:
             failureThreshold: 6
           resources:
             {{- toYaml .Values.annona.resources | nindent 12 }}
+          {{- if and .Values.firmware.enabled .Values.annona.firmware.upload }}
+          volumeMounts:
+            - name: firmware
+              mountPath: /srv/firmware
+          {{- end }}
+      {{- if and .Values.firmware.enabled .Values.annona.firmware.upload }}
+      # the same RWX claim the ceres-firmware nginx serves read-only (templates/firmware-server.yaml);
+      # Annona is the one writer (uid/gid runtime.*, the smb mount options carry uid=1000/gid=1000)
+      volumes:
+        - name: firmware
+          persistentVolumeClaim:
+            claimName: ceres-firmware
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
