@@ -177,7 +177,7 @@ desired state, dose acks — verbatim JSON, forever: the training corpus) and
 only (`namedrop` on the Influx output, #307): the bucket is the units' archive,
 not the agent's.
 
-`dashboards/` holds three boards in the Grafana folder `ceres`, all written by
+`dashboards/` holds four boards in the Grafana folder `ceres`. Three are written by
 `dashboards/generate.py` (card #307) — edit the generator and rerun it
 (`python3 generate.py`; `--check` fails when the JSON is stale), never the JSON:
 
@@ -197,6 +197,21 @@ not the agent's.
   SQL) vs running (`ceres_firmware_*`), OTA requests, config versions, service
   liveness from `ceres/sys/status/*`, and the archive's health (newest point
   per measurement, points per hour).
+
+The fourth is hand-written, designed one panel at a time in the ceres repo's
+`grafana/` folder (see its README for the workflow) and copied here when done:
+
+- `ceres-units-overview.json` — "Ceres — units overview" (uid `ceres-unit-use`):
+  one table tile per unit — Node, Water, pH, EC and the three bottles as %
+  remaining — every value on a red / amber / green background, each cell a link
+  into "Ceres — unit" for that unit. A Grafana table colours a column by one
+  threshold only, so the colour is decided in PromQL: one instant query per
+  state and row, each adding a code offset to the value (first digit = colour,
+  second = row, then thousands: `32027.2` is a hot 27.2 °C), `Reduce → series to
+  rows` builds the table and regex value mappings strip the code again. Adding
+  a unit is a copy of the panel with the unit id replaced in the title and in
+  every `expr`. Readings use `metric="ec"` / `metric="water_temp"`, targets
+  `metric="ec_ms_cm"`.
 
 The "What Vertumnus learned" row (#300) plots the Vertumnus's learned state from the `ceres_*` gauges:
 Model A (k ± sd, n, knee b), the learning curve, settle/noise/rebound, the
