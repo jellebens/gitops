@@ -144,6 +144,20 @@ routes:
   # PLAIN HTTP like the files (the node's listener): the token crosses the LAN in
   # clear, which the owner accepted for the lab; writes are token-gated, reads
   # are the same listing the nginx autoindex already shows.
+  # ceres card #315 (2026-09-16): the GIGA fetches by IP — it resolved neither firmware.lab.local nor any
+  # lab.local name (OTA -3003, download failed in 0.5 s) and 2.3.0 was served from an IP — so the image tree is
+  # also reachable without a hostname: http://192.168.50.200/pomona/<file>. Only the /pomona prefix; the
+  # hostname routes above still win when a Host header matches.
+  - name: ceres-firmware-by-ip
+    namespace: ceres
+    listeners:
+      - http
+    hostnames: []
+    path: /pomona
+    backend:
+      name: ceres-firmware
+      port: 80
+
   - name: ceres-annona-firmware
     namespace: ceres
     listeners:
