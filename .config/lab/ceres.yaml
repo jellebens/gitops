@@ -40,10 +40,7 @@ units:
       # refused every dose for a day: pH 8.5). The controller sends one command per
       # dose. The guard (97.5 % predictive drop above the tolerance floor) still sizes
       # the dose below this rail.
-      # TEMPORARY (owner 2026-09-16, #315): 2.0 while the node still runs 2.3.0 (cap 2 ml/cmd) — the 2.7 ml plans
-      # were refused every minute, which kept the mixing window armed and blocked the OTA push to 2.3.1.
-      # Restore 4.0 once sys/meta reports 2.3.1.
-      ph_max_single_dose_ml: 2.0
+      ph_max_single_dose_ml: 4.0
     # THE LAB FACTS (carried over from .config/lab/pomona.yaml): the stage
     # ramp date and the bottle fills as of the 2026-09-11 baseline. This file
     # is now the source of truth for the tower's facts until the registry
