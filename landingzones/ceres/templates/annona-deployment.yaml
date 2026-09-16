@@ -188,7 +188,10 @@ spec:
     matchLabels:
       app.kubernetes.io/name: ceres-annona
   ingress:
-    - fromEntities: [cluster]
+    # `ingress` = the shared gateway's Envoy (card #315): firmware.lab.local/firmware
+    # reaches the API from the LAN for the firmware upload; the same reserved identity
+    # the longhorn and jaeger policies admit.
+    - fromEntities: [cluster, ingress]
       toPorts:
         - ports:
             - port: {{ .Values.annona.apiPort | quote }}

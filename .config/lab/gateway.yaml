@@ -136,6 +136,25 @@ routes:
       name: ceres-firmware
       port: 80
 
+  # ceres card #315: the image goes onto that same share through Annona —
+  # `POST http://firmware.lab.local/firmware/<type>/<version>` (raw .ota body,
+  # `Authorization: Bearer $ANNONA_TOKEN`) and `GET …/firmware` (what is served).
+  # The `/firmware` prefix is the only path that reaches Annona on this host;
+  # everything else is still the nginx file tree (`/<type>/<type>-<version>.ota`).
+  # PLAIN HTTP like the files (the node's listener): the token crosses the LAN in
+  # clear, which the owner accepted for the lab; writes are token-gated, reads
+  # are the same listing the nginx autoindex already shows.
+  - name: ceres-annona-firmware
+    namespace: ceres
+    listeners:
+      - http
+    hostnames:
+      - firmware.lab.local
+    path: /firmware
+    backend:
+      name: ceres-annona
+      port: 8080
+
   # Longhorn admin UI — HTTPS-ONLY route, INTERIM (#233, owner decision
   # 2026-08-14). This partially rolls back #193 (security review 2026-07-12),
   # which removed the route entirely because the UI is UNAUTHENTICATED admin
