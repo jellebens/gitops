@@ -573,7 +573,7 @@ def ops_board():
     return dashboard("ceres-ops", "Ceres — operations", P,
                      "Running the fleet: firmware desired vs running, OTA, configuration versions, service liveness, the archive's health.",
                      ["operations", "annona", "firmware", "telegraf"],
-                     links=[ext_link("Traces (Jaeger)", JAEGER), ext_link("InfluxDB", INFLUX_UI), ext_link("Firmware server", "http://firmware.lab.local/")],
+                     links=[ext_link("Traces (Jaeger)", JAEGER), ext_link("InfluxDB", INFLUX_UI), ext_link("Firmware images", "http://firmware.lab.local/firmware")],
                      time_from="now-7d")
 
 

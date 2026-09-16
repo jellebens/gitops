@@ -123,41 +123,19 @@ routes:
       name: jaeger-query
       port: 16686
 
-  # Ceres firmware images for the nodes (ceres card #304): PLAIN HTTP ONLY — the
-  # GIGA's OTA client does not trust the lab CA. Read-only static files, nothing
-  # secret; the node checks the file name against its own version.
-  - name: ceres-firmware
-    namespace: ceres
-    listeners:
-      - http
-    hostnames:
-      - firmware.lab.local
-    backend:
-      name: ceres-firmware
-      port: 80
-
-  # ceres card #315: the image goes onto that same share through Annona —
+  # Ceres firmware images (ceres card #304 / #315): the OPERATOR's door to the share —
   # `POST http://firmware.lab.local/firmware/<type>/<version>` (raw .ota body,
-  # `Authorization: Bearer $ANNONA_TOKEN`) and `GET …/firmware` (what is served).
-  # The `/firmware` prefix is the only path that reaches Annona on this host;
-  # everything else is still the nginx file tree (`/<type>/<type>-<version>.ota`).
-  # PLAIN HTTP like the files (the node's listener): the token crosses the LAN in
-  # clear, which the owner accepted for the lab; writes are token-gated, reads
-  # are the same listing the nginx autoindex already shows.
-  # ceres card #315 (2026-09-16): the GIGA fetches by IP — it resolved neither firmware.lab.local nor any
-  # lab.local name (OTA -3003, download failed in 0.5 s) and 2.3.0 was served from an IP — so the image tree is
-  # also reachable without a hostname: http://192.168.50.200/pomona/<file>. Only the /pomona prefix; the
-  # hostname routes above still win when a Host header matches.
-  - name: ceres-firmware-by-ip
-    namespace: ceres
-    listeners:
-      - http
-    hostnames: []
-    path: /pomona
-    backend:
-      name: ceres-firmware
-      port: 80
-
+  # `Authorization: Bearer $ANNONA_TOKEN`), `GET …/firmware` (the listing) and
+  # `GET …/firmware/<type>/<version>` (the image; annona 0.9.0 serves it itself).
+  # The `/firmware` prefix is the only path that reaches Annona on this host. PLAIN HTTP:
+  # the token crosses the LAN in clear, which the owner accepted for the lab; writes are
+  # token-gated, reads are open by design.
+  # The NODES do not fetch through here: the GIGA resolves no lab.local name (OTA -3003)
+  # and its OTA client speaks HTTP/1.0, which Envoy answers with 426 Upgrade Required —
+  # every OTA of 2.3.1 through this gateway on 2026-09-17 delivered a 16-byte error page.
+  # They fetch from the Annona service's own LB address (landingzones/ceres annona.lan,
+  # http://192.168.50.202/firmware/<type>/<version>). The ceres-firmware nginx and its two
+  # routes (hostname + by-IP /pomona) are gone with landingzones/ceres 0.15.0.
   - name: ceres-annona-firmware
     namespace: ceres
     listeners:

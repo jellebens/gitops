@@ -64,7 +64,7 @@ spec:
             - name: REPUBLISH_SECONDS
               value: {{ .Values.annona.republishSeconds | quote }}
             {{- if and .Values.firmware.enabled .Values.annona.firmware.upload }}
-            # card #315: POST /firmware/{type}/{version} writes the .ota onto the share ceres-firmware serves
+            # card #315: POST /firmware/{type}/{version} writes the .ota onto the share, GET of the same path serves it (0.9.0)
             - name: FIRMWARE_DIR
               value: /srv/firmware
             - name: FIRMWARE_BASE_URL
@@ -119,7 +119,7 @@ spec:
               mountPath: /srv/firmware
           {{- end }}
       {{- if and .Values.firmware.enabled .Values.annona.firmware.upload }}
-      # the same RWX claim the ceres-firmware nginx serves read-only (templates/firmware-server.yaml);
+      # the RWX claim of templates/firmware-claim.yaml — Annona is the only thing on it (0.15.0);
       # Annona is the one writer (uid/gid runtime.*, the smb mount options carry uid=1000/gid=1000)
       volumes:
         - name: firmware
@@ -148,6 +148,30 @@ spec:
       port: {{ .Values.metrics.port }}
       targetPort: metrics
     {{- end }}
+{{- if and .Values.annona.lan.enabled .Values.firmware.enabled .Values.annona.firmware.upload }}
+---
+# ceres card #315 (0.15.0): the API on the LAN for the nodes' firmware fetch — a pinned
+# Cilium LB-IPAM address, plain http (the GIGA trusts no lab CA), NOT the shared gateway
+# (its Envoy refuses the node's HTTP/1.0 with 426). annona.firmware.baseUrl names it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres-annona-lan
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
+  annotations:
+    io.cilium/lb-ipam-ips: {{ .Values.annona.lan.ip | quote }}
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ceres-annona
+  ports:
+    - name: api
+      port: {{ .Values.annona.lan.port }}
+      targetPort: api
+{{- end }}
 {{- if and .Values.metrics.enabled .Values.serviceMonitor.enabled }}
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -196,6 +220,16 @@ spec:
         - ports:
             - port: {{ .Values.annona.apiPort | quote }}
               protocol: TCP
+    {{- if .Values.annona.lan.enabled }}
+    # `world` = the LAN through the ceres-annona-lan LoadBalancer (card #315, 0.15.0): the
+    # nodes fetch GET /firmware/<type>/<version> here. L4 on purpose — an L7 rule would put
+    # a proxy back in front of the node's HTTP/1.0. Reads are open by design, writes need the token.
+    - fromEntities: [world]
+      toPorts:
+        - ports:
+            - port: {{ .Values.annona.apiPort | quote }}
+              protocol: TCP
+    {{- end }}
     {{- if .Values.metrics.enabled }}
     - fromEndpoints:
         - matchLabels:

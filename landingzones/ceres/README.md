@@ -248,9 +248,9 @@ The tower still speaks the v1 tree; the platform broker's republish bridge
    dose commands reach nothing (a dose is recorded ahead of the pump and never undone — a
    false no-response). Do it when `GET /` on the operator API shows no pending violation,
    and keep the gap to minutes:
-   1. copy `pomona-2.3.0.ota` onto the share (`/srv/firmware/pomona/` in the
-      `ceres-firmware` pod, PVC `ceres-firmware`);
-   2. `PUT /units/pomona-0001/firmware {"version":"2.3.0","url":"http://firmware.lab.local/pomona/pomona-2.3.0.ota"}`
+   1. `POST http://firmware.lab.local/firmware/pomona/2.3.0` with the `.ota` as the body
+      (annona 0.8.0; before that the file was copied onto the PVC by hand);
+   2. `PUT /units/pomona-0001/firmware {"version":"2.3.0","url":"http://192.168.50.202/firmware/pomona/2.3.0"}`
       on Annona (see "Firmware over the air"); the Vertumnus pushes the URL, the node
       stages, reboots and reports `2.3.0` in `sys/meta`;
    3. release chart 0.12.0 (`develop → master`): the lab override without
@@ -275,18 +275,24 @@ need the `VERTUMNUS_TOKEN` key in the unit's secret
 (`ceres-vertumnus-<unit>-secrets`, next to MQTT_USER / MQTT_PASS); without it
 the API is read-only. Seal a random token like any other value.
 
-## Firmware over the air (card #304)
+## Firmware over the air (card #304 / #315)
 
-`templates/firmware-server.yaml` (`firmware.enabled`) runs `ceres-firmware`, an
-nginx serving the `.ota` images from the NAS share (`storageClass: smb`), reached
-from the LAN as **http://firmware.lab.local/** (plain http: the GIGA does not
-trust the lab CA; route in `.config/lab/gateway.yaml`, A record in
-`coredns-lab.yaml`). A rollout:
+The `.ota` images live on one RWX claim on the NAS (`templates/firmware-claim.yaml`,
+`firmware.enabled`, `storageClass: smb`) that only Annona mounts (`annona.firmware.upload`).
+Annona takes an image over its API and serves it back itself (annona 0.9.0): the operator
+reaches it as **http://firmware.lab.local/firmware/…** through the shared gateway (route in
+`.config/lab/gateway.yaml`, A record in `coredns-lab.yaml`), the **nodes** fetch it from the
+Annona service's own LAN address, `annona.lan` = **http://192.168.50.202/firmware/<type>/<version>**
+(a pinned Cilium LB-IPAM address, plain http). Not the gateway: the GIGA resolves no lab
+hostname and its OTA client speaks HTTP/1.0, which Envoy answers with 426 — the reason the
+nginx of chart 0.11.0 – 0.14.x is gone (0.15.0). A rollout:
 
-1. Build the image in the pomona repo and copy it to the share as
-   `pomona/pomona-<version>.ota` (the node's same-version guard reads the name).
+1. Build the image in the pomona repo (`firmware/tools/lzss_ota.py`) and
+   `curl -X POST -H "Authorization: Bearer $ANNONA_TOKEN" --data-binary @pomona-<version>.ota \
+      http://firmware.lab.local/firmware/pomona/<version>` — checked against the OTA header,
+   409 if that version is already served; the answer carries the node-facing URL.
 2. `curl -X PUT -H "Authorization: Bearer $ANNONA_TOKEN" http://ceres-annona:8080/units/pomona-0001/firmware \
-      -d '{"version":"2.2.0","url":"http://firmware.lab.local/pomona/pomona-2.2.0.ota"}'`
+      -d '{"version":"2.3.1","url":"http://192.168.50.202/firmware/pomona/2.3.1"}'`
 3. The unit's Vertumnus (active role, node online, tank settled) publishes the
    URL to the node's OTA topic once per version per hour; the node stages,
    reboots and reports the new `fw_version` in `sys/meta`.

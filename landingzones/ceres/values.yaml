@@ -165,7 +165,7 @@ annona:
   enabled: true
   image:
     repository: jellebens/ceres-annona
-    tag: "0.8.0"  # annona/v0.8.0 (#315): POST /firmware/{type}/{version} — the .ota image through the API (firmware.lab.local/firmware); 0.7.0 (ADR-0014): the unit's location + sys/config location; 0.6.0 (#302): publishes as trace events; 0.5.0 (#302): sys/config + sys/units carry the trace; 0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
+    tag: "0.9.0"  # annona/v0.9.0 (#315): GET /firmware/{type}/{version} is the image — Annona serves the share itself, no nginx; 0.8.0 (#315): POST /firmware/{type}/{version} — the .ota image through the API; 0.7.0 (ADR-0014): the unit's location + sys/config location; 0.6.0 (#302): publishes as trace events; 0.5.0 (#302): sys/config + sys/units carry the trace; 0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
     pullPolicy: IfNotPresent
   apiPort: 8080
   # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
@@ -178,10 +178,23 @@ annona:
     size: 2Gi
   republishSeconds: 300
   # card #315: mount the ceres-firmware claim (firmware.enabled) read-write so
-  # POST /firmware/{type}/{version} can put an .ota image where the nginx serves it.
+  # POST /firmware/{type}/{version} puts an .ota image on the share and GET of the same
+  # path serves it (annona 0.9.0). baseUrl is what the NODES fetch: the LAN address
+  # below (annona.lan), never a lab hostname (the GIGA resolves none) and never the
+  # shared gateway (its Envoy answers the node's HTTP/1.0 with 426 Upgrade Required —
+  # every OTA of 2.3.1 through it on 2026-09-17 delivered a 16-byte error page).
   firmware:
     upload: true
-    baseUrl: http://firmware.lab.local
+    baseUrl: http://192.168.50.202
+  # A second Service on the API, type LoadBalancer with a pinned Cilium LB-IPAM address
+  # from the default pool (.200-.240; .200 is the gateway, .201 the ingress), plain http
+  # on :80 -> apiPort. The network policy admits `world` on the API port for it: reads
+  # are open by design, writes need the token (which already crosses the LAN in clear on
+  # firmware.lab.local/firmware, owner-accepted for the lab).
+  lan:
+    enabled: true
+    ip: 192.168.50.202
+    port: 80
   mqtt:
     host: mqtt.lab.local
     port: 1883
@@ -267,19 +280,16 @@ telegraf:
       cpu: 500m
       memory: 256Mi
 
-# --- firmware images for the nodes (card #304) -------------------------------------
-# ceres-firmware: nginx serving the .ota images from a share (templates/firmware-server.yaml).
-# LAN: http://firmware.lab.local/<type>/<type>-<version>.ota (gateway route + DNS in
-# .config/lab/gateway.yaml / coredns-lab.yaml). Rollout = drop the file on the share,
+# --- firmware images for the nodes (card #304 / #315) --------------------------------
+# The share the images live on (templates/firmware-claim.yaml), mounted only into Annona
+# (annona.firmware), which takes an image over its API and serves it to the nodes at
+# annona.lan (http://192.168.50.202/firmware/<type>/<version>). Rollout = POST the image,
 # `PUT /units/<id>/firmware {version, url}` on Annona, the unit's Vertumnus does the rest.
+# The ceres-firmware nginx (0.11.0 – 0.14.x) is gone; see annona.firmware for why.
 firmware:
   enabled: true
-  storageClass: smb        # the NAS share, like the Annona backups — copy images in by hand or from CI
+  storageClass: smb        # the NAS share, like the Annona backups
   size: 1Gi
-  image:
-    repository: nginxinc/nginx-unprivileged   # official multi-arch (arm64), runs as uid 101 on :8080
-    tag: "1.27-alpine"
-    pullPolicy: IfNotPresent
 
 # Grafana dashboards (architecture §8 R3): dashboards/*.json provisioned via
 # the kube-prometheus-stack sidecar into the `ceres` folder. The InfluxDB

@@ -47,7 +47,13 @@ name: ceres
 #          Carmenta's per-unit advice). Deploy steps outside the chart: the live EMQX ACL gives `carmenta` publish on
 #          ceres/+/sys/weather (platform/mqtt/files/acl.conf is the mirror), then PUT /units/pomona-0001/location.
 # 0.14.1 = ceres #315: annona 0.8.0 — the firmware upload endpoint is live (the mount and the gateway route shipped in 0.13.0 / 0.14.0).
-version: 0.14.1
+# 0.15.0 = ceres #315: annona 0.9.0 serves the firmware images itself (GET /firmware/<type>/<version>) at a pinned
+#          Cilium LB address on the LAN (annona.lan, 192.168.50.202, plain http; the policy admits `world` on the
+#          API port). The ceres-firmware nginx, its Service and its two gateway routes are REMOVED (firmware-server.yaml
+#          -> firmware-claim.yaml keeps only the RWX claim). Why: the GIGA's OTA client speaks HTTP/1.0 and the shared
+#          gateway's Envoy answers that with 426 — every OTA of 2.3.1 on 2026-09-17 fetched a 16-byte error page.
+#          Deploy note: the live `ceres-firmware-direct` NodePort (a hand test of 2026-09-17) is deleted by hand.
+version: 0.15.0
 type: application
-appVersion: "0.8.0"
+appVersion: "0.9.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

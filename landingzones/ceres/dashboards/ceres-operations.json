@@ -82,9 +82,9 @@
    "tags": []
   },
   {
-   "title": "Firmware server",
+   "title": "Firmware images",
    "type": "link",
-   "url": "http://firmware.lab.local/",
+   "url": "http://firmware.lab.local/firmware",
    "tooltip": "",
    "icon": "external link",
    "targetBlank": true,
