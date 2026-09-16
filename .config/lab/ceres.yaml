@@ -33,12 +33,14 @@ units:
     rails:
       ph_daily_cap_ml: 0
       nutrient_feeds_per_24h: 0
-      # Owner 2026-09-13: the 2 ml single-dose cap is lifted. 4.8 ml is the most ONE
-      # command can deliver on firmware 1.3.8 (DOSE_TEST_MAX_MS 10 s at 0.48 ml/s); the
-      # controller sends one command per dose, so anything above would be truncated by
-      # the node and over-counted in the ledger. The guard (97.5 % predictive drop above
-      # the tolerance floor) still sizes the dose below this rail.
-      ph_max_single_dose_ml: 4.8
+      # Owner 2026-09-13: the 2 ml single-dose cap is lifted; owner 2026-09-16 (#315):
+      # the node bounds ONE request and nothing per day — firmware 2.3.1
+      # DOSE_MAX_ML_PER_CMD pH-Down = 4.0 ml (a regular dose is ~2 ml), and this rail
+      # must not exceed it or the node refuses the request outright (2.3.0's 2 ml cap
+      # refused every dose for a day: pH 8.5). The controller sends one command per
+      # dose. The guard (97.5 % predictive drop above the tolerance floor) still sizes
+      # the dose below this rail.
+      ph_max_single_dose_ml: 4.0
     # THE LAB FACTS (carried over from .config/lab/pomona.yaml): the stage
     # ramp date and the bottle fills as of the 2026-09-11 baseline. This file
     # is now the source of truth for the tower's facts until the registry
