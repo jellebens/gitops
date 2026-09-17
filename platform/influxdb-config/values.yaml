@@ -44,8 +44,9 @@ backup:
     buckets:
       - zeus
       - homeassistant
-      # pomona hydroponics telemetry (card #222). The bucket itself is
-      # owner-created pre-deploy (landingzones/pomona/README.md) — it must
-      # exist before this list entry takes effect, or the hourly export logs
-      # errors for it.
+      # pomona hydroponics telemetry (card #222) — the tower's v1 history up to
+      # 2026-09-15 (since then the `ceres` bucket, landingzones/ceres). The bucket was
+      # owner-created (365d retention — raise it if that history should outlive
+      # 2027-09); its writer, landingzones/pomona, is gone (ceres #295 step 5). It must
+      # exist while this list entry does, or the hourly export logs errors for it.
       - pomona

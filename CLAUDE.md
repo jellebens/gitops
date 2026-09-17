@@ -64,5 +64,8 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
 - `landingzones/hermes` — see the directory.
 - [`landingzones/ceres`](landingzones/ceres/README.md) — Ceres's per-unit
   Vertumnus instances (one `ceres-vertumnus-<unit_id>` Deployment per hydroponic unit, card
-  #291); the tower's Vertumnus `pomona-0001` soaks in shadow next to the live
-  `pomona-demeter` in `landingzones/pomona` until the cutover in its README.
+  #291) plus Annona, Robigus, Carmenta, the `ceres` Telegraf archive and `ceres-pg`. The
+  tower `pomona-0001` is LIVE on it (active since 2026-09-13, native contract v2 since
+  firmware 2.3.0 on 2026-09-15). The v1 world — `landingzones/pomona` (the old controller,
+  then the v1 Telegraf bridge) — is gone (ceres #295 step 5); its history is the `pomona`
+  InfluxDB bucket.
