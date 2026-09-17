@@ -70,6 +70,7 @@ see "ACL disaster recovery" below):
 | `vertumnus-pomona-0001` | v2 Vertumnus (#295): subscribe `ceres/pomona-0001/#`, `ceres/sys/mode`; publish `ceres/pomona-0001/{actuator/+/set, dose/request, sys/role, sys/decision, sys/ledger, sys/ota/url}`, `ceres/sys/status/vertumnus-pomona-0001` (the v1 transition grants went with step 5) | `deny all #` |
 | `telegraf-ceres` | the v2 archive (#295): `subscribe ceres/#` only | `deny all #` |
 | `annona`, `robigus` | ceres services (#292/#293), see acl.conf | `deny all #` |
+| `janus`         | the ceres operator console (ADR-0015): `subscribe ceres/#`, publish **only** `ceres/sys/status/janus` — a hand dose goes to the unit's Vertumnus over HTTP, never on the wire, so the console has no publish on any unit's tree | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
 `homeassistant` is scoped to **its own tree plus the ceres relay grants**

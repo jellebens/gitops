@@ -1,0 +1,217 @@
+{{- if .Values.janus.enabled }}
+# ceres-janus (ceres ADR-0015): the operator console — the door onto Ceres.
+# Subscribes to ceres/# and mirrors every retained document into a browser page
+# (the fleet, the alerts, per unit the readings, the decision and its timeline),
+# and forwards a HAND DOSE to that unit's Vertumnus operator API over HTTP so
+# every rail still applies. It publishes exactly one topic, its own
+# ceres/sys/status/janus last will; the broker ACL grants it `subscribe ceres/#`
+# and nothing else, so "the console cannot act on the tree" is enforced by the
+# broker rather than intended by the code. It is on no unit's actuation path: a
+# Vertumnus never reads it and an outage here changes nothing a unit does.
+#
+# Single replica + Recreate: one MQTT client id per connection, and the decision
+# timeline it keeps is per-process (see the ceres repo's services/janus README).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ceres-janus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-janus
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ceres-janus
+        app.kubernetes.io/part-of: ceres
+      annotations:
+        checksum/config: {{ toYaml .Values.janus | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runtime.uid }}
+        runAsGroup: {{ .Values.runtime.gid }}
+        fsGroup: {{ .Values.runtime.gid }}
+      containers:
+        - name: janus
+          image: "{{ .Values.janus.image.repository }}:{{ .Values.janus.image.tag }}"
+          imagePullPolicy: {{ .Values.janus.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            {{- if .Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #302): presence is the switch (ceres_shared.tracing)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
+            - name: MQTT_HOST
+              value: {{ .Values.janus.mqtt.host | quote }}
+            - name: MQTT_PORT
+              value: {{ .Values.janus.mqtt.port | quote }}
+            - name: MQTT_CLIENT_ID
+              value: {{ .Values.janus.mqtt.clientId | quote }}
+            - name: JANUS_PORT
+              value: {{ .Values.janus.uiPort | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
+            - name: INTERVAL_SECONDS
+              value: {{ .Values.janus.intervalSeconds | quote }}
+            - name: DECISION_HISTORY
+              value: {{ .Values.janus.decisionHistory | quote }}
+            # Where a hand dose goes: the unit's own operator API, {unit} substituted.
+            # Janus never publishes dose/request — the rails live in the loop.
+            - name: VERTUMNUS_API_URL
+              value: {{ .Values.janus.vertumnusApiUrl | quote }}
+            {{- with .Values.janus.grafanaUnitUrl }}
+            # Linked from the decision timeline: the in-memory list is only what
+            # Janus saw, the record is the InfluxDB archive behind this board.
+            - name: GRAFANA_UNIT_URL
+              value: {{ . | quote }}
+            {{- end }}
+          # MQTT_USER / MQTT_PASS of the `janus` broker user, JANUS_TOKEN (writes
+          # to the console), and one VERTUMNUS_TOKEN_<UNIT> per unit it may dose.
+          # optional: until sealed the console comes up READ-ONLY — it cannot
+          # connect to the broker and refuses every write with 403. That is the
+          # safe reduced mode, and the page says which token is missing.
+          envFrom:
+            - secretRef:
+                name: {{ .Values.janus.secret.name }}
+                optional: true
+          ports:
+            - name: ui
+              containerPort: {{ .Values.janus.uiPort }}
+              protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: ui }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: ui }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.janus.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ceres-janus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ceres-janus
+  ports:
+    - name: ui
+      port: {{ .Values.janus.uiPort }}
+      targetPort: ui
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+    {{- end }}
+{{- if and .Values.metrics.enabled .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ceres-janus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-janus
+  namespaceSelector:
+    matchNames: [ceres]
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+# Ingress-only, egress open (the broker VIP and the Vertumnus API ports).
+# NOTE the Cilium 1.16 rule the hermes policy documents: `fromEntities` and
+# `fromEndpoints` must NOT share one rule, or the whole policy is rejected
+# (VALID=False, unenforced). They are separate list items below.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ceres-janus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-janus
+  ingress:
+    # `ingress` = the shared gateway's Envoy: janus.lab.local reaches the page.
+    # NOT `world` — that is Annona's pattern, and it exists only because the
+    # GIGA's OTA client resolves no hostname and speaks no TLS. A browser does
+    # both, so the console goes through the gateway like every other UI.
+    - fromEntities: [ingress]
+      toPorts:
+        - ports:
+            - port: {{ .Values.janus.uiPort | quote }}
+              protocol: TCP
+    {{- if .Values.metrics.enabled }}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.metricsScrapeNamespace | quote }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.metrics.port | quote }}
+              protocol: TCP
+    {{- end }}
+{{- end }}
+{{- if and .Values.janus.secret.sealedSecret.enabled .Values.janus.secret.sealedSecret.encryptedData }}
+---
+# MQTT_USER / MQTT_PASS of the `janus` broker user, JANUS_TOKEN, and one
+# VERTUMNUS_TOKEN_<UNIT> per unit the console may dose (the SAME token as that
+# unit's own secret — Janus forwards it, it does not mint one).
+# Seal for ns ceres / secret {{ .Values.janus.secret.name }}.
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: {{ .Values.janus.secret.name }}
+  namespace: ceres
+spec:
+  encryptedData:
+    {{- range $k, $v := .Values.janus.secret.sealedSecret.encryptedData }}
+    {{- if $v }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+  template:
+    metadata:
+      name: {{ .Values.janus.secret.name }}
+      namespace: ceres
+    type: Opaque
+{{- end }}
+{{- end }}

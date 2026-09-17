@@ -293,11 +293,48 @@ Every `ceres-vertumnus-<unit>` pod serves a small REST API on `:9001`
 `POST /ph/doses|/a/doses|/b/doses {ml, rate}` (an operator dose, sized and
 railed like Vertumnus' own, judged like any other — a response clears the
 no-response streak), `PUT /ph/probe` (dose once despite the streak),
-`PUT /pump {state}`. The network policy admits it only from the node (kubectl
-port-forward); the ceres repo's `scripts/vertumnusctl.sh` wraps it. Writes
-need the `VERTUMNUS_TOKEN` key in the unit's secret
+`PUT /pump {state}`. The network policy admits it from the node (kubectl
+port-forward) and, since chart 0.16.0, from the `ceres-janus` pod by label —
+nothing else, and never the LAN. The ceres repo's `scripts/vertumnusctl.sh`
+wraps it. Writes need the `VERTUMNUS_TOKEN` key in the unit's secret
 (`ceres-vertumnus-<unit>-secrets`, next to MQTT_USER / MQTT_PASS); without it
 the API is read-only. Seal a random token like any other value.
+
+## Janus — the operator console (ceres ADR-0015, chart 0.16.0)
+
+`templates/janus-deployment.yaml`: `ceres-janus`, the door onto Ceres. It
+subscribes to `ceres/#` and mirrors every retained document into a browser page
+— the fleet, every active alert, and per unit the readings against their bands,
+the decision and a timeline of the ones it saw, what the unit has learned, the
+bottles and the sky. It publishes exactly one topic, `ceres/sys/status/janus`,
+and its broker user is granted `subscribe ceres/#` and that publish and nothing
+else, so **the console cannot act on the tree** is a broker fact.
+
+**A hand dose does not go out on MQTT.** Janus forwards it to that unit's
+Vertumnus operator API (`janus.vertumnusApiUrl`, `{unit}` substituted), so the
+role and the fleet ceiling, the lockout, the pending-judgement wait, the
+single-dose cap, the daily cap and the empty-bottle block all still apply, and a
+refusal comes back to the operator in the loop's own words. That is why chart
+0.16.0 widens the Vertumnus network policy by exactly one labelled pod.
+
+**Exposure:** `https://janus.lab.local` through the shared gateway — the route
+and the http→https redirect in `templates/janus-httproute.yaml`, the lab-CA
+certificate in `templates/janus-certificate.yaml`, the `ceres-janus-https`
+listener in `.config/<env>/gateway.yaml`, the A record in
+`.config/<env>/coredns-lab.yaml`. Deliberately **not** Annona's
+`world`-admitted LoadBalancer: that shape exists because the GIGA's OTA client
+resolves no hostname and speaks no TLS, and a browser does both. Reads are open
+on the LAN; writes need `JANUS_TOKEN`. There is no SSO in the lab (card #232)
+and ceres ADR-0015 records that as an accepted cost, not an oversight.
+
+**Owner pre-deploy** — three things, all in `.config/lab/ceres.yaml`'s comment:
+the `janus` EMQX user (`onboard-secrets.sh` carries its ACL), then
+`MQTT_USER` / `MQTT_PASS` / a random `JANUS_TOKEN` sealed for
+`ceres-janus-secrets`, then **each unit's existing `VERTUMNUS_TOKEN` resealed
+for that same secret** as `VERTUMNUS_TOKEN_<UNIT>` (a sealed blob is
+namespace+name scoped, so it cannot be copied from the unit's own secret).
+Until they are sealed the console comes up read-only and the page says which
+token is missing — the zone's usual "empty = read-only" default.
 
 ## Firmware over the air (card #304 / #315)
 
