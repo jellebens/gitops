@@ -8,9 +8,10 @@ from `.config/lab/influxdb.yaml`; **this** chart supplies everything around it.
 
 InfluxDB is the durable store for zeus savings/forecast history, jupiter LAR
 reporting, and long-term HA sensor history. Org `zeus`; buckets `zeus` and
-`homeassistant` (both **infinite** retention) plus `pomona` (hydroponics
-telemetry, **365d** retention, owner-created — see
-[`landingzones/pomona`](../../landingzones/pomona/README.md)). Service
+`homeassistant` (both **infinite** retention) plus `pomona` (the tower's v1
+hydroponics telemetry up to 2026-09-15, **365d** retention, owner-created; its
+writer `landingzones/pomona` went with ceres #295 step 5 — the live archive is the
+`ceres` bucket, [`landingzones/ceres`](../../landingzones/ceres/README.md)). Service
 `influxdb-influxdb2.influxdb:80`, pod `influxdb-influxdb2-0`.
 
 ## What this chart ships

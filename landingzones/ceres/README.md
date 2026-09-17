@@ -16,11 +16,17 @@ join this zone with migration slices 2, 4 and 5.
 - **Unit ids** are `<name>-NNNN` (ceres ADR-0009); the tower is `pomona-0001`.
 
 ```
-GIGA firmware ──MQTT (user `pomona`)──> EMQX mqtt.lab.local:1883 (ns mqtt)
-                                              │
-     ceres-vertumnus-pomona-0001 (ns ceres) ──┴─ subscribe pomona/# (user `pomona-demeter`)
-     the tower's Vertumnus, contract v1 (#291)       publish dose/test + pump/override + ceres*/# only
+GIGA firmware 2.3.x ──MQTT (user `unit-pomona-0001`)──> EMQX mqtt.lab.local:1883 (ns mqtt)
+  ceres/pomona-0001/{tele,actuator,dose/result,sys}/…            │
+                                                                 │
+     ceres-vertumnus-pomona-0001 (ns ceres) ─────────────────────┴─ user `vertumnus-pomona-0001`
+     the tower's Vertumnus, contract v2 (ADR-0008)     subscribe ceres/pomona-0001/# + ceres/sys/mode
+                                                       publish dose/request, actuator/+/set, sys/ota/url,
+                                                       its own sys/{role,decision,ledger} and LWT
 ```
+(Until 2026-09-15 the tower spoke the v1 tree `pomona/…` — firmware 1.x as user `pomona`,
+the Vertumnus through a v1 adapter, later through the republish bridge. That world is
+retired: "The archive and the wire change" below, step 5.)
 
 ## The two documents a Vertumnus reads
 
@@ -220,12 +226,13 @@ baseline and the filtered pH — the same numbers `GET /learned` on the operator
 API (vertumnus 0.12.0) gives in words. The tower's pre-cutover history stays in
 the `pomona` bucket.
 
-The tower still speaks the v1 tree; the platform broker's republish bridge
-(`platform/mqtt` values `rules`, README "Republish bridge") mirrors it onto
-`ceres/pomona-0001/#` and back, so the archive, Robigus and a Vertumnus on
-`contract: v2` see the tower before the firmware moves.
+The tower speaks the v2 tree itself since firmware 2.3.0 went on over the air
+(2026-09-15 17:01; 2.3.1 since, ceres #315). Before that the platform broker's
+republish bridge (`platform/mqtt` values `rules`, README "Republish bridge")
+mirrored the v1 tree onto `ceres/pomona-0001/#` and back, so the archive, Robigus
+and a Vertumnus on `contract: v2` saw the tower before the firmware moved.
 
-**Owner steps** (in this order):
+**Owner steps** (in this order — 1 to 4 are history, 5 is the cleanup):
 1. + 2. **One script**: `bash landingzones/ceres/scripts/onboard-secrets.sh`
    (`--dry-run` first if you like). It creates or resets the broker users
    `vertumnus-pomona-0001`, `annona`, `robigus`, `carmenta`, `telegraf-ceres`,
@@ -240,9 +247,10 @@ The tower still speaks the v1 tree; the platform broker's republish bridge
    `mqtt.legacyBaseTopic: pomona` (`.config/lab/ceres.yaml`); it adopted the retained v1
    ledger once and doses through the bench channel while the node is on 1.3.8. Home
    Assistant reads and publishes the v2 tree already (`pomona_schedule.yaml`).
-4. **Firmware 2.3.0 (pomona PR #102: the v2 wire of 2.0.0–2.2.0 plus the home screen —
-   not flashed yet) over OTA in a maintenance window, then chart 0.12.0 in the same
-   window.** The image is made in `~/ota-tools` (WSL): compile, `lzss.py --encode`,
+4. ✅ 2026-09-15 17:01 — **firmware 2.3.0 (pomona PR #102: the v2 wire of 2.0.0–2.2.0 plus
+   the home screen) over OTA, then chart 0.12.0 (gitops #421 → #426) the same evening**;
+   2.3.1 followed (ceres #315: the node caps one request at 4 ml). How it went, kept as the
+   runbook for the next unit: the image is made in `~/ota-tools` (WSL): compile, `lzss.py --encode`,
    `bin2ota.py GIGA`, named `pomona-<version>.ota`. Order matters: 2.x drops
    the v1 bench topic, so between the node's reboot and the release below the Vertumnus's
    dose commands reach nothing (a dose is recorded ahead of the pump and never undone — a
@@ -256,10 +264,26 @@ The tower still speaks the v1 tree; the platform broker's republish bridge
    3. release chart 0.12.0 (`develop → master`): the lab override without
       `legacyBaseTopic` — the Vertumnus sends ml-based `dose/request` and judges the acks
       (`ceres_dose_ack_total`).
-5. Afterwards (a later release, once a dose has been acked on 2.2.0): `platform/mqtt`
-   `rules.enabled: false`, clear the old retained `pomona/#` topics, retire the v1 users,
-   delete `v1_pomona.py` in the ceres repo; delete the pomona ingestion bridge
-   (`landingzones/pomona` — the bucket stays).
+5. **The v1 cleanup (card #295 items 8a / 8b)** — doses are acked on 2.3.1, nothing reads or
+   writes `pomona/#` any more (the last v1 telemetry point in the `pomona` bucket is
+   2026-09-15 15:01Z; what trickles in since is only the bridge echoing v2 commands back):
+   - in git (the step-5 PR): the ACL DR mirror and `onboard-secrets.sh` without the v1 world
+     (`pomona-demeter`, homeassistant's `pomona/#` grants, the Vertumnus's v1 dose channel /
+     pump override / ledger read / v1 OTA topic, Robigus's `pomona/#`); `landingzones/pomona`,
+     its Argo application and `.config/lab/pomona.yaml` deleted (the v1 Telegraf bridge and
+     the Pomona history board go; the `pomona` bucket stays as history);
+   - **still to switch, two lines in `platform/mqtt`:** `values.yaml` `rules.enabled: false`
+     and `Chart.yaml` `version: 0.4.0` — that rolls the broker's StatefulSet once, so do it
+     after ceres card #314 (a broker restart wiped the Vertumnus's learned model) or accept
+     the relearning;
+   - on the broker, by the owner (admin API, as `onboard-secrets.sh` does it): PUT the
+     trimmed ACLs for `vertumnus-pomona-0001`, `robigus` and `homeassistant`; delete the
+     users `pomona`, `pomona-demeter`, `pomona-ingest`; delete every retained message
+     under `pomona/#`;
+   - in the ceres repo: `transport/v1_pomona.py`, the v2 transition path
+     (`legacy_base_topic`) and Robigus's v1 reader are deleted; this chart's
+     `units.<id>.contract` default and the v1-only `mqtt.baseTopic` / `ownPrefix` /
+     `legacyBaseTopic` values go with the image bump that ships it.
 
 ## The operator API of a unit (Vertumnus 0.10.0, card #296)
 
