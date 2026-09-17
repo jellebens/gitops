@@ -107,7 +107,7 @@ dashboard:
 # Delete this block (rules.enabled: false) in the step-5 release after firmware
 # 2.0.0 is on the tower; the old retained pomona/# topics are cleared by hand.
 rules:
-  enabled: true
+  enabled: false
   unit: pomona-0001            # the one v1 unit; a second v1 unit is not planned
   list:
     # ---- v1 -> v2: the node's process data and self-description ------------

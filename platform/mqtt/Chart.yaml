@@ -10,5 +10,5 @@ type: application
 # 0.3.1 = ceres #298: ACL mirror user carmenta.
 # 0.3.2 = ceres #302: homeassistant may publish the notifier acks (ceres/+/sys/alerts/ack,
 #         ceres/+/sys/advice/ack, ceres/sys/alerts/ack) — HA echoes the trace, Robigus opens the span.
-version: 0.3.2
+version: 0.4.0
 appVersion: "5.8.9"
