@@ -10,7 +10,7 @@
 #      variables only — `set +x`, umask 077, nothing echoed);
 #   2. EMQX (admin REST API on mqtt-0, dashboard admin password read straight
 #      from the mqtt-auth secret): creates or resets the users
-#      vertumnus-pomona-0001, annona, robigus, carmenta, telegraf-ceres,
+#      vertumnus-pomona-0001, annona, robigus, carmenta, telegraf-ceres, janus,
 #      unit-pomona-0001 and PUTs each one's ACL exactly as platform/mqtt/files/acl.conf
 #      has it; adds the ceres grants to homeassistant's existing ACL (item 1b);
 #   3. InfluxDB: bucket `ceres` (retention forever) if missing + a bucket-scoped
@@ -50,8 +50,8 @@ say "repo: $REPO  branch: $(git branch --show-current)  dry-run: $DRY"
 # ── 1. the secrets, in memory only ─────────────────────────────────────────────────────────────
 rnd() { openssl rand -base64 33 | tr -d '\n/+=' | cut -c1-32; }
 declare -A PW
-for u in vertumnus-pomona-0001 annona robigus carmenta telegraf-ceres unit-pomona-0001; do PW[$u]="$(rnd)"; done
-VERTUMNUS_TOKEN="$(rnd)"; ANNONA_TOKEN="$(rnd)"; GRAFANA_PW="$(rnd)"
+for u in vertumnus-pomona-0001 annona robigus carmenta telegraf-ceres janus unit-pomona-0001; do PW[$u]="$(rnd)"; done
+VERTUMNUS_TOKEN="$(rnd)"; ANNONA_TOKEN="$(rnd)"; JANUS_TOKEN="$(rnd)"; GRAFANA_PW="$(rnd)"
 
 # ── 2. EMQX users + ACLs (admin REST API, in-cluster) ───────────────────────────────────────────
 TOKEN=""
@@ -99,6 +99,9 @@ ACL[carmenta]="$(rules sub:ceres/# pub:ceres/+/sys/prior pub:ceres/sys/advice pu
 ACL[telegraf-ceres]="$(rules sub:ceres/#)"
 ACL[annona]="$(rules sub:ceres/# pub:ceres/+/sys/config pub:ceres/+/desired pub:ceres/sys/#)"
 ACL[robigus]="$(rules sub:ceres/# pub:ceres/+/sys/alerts pub:ceres/+/sys/advice pub:ceres/sys/alerts pub:ceres/sys/status/robigus)"
+# janus (ceres ADR-0015): reads everything, publishes only its own last will. A
+# hand dose never goes out on MQTT — Janus asks the unit's Vertumnus over HTTP.
+ACL[janus]="$(rules sub:ceres/# pub:ceres/sys/status/janus)"
 
 for u in "${!PW[@]}"; do
   if [ "$DRY" = 1 ]; then say "[dry-run] would create/reset broker user $u and PUT $(jq length <<<"${ACL[$u]}") ACL rules"; continue; fi
@@ -153,35 +156,42 @@ fi
 
 # ── 4. seal + write the blobs ───────────────────────────────────────────────────────────────
 seal() { printf '%s' "$2" | kubeseal --raw "${CTRL[@]}" --namespace "$NS" --name "$1" --from-file=/dev/stdin; }
-if [ "$DRY" = 1 ]; then say "[dry-run] would seal 13 values for ns $NS and write them into $LAB"; else
-S_V=ceres-vertumnus-pomona-0001-secrets; S_A=ceres-annona-secrets; S_R=ceres-robigus-secrets; S_T=ceres-telegraf-secrets; S_C=ceres-carmenta-secrets
+if [ "$DRY" = 1 ]; then say "[dry-run] would seal 17 values for ns $NS and write them into $LAB"; else
+S_V=ceres-vertumnus-pomona-0001-secrets; S_A=ceres-annona-secrets; S_R=ceres-robigus-secrets; S_T=ceres-telegraf-secrets; S_C=ceres-carmenta-secrets; S_J=ceres-janus-secrets
 export B_V_USER="$(seal $S_V vertumnus-pomona-0001)" B_V_PASS="$(seal $S_V "${PW[vertumnus-pomona-0001]}")" B_V_TOKEN="$(seal $S_V "$VERTUMNUS_TOKEN")"
 export B_A_USER="$(seal $S_A annona)" B_A_PASS="$(seal $S_A "${PW[annona]}")" B_A_TOKEN="$(seal $S_A "$ANNONA_TOKEN")"
 export B_R_USER="$(seal $S_R robigus)" B_R_PASS="$(seal $S_R "${PW[robigus]}")"
 export B_T_USER="$(seal $S_T telegraf-ceres)" B_T_PASS="$(seal $S_T "${PW[telegraf-ceres]}")" B_T_INFLUX="$(seal $S_T "$INFLUX_TOKEN")"
 export B_C_USER="$(seal $S_C carmenta)" B_C_PASS="$(seal $S_C "${PW[carmenta]}")"
+# janus (ceres ADR-0015). The last blob is the SAME operator token the Vertumnus
+# holds, resealed for this secret: a sealed blob is namespace+name scoped, so it
+# cannot be copied across, and Janus forwards that token rather than minting one.
+export B_J_USER="$(seal $S_J janus)" B_J_PASS="$(seal $S_J "${PW[janus]}")" B_J_TOKEN="$(seal $S_J "$JANUS_TOKEN")" \
+       B_J_VERT_POMONA_0001="$(seal $S_J "$VERTUMNUS_TOKEN")"
 LAB="$LAB" python3 - <<'PY'
 import os, re
 p = os.environ["LAB"]; s = open(p).read()
-blocks = [  # file order: units.pomona-0001 (vertumnus), annona, robigus, telegraf, carmenta
+blocks = [  # file order: units.pomona-0001 (vertumnus), annona, robigus, telegraf, carmenta, janus
     {"MQTT_USER": "B_V_USER", "MQTT_PASS": "B_V_PASS", "VERTUMNUS_TOKEN": "B_V_TOKEN"},
     {"MQTT_USER": "B_A_USER", "MQTT_PASS": "B_A_PASS", "ANNONA_TOKEN": "B_A_TOKEN"},
     {"MQTT_USER": "B_R_USER", "MQTT_PASS": "B_R_PASS"},
     {"MQTT_USER": "B_T_USER", "MQTT_PASS": "B_T_PASS", "INFLUX_TOKEN": "B_T_INFLUX"},
     {"MQTT_USER": "B_C_USER", "MQTT_PASS": "B_C_PASS"},
+    {"MQTT_USER": "B_J_USER", "MQTT_PASS": "B_J_PASS", "JANUS_TOKEN": "B_J_TOKEN",
+     "VERTUMNUS_TOKEN_POMONA_0001": "B_J_VERT_POMONA_0001"},
 ]
 pat = re.compile(r"^( *)encryptedData: \{\}[^\n]*$", re.M)
 found = list(pat.finditer(s))
-assert len(found) == 5, f"expected 5 empty encryptedData blocks, found {len(found)}"
+assert len(found) == len(blocks), f"expected {len(blocks)} empty encryptedData blocks, found {len(found)}"
 out, pos = [], 0
 for m, keys in zip(found, blocks):
     ind = m.group(1)
     body = f"{ind}encryptedData:\n" + "".join(f'{ind}  {k}: "{os.environ[v]}"\n' for k, v in keys.items())
     out.append(s[pos:m.start()]); out.append(body.rstrip("\n")); pos = m.end()
 out.append(s[pos:]); open(p, "w").write("".join(out))
-print("ceres.yaml: 5 sealed blocks written")
+print(f"ceres.yaml: {len(blocks)} sealed blocks written")
 PY
-unset B_V_USER B_V_PASS B_V_TOKEN B_A_USER B_A_PASS B_A_TOKEN B_R_USER B_R_PASS B_T_USER B_T_PASS B_T_INFLUX B_C_USER B_C_PASS
+unset B_V_USER B_V_PASS B_V_TOKEN B_A_USER B_A_PASS B_A_TOKEN B_R_USER B_R_PASS B_T_USER B_T_PASS B_T_INFLUX B_C_USER B_C_PASS B_J_USER B_J_PASS B_J_TOKEN B_J_VERT_POMONA_0001
 
 # the Grafana read role: one password, sealed twice (ns ceres for CNPG, ns observability for Grafana)
 kubectl create secret generic ceres-pg-grafana -n ceres --from-literal=username=grafana --from-literal=password="$GRAFANA_PW" --dry-run=client -o yaml \
@@ -198,7 +208,7 @@ if [ "$DRY" = 0 ]; then
   chmod 600 "$REPO/.secrets/ceres/unit-pomona-0001.mqtt-pass"
 fi
 say "node password saved to $REPO/.secrets/ceres/unit-pomona-0001.mqtt-pass — MQTT_PASS in firmware/pomona/secrets.h at flash time (#295 item 7a)"
-unset PW VERTUMNUS_TOKEN ANNONA_TOKEN GRAFANA_PW INFLUX_TOKEN
+unset PW VERTUMNUS_TOKEN ANNONA_TOKEN JANUS_TOKEN GRAFANA_PW INFLUX_TOKEN
 
 # ── 6. commit the ciphertext and open the PR ───────────────────────────────────────────────────
 [ "$DRY" = 1 ] && { say "[dry-run] would commit .config/lab/ceres.yaml + 2 sealed manifests and open a PR to develop"; exit 0; }

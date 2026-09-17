@@ -332,6 +332,82 @@ carmenta:
       cpu: 200m
       memory: 128Mi
 
+# --- janus: the operator console (ceres ADR-0015) ----------------------------------
+# The door onto Ceres: mirrors ceres/# into a browser page — the fleet, the
+# alerts, and per unit the readings, the decision and a timeline of the ones it
+# saw — and forwards a HAND DOSE to that unit's Vertumnus operator API, so every
+# rail still applies and a refusal reaches the operator in the loop's own words.
+# Janus publishes only ceres/sys/status/janus; its broker user is granted
+# `subscribe ceres/#` and nothing more.
+#
+# THE TWO TOKENS (do not conflate them): JANUS_TOKEN gates a write to the
+# console; the unit's own VERTUMNUS_TOKEN is what Janus forwards, one per unit,
+# as VERTUMNUS_TOKEN_<UNIT>. Neither sealed = a read-only console, which is the
+# right default and the state the page reports.
+janus:
+  enabled: true
+  image:
+    repository: jellebens/ceres-janus
+    tag: "0.1.0"  # janus/v0.1.0 (ceres ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
+    pullPolicy: IfNotPresent
+  uiPort: 8080
+  intervalSeconds: 30     # the metrics tick
+  decisionHistory: 200    # decisions kept per unit, in memory; the record is the InfluxDB archive
+  # {unit} is substituted per unit. This is the Service rendered by
+  # vertumnus-service.yaml, which already carries the `api` port beside `metrics`.
+  vertumnusApiUrl: http://ceres-vertumnus-{unit}-metrics.ceres.svc.cluster.local:9001
+  # Linked from the decision timeline — the in-memory list is only what Janus
+  # saw arrive, so the page points at the board over the archive for the rest.
+  # uid ceres-units is the per-unit board ("Ceres — unit"), which has the `unit`
+  # variable — not ceres-unit-use, which is the fleet overview.
+  grafanaUnitUrl: "http://grafana.lab.local/d/ceres-units/?var-unit={unit}"
+  mqtt:
+    host: mqtt.lab.local
+    port: 1883
+    clientId: janus
+  # MQTT_USER / MQTT_PASS of the dedicated `janus` EMQX user (subscribe ceres/#;
+  # publish ONLY ceres/sys/status/janus), JANUS_TOKEN, and one
+  # VERTUMNUS_TOKEN_<UNIT> per unit the console may dose — the same value as
+  # that unit's own secret. Seal for ns ceres / secret ceres-janus-secrets.
+  secret:
+    name: ceres-janus-secrets
+    sealedSecret:
+      enabled: true
+      encryptedData: {} # { MQTT_USER: "Ag...", MQTT_PASS: "Ag...", JANUS_TOKEN: "Ag...", VERTUMNUS_TOKEN_POMONA_0001: "Ag..." }
+  # Through the SHARED GATEWAY, not a LAN LoadBalancer. Annona's `world`-admitted
+  # LB exists because the GIGA's OTA client resolves no hostname and speaks no
+  # TLS; a browser does both, so the console gets a hostname like every other UI.
+  # Chart default is http-only (AGENTS.md); .config/<env>/ceres.yaml turns HTTPS on.
+  gateway:
+    enabled: true
+    parentRef:
+      name: cilium-gateway
+      namespace: gateway
+      sectionName: http
+    hostnames:
+      - janus.lab.local
+    httpToHttpsRedirect:
+      enabled: false
+      sectionName: http
+  tlsCertificate:
+    enabled: false
+    secretName: ceres-janus-server-tls
+    commonName: janus.lab.local
+    dnsNames:
+      - janus.lab.local
+    duration: 2160h
+    renewBefore: 360h
+    issuerRef:
+      name: lab-ca-issuer
+      kind: ClusterIssuer
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
 metrics:
   enabled: true
   port: 9000

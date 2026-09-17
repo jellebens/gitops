@@ -67,6 +67,23 @@ gateway:
             kind: Secret
             name: longhorn-server-tls
             namespace: longhorn-system
+    # ceres ADR-0015: the operator console. The certificate is emitted by the
+    # ceres landing zone (janus-certificate.yaml, lab-ca-issuer); this chart
+    # emits the cross-namespace ReferenceGrant for it. Reads are open on the
+    # LAN, writes carry a bearer token — the same posture as Annona's API, and
+    # weaker than it should be for a UI that can ask for a dose. The owner
+    # accepted that as an interim because the lab has no SSO; the durable fix is
+    # card #232, and it is recorded as a cost in ceres ADR-0015.
+    - name: ceres-janus-https
+      port: 443
+      hostname: janus.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: ceres-janus-server-tls
+            namespace: ceres
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
