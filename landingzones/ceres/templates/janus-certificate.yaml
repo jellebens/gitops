@@ -1,0 +1,25 @@
+{{- if and .Values.janus.enabled .Values.janus.tlsCertificate.enabled }}
+# The lab-CA certificate for janus.lab.local, in ns ceres (the hermes pattern).
+# The gateway's own chart emits the cross-namespace ReferenceGrant for this
+# Secret, so the `ceres-janus-https` listener in .config/<env>/gateway.yaml can
+# reference it — nothing to write for that here.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.janus.tlsCertificate.secretName | quote }}
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+spec:
+  secretName: {{ .Values.janus.tlsCertificate.secretName | quote }}
+  commonName: {{ .Values.janus.tlsCertificate.commonName | quote }}
+  dnsNames:
+    {{- toYaml .Values.janus.tlsCertificate.dnsNames | nindent 4 }}
+  duration: {{ .Values.janus.tlsCertificate.duration | quote }}
+  renewBefore: {{ .Values.janus.tlsCertificate.renewBefore | quote }}
+  issuerRef:
+    name: {{ .Values.janus.tlsCertificate.issuerRef.name | quote }}
+    kind: {{ .Values.janus.tlsCertificate.issuerRef.kind | quote }}
+{{- end }}

@@ -18,7 +18,7 @@ corednsLab:
     $ORIGIN lab.local.
     $TTL 86400
     @   IN SOA ns.lab.local. hostmaster.lab.local. (
-            2026091501 ; serial — BUMP on every change (YYYYMMDDnn)
+            2026091701 ; serial — BUMP on every change (YYYYMMDDnn)
             3600       ; refresh (1h backstop if NOTIFY to the slave is missed)
             180        ; retry
             1209600    ; expire
@@ -36,6 +36,7 @@ corednsLab:
     jaeger       IN A   192.168.50.200
     firmware     IN A   192.168.50.200   ; ceres #304/#315: the operator's door to the firmware share (Annona, http only); the nodes fetch 192.168.50.202 directly
     longhorn     IN A   192.168.50.200
+    janus        IN A   192.168.50.200   ; ceres ADR-0015: the operator console (decisions, alerts, hand dosing) — https via the ceres-janus-https listener
     ; platform services (dedicated Cilium LB VIPs, platform pool .180-.199)
     mqtt         IN A   192.168.50.181   ; EMQX HA broker (platform/mqtt)
     ; infra / hosts

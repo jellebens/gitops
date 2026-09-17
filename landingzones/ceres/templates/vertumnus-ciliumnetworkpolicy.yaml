@@ -26,9 +26,26 @@ spec:
               protocol: TCP
     {{- end }}
     {{- if .Values.vertumnus.apiPort }}
-    # The operator API: only from the node itself — kubectl port-forward (the
-    # kubelet proxies from the host), never from other pods or the LAN.
+    # The operator API: from the node itself — kubectl port-forward (the kubelet
+    # proxies from the host) — and never from the LAN.
     - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - port: {{ .Values.vertumnus.apiPort | quote }}
+              protocol: TCP
+    {{- end }}
+    {{- if and .Values.vertumnus.apiPort .Values.janus.enabled }}
+    # ceres ADR-0015: the operator console forwards a hand dose here, so it is
+    # the ONE pod admitted to this port — by label, not by namespace. Nothing
+    # about the loop's authority changes: Janus still needs this unit's own
+    # VERTUMNUS_TOKEN to write, and every rail (role, fleet ceiling, lockout,
+    # pending judgement, the caps) is applied by the Vertumnus exactly as it is
+    # to a dose the loop asked for. A separate rule from the `fromEntities` one
+    # above on purpose — Cilium 1.16 rejects a rule that carries both.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: ceres
+            app.kubernetes.io/name: ceres-janus
       toPorts:
         - ports:
             - port: {{ .Values.vertumnus.apiPort | quote }}

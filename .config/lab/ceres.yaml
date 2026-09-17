@@ -107,3 +107,64 @@ carmenta:
 # ceres-pg-grafana (a plain SealedSecret; add it to this file as an extra
 # manifest or seal by hand), and as CERES_PG_PASSWORD for ns observability /
 # secret grafana-ceres-postgres (.config/lab/observability.yaml).
+
+# --- janus: the operator console (ceres ADR-0015) ------------------------------------
+# OWNER PRE-DEPLOY — all three steps done on 2026-09-17, before the first
+# release of this block. Kept as the record of WHAT was done and HOW, because a
+# zone rebuild or a second unit repeats it:
+#   1. DONE 2026-09-17 — EMQX user `janus` created live with a generated
+#      password that never reached a terminal or a file
+#      (~/ceres-probe/janus-mqtt.sh). Its ACL is `subscribe ceres/#`, publish
+#      ONLY ceres/sys/status/janus, then deny # — read back and matching the
+#      mirror in platform/mqtt/files/acl.conf. That ACL is what makes "the
+#      console cannot act on the tree" a broker fact rather than a promise in
+#      the code. onboard-secrets.sh carries the same line for a zone rebuild.
+#   2. DONE 2026-09-17 — MQTT_USER / MQTT_PASS sealed in the same run, and a
+#      fresh random JANUS_TOKEN sealed by ~/ceres-probe/janus-tokens.sh. The
+#      console needs that token for every write; the OWNER types it into the
+#      page, so it is kept in .secrets/ceres/janus.token (0600, gitignored) —
+#      the same place onboard-secrets.sh leaves the node's MQTT password.
+#   3. DONE 2026-09-17 — the tower's EXISTING VERTUMNUS_TOKEN was read from
+#      ceres-vertumnus-pomona-0001-secrets and resealed for this one as
+#      VERTUMNUS_TOKEN_POMONA_0001. All four blobs were then checked with
+#      `kubeseal --validate` against the live controller (~/ceres-probe/
+#      janus-validate.sh), which is what catches the scoping trap below.
+#      For a SECOND unit, repeat exactly this — seal each unit's EXISTING VERTUMNUS_TOKEN again for THIS secret, as
+#      VERTUMNUS_TOKEN_<UNIT> (pomona-0001 -> VERTUMNUS_TOKEN_POMONA_0001). A
+#      sealed blob is namespace+name scoped, so the blob in the unit's own
+#      secret cannot be copied here — reseal the same plaintext:
+#        kubectl get secret -n ceres ceres-vertumnus-pomona-0001-secrets \
+#          -o go-template='{{index .data "VERTUMNUS_TOKEN" | base64decode}}' \
+#        | kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd \
+#            --namespace ceres --name ceres-janus-secrets --from-file=/dev/stdin
+# The degraded modes, for whoever hits them later: with no MQTT creds the
+# console serves an empty page; with no JANUS_TOKEN it reads but refuses every
+# write with 403; with no VERTUMNUS_TOKEN_<UNIT> it reads that unit but cannot
+# dose it. In each case the page names what is missing rather than failing quietly.
+#
+# Exposure: https://janus.lab.local through the shared gateway — the
+# ceres-janus-https listener in .config/lab/gateway.yaml, the A record in
+# .config/lab/coredns-lab.yaml (serial bumped), and the lab-CA certificate from
+# the landing zone. Reads are open on the LAN, writes need JANUS_TOKEN; there is
+# no SSO in the lab (card #232) and ceres ADR-0015 records that as a cost.
+janus:
+  gateway:
+    parentRef:
+      name: cilium-gateway
+      namespace: gateway
+      sectionName: ceres-janus-https
+    httpToHttpsRedirect:
+      enabled: true
+      sectionName: http
+  tlsCertificate:
+    enabled: true
+    issuerRef:
+      name: lab-ca-issuer
+      kind: ClusterIssuer
+  secret:
+    sealedSecret:
+      encryptedData:
+        MQTT_USER: "AgCSsEIP2b50ddnnphSi0qn2UF67wZh+9ss4NEJDuxriOAJcz2ltBn8FDlOHa2KWNzhFuWqz5+jX1/jHT5jqE+oR9W+xxNsF4w+CF/QdY3i1KZFfOoiV00NsBUgndMC8aR00Xq16hFqtCVn4ciQj/LPwXA2R+cyRQ+UwHldLrRuaADVU+ecg+bwKz7rmyuzIEPmTAvSuts1lymKQsO8QfGknjaun0b/HVL0otNQHBl5kfGkScp+CamSF1T6afXSGcPZv3cQYlqtKGZiTL51+ZPv/ptR/HCayHreNHO88k/XJritZm1BKanyTwlRT2S3tckV4HPELRXbqZoHJamIwjuwxeVMSXXm8Fj8BPyxD1KILZYXa1meOYkRjKXmWbkivpEe5TooT9mcC4NE309MbltZCt6HUhXCGmegUyXe3q13H8iPy8Rm7aC1YCDwBnTGo76YfVksTPmOq0n6RJhRSZr1/LbbuKb8FUi4V2AUdSMQMOeeFpXsLvaVbxi6C3E+KFj412cn07vRweuFRe8bVbh5Bstcn2GCd2a8dbaTBXAk2GzxS31on4i3Hyu24d5VJhU0BnwNxPoH7QpFt+02WvIg2j5WRWFuiPO6Jn624Z04JIiIgYEtMiD2HZ1Ihm1H9xhid8ET2z0a9ODq/BMxrVbJcTIfW6zfHoXcS/H4clPL2efPK9SHvRJZLapcu+EiJgTHoE9FOUw=="
+        MQTT_PASS: "AgBEuFRrEjBO5/MFQt5/KaZSWHDUEJciNsFcQBJ5AfZ0/J/2kJ735bmN/bpK/4Z1L0P4z3ubj9TcsujgBEiL8tTGcSZ5vVPCUGdJXYGA0YlLYXnBQBiwj3R+2m0Avmo9Mxq40DeNgWbNHtzBneUbFTV5r194RdxazX40mfgVVd7PsZKaxdDyZkmDe3nIXxQms2L/YjwMFl9VgFs8Zgob+JUnLj4uZlClggI0EOtl/gDB3Z8BjfSVLaLwwUhBqad3ecfSTWSvtegndWL/Y7c4ZIyTKa2YQIIc4+YryCuCKfPqRP4xnjX4a7tkV9GO7lHk+wvAclSWKvRyIwnE7lUTOdaIeAaMEcUS45/YpTeaAkvAEispqry9vbM4reA1XLC8aZ/gdLToiow+BSpj6D4jx9uSqV9FHKH6NI/WnrRgVUdLiB1P+sVFrejWr6jcrYVTiRoKC/kJq+FWRbcTf2Y922eR+ZNlwDZcJLa+nlZbAS8UKYgwuqWtxwKDJoAbcDtDLdZEvK1srFJ4ItkTvpicGotibVqE51T954Vqm52rojC2bUbOy6tqHSVGo1Lg6ti2xqLYxnY/kvhvMJ5Vg5w1EUWTlUuB6k5blIdfalYL7nk2OV73jqehEpjTXDwm9nrUf9BBivVx/0w5wr6eeIGG5G/aHrnaSw6YTAb4WlWP4atkfxb8XpgCW78CKzNCXFcrH2fIvO8hdOGL217yvYZjjlWrkMauopafidVi2tzdcgiUYw=="
+        JANUS_TOKEN: "AgC0pUkXb6R9nEpusA9sofHSywDeLtUS3acgGZx+XuBOFqsk7596fb4ecC4c9yrc0hByFlZbRuqBeMksb7DztOXF4WtszFTJAyS7vgVh5wcFVLoQd9STU03sTtMZVRhVChkwhobmeSO6yabhFjClmsqWgEBtjcZpfO53TPJDCC6yQsk1HSqChrQXh4LMpnr5fmlAVILPzWIObZxD52FJmi+vmH/H3axsuLqtLRYrwKgOOju4lH0xKXv9n5cOYEYyEz7ePeobrX4q/qLiyphGghYWf0ZfB6wgxt9MIQ0oNG18+7KBYSFzolY/rcyljfn7RzGDK1ssAZ8W4PgArF9B/ZiCHDun782gpNEwTFQW/meiVYRMYn1zIV7Cs1q/vwhAhkNiOyQmcZgp7sVVXkqClxdw1YT1yGyIFVhAk7PX30pNUn/LhefXHmHtdQUndtat47dmLY3dohC1DtXOKy8vygxXmGCcnW9W0vAQBVoF/haLrsMQJdjuvoJCtSB7IRnKm1ECRgAxj6JRTxZcYyIgI5RmsDSSgeMJ2ZlrrxydPG5SuAr9i7i194F23KHtCTXHPeCtUGSGB4b8VcXJcxSr7FTpZ0E5cRkq731rquBfnX5/mqU9Q5TmXyBKFRruSFExLewEAJWBbh8C23RJOJDJUoSbaXvqvWB0O9PSiq6JLYge6B31FuXhi+QVglTQls1vegczb8NFvg1GEeVWjjP4Xu23ZJgu7gSZa6S4UM2PwApxcg=="
+        VERTUMNUS_TOKEN_POMONA_0001: "AgCa9m3pOCMYNmUwLsZ8vlU5EBwa4fJaHPbhTHmkG5Tp99xue5CofIDPvAhEQfXRy0HTAHfA9lX5Lpf3UjFOWZ00yXFgP7M41TUeC/LZdDxafNLEAk2w/WYbPRFhQZ0BFa+0JwuhYV/0B74JMjcMvK5sPYdyW/bQfuGVSv9cqMAjSCuHT4rOENC6M3yLdWopmTt5VudID+TEdEUrV3VaHxjZi1Lz0T9IYB/oIEQuCVBz0dRVCt1WjtRbjnvQMxXJ9LVym3H1oO13AZ9idPs0fAmhSYCS1nxCVM3CqA/teo/dSt89BhLFIGNDKSR4Scddk15hLEIJpwpFUXg5Ac7ydykifCigles4F1DbbQ9J7atRw99qi8FQ1SQPJFrDx45ygPagJcBYNnyurlFL4gp2RRJYTNDLndGTbczNd8dC1TQlz7qJhhGuIZG/e4KwRonP5I/tjaEcNZvoHAif3hulVMaTMlBl0sOEMg+jHHCLzBwZ42vmPT2ovHVbKqB8lBavl+6iwu+BS/V0iv+0ALsCLg4l79cFpL5+ZcTTcaHl8zaaMQmBDQoWy+fS//ujW9zIimpZQc0GYEa4h5baDo0wLpFk9xgECxMdaQd5VMu2I+Ou//of1dGSUtet6+XoIL010KvRHPJ9xZuLFFKgj2BmBcSgXUqyX5kH0EhRmJmUViCcGMoSwh4lwfZhfqn7ZyRBJLVEXhb3gvP+vRSoOj75A0DMpV9m29Sjtfx4zpx7pRqnmg=="
