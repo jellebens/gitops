@@ -70,7 +70,32 @@ see "ACL disaster recovery" below):
 | `vertumnus-pomona-0001` | v2 Vertumnus (#295): subscribe `ceres/pomona-0001/#`, `ceres/sys/mode`; publish `ceres/pomona-0001/{actuator/+/set, dose/request, sys/role, sys/decision, sys/ledger, sys/ota/url}`, `ceres/sys/status/vertumnus-pomona-0001` (the v1 transition grants went with step 5) | `deny all #` |
 | `telegraf-ceres` | the v2 archive (#295): `subscribe ceres/#` only | `deny all #` |
 | `annona`, `robigus` | ceres services (#292/#293), see acl.conf | `deny all #` |
-| `janus`         | the ceres operator console (ADR-0015): `subscribe ceres/#`, publish **only** `ceres/sys/status/janus` — a hand dose goes to the unit's Vertumnus over HTTP, never on the wire, so the console has no publish on any unit's tree | `deny all #` |
+| `janus`         | the ceres operator console (ADR-0015): `subscribe ceres/#`, publish **only** `ceres/sys/status/janus` — a hand dose goes to the unit's Vertumnus over HTTP, never on the wire, so the console has no publish on any unit's tree. Live in mnesia since 2026-09-17; **its lines are deliberately still missing from `files/acl.conf`** — see the DR gap below. | `deny all #` |
+
+### Known DR gap: `janus` is not in the acl.conf mirror yet (2026-09-17)
+
+The live mnesia rules for `janus` are in place and were read back against this
+table. The matching lines are **held out of `files/acl.conf`** on purpose:
+that file's contents are the StatefulSet's `checksum/acl`, so any edit — a
+comment included — rolls all three brokers, and the retainer runs
+`storage_type = ram`, so a roll drops every retained message (ceres card #314:
+the ledger has exactly one copy).
+
+Nothing is broken while the gap stands. The console authenticates against
+mnesia; `acl.conf` is only consulted on a from-scratch rebuild with empty
+mnesia. **If you rebuild before the follow-up lands**, add these three lines
+before the `{deny, all}.` fallback:
+
+```erlang
+{allow, {username, "janus"}, subscribe, ["ceres/#"]}.
+{allow, {username, "janus"}, publish, ["ceres/sys/status/janus"]}.
+{deny,  {username, "janus"}, all, ["#"]}.
+```
+
+The follow-up PR does exactly that and should be merged in a quiet window — no
+dose pending judgement, nothing mixing. Check with
+`kubectl -n ceres exec deploy/ceres-vertumnus-pomona-0001 -- ...` against
+`GET /` (`pending` and `mixing_until` both null).
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
 `homeassistant` is scoped to **its own tree plus the ceres relay grants**
