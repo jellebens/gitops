@@ -61,22 +61,21 @@ see "ACL disaster recovery" below):
 
 | user            | allow                                                        | then |
 | --------------- | ------------------------------------------------------------ | ---- |
-| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, ceres ADR-0005), `subscribe ceres/#` (#293), `publish ceres/+/actuator/+/power_w`, `publish ceres/+/actuator/+/set` (#295, v2), `publish ceres/+/sys/alerts/ack`, `ceres/+/sys/advice/ack`, `ceres/sys/alerts/ack` (#302: the ack HA publishes after notifying, echoing the document's traceparent; Robigus opens the span) | `deny all #` |
+| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe ceres/#` (#293), `publish ceres/+/actuator/+/power_w` (the plug's watts, ceres ADR-0005), `publish ceres/+/actuator/+/set` (#295, v2), `publish ceres/+/sys/alerts/ack`, `ceres/+/sys/advice/ack`, `ceres/sys/alerts/ack` (#302: the ack HA publishes after notifying, echoing the document's traceparent; Robigus opens the span) | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
-| `pomona`        | `all pomona/#` (the GIGA firmware)                           | `deny all #` |
-| `pomona-demeter` | `subscribe pomona/#`, `publish pomona/dose/test`, `publish pomona/pump/override`, `publish pomona/demeter/#` | `deny all #` |
-| `unit-pomona-0001` | v2 node (pomona fw 2.0.0, #295): publish `ceres/pomona-0001/{tele/#, actuator/+/state, actuator/+/reason, dose/result, sys/status, sys/meta, sys/health, sys/ota/result, sys/diag/#}`; subscribe `{actuator/+/set, dose/request, desired, sys/ota/url, sys/diag/+/get}` | `deny all #` |
-| `vertumnus-pomona-0001` | v2 Vertumnus (#295): subscribe `ceres/pomona-0001/#`, `ceres/sys/mode` (+ `pomona/demeter/ledger` during the transition); publish `ceres/pomona-0001/{actuator/+/set, dose/request, sys/role, sys/decision, sys/ledger}`, `ceres/sys/status/vertumnus-pomona-0001` (+ `pomona/dose/test`, `pomona/pump/override` during the transition) | `deny all #` |
+| ~~`pomona`~~, ~~`pomona-demeter`~~, ~~`pomona-ingest`~~ | the v1 world (firmware 1.x, the 0.5.1 controller, the v1 Telegraf bridge) — retired with ceres #295 step 5; delete them on the broker | — |
+| `unit-pomona-0001` | v2 node (pomona fw ≥ 2.3.0, #295): publish `ceres/pomona-0001/{tele/#, actuator/+/state, actuator/+/reason, dose/result, sys/status, sys/meta, sys/health, sys/ota/result, sys/diag/#}`; subscribe `{actuator/+/set, dose/request, desired, sys/ota/url, sys/diag/+/get}` | `deny all #` |
+| `vertumnus-pomona-0001` | v2 Vertumnus (#295): subscribe `ceres/pomona-0001/#`, `ceres/sys/mode`; publish `ceres/pomona-0001/{actuator/+/set, dose/request, sys/role, sys/decision, sys/ledger, sys/ota/url}`, `ceres/sys/status/vertumnus-pomona-0001` (the v1 transition grants went with step 5) | `deny all #` |
 | `telegraf-ceres` | the v2 archive (#295): `subscribe ceres/#` only | `deny all #` |
 | `annona`, `robigus` | ceres services (#292/#293), see acl.conf | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
-`homeassistant` is scoped to **its own tree plus the pomona relay grants**
-(card #188 — least-privilege hardening; `subscribe pomona/#` since #277 and
-`publish pomona/pump/power` since #278 — the single pomona topic HA writes,
-the pump plug's watts for Ceres). It previously also held `all zeus/#`, which was
+`homeassistant` is scoped to **its own tree plus the ceres relay grants**
+(card #188 — least-privilege hardening; it reads `ceres/#` and writes the pump
+plug's watts, a human actuator override and the notifier acks — the v1
+`pomona/#` grants of #277 / #278 went with ceres #295 step 5). It previously also held `all zeus/#`, which was
 over-provisioning: HA never needs the `zeus/` tree because `zeus-mqtt` publishes
 HA discovery + state under `homeassistant/#` (that is how HA consumes zeus data).
 After the change, **publish under the `zeus/` tree — including the commander
@@ -161,9 +160,14 @@ Validated 2026-09-12 on a local `emqx/emqx:5.8.9` (all 16 rules load; every
 mapping and retain flag checked by a script). Changing `rules` rolls the
 StatefulSet (one pod at a time; clients reconnect to the VIP).
 
-**Step 5 of the transition** (firmware 2.0.0 on the tower): set
-`rules.enabled: false`, clear the old retained `pomona/#` topics with an empty
-retained publish, retire the users `pomona`, `pomona-demeter`, `pomona-ingest`.
+**Step 5 of the transition** — due since firmware 2.3.0 went onto the tower
+(2026-09-15): set `rules.enabled: false` (chart 0.4.0; rolls the StatefulSet once —
+mind ceres #314), clear the old retained `pomona/#` topics (admin API
+`DELETE /mqtt/retainer/message/<topic>`, or an empty retained publish), PUT the
+trimmed ACLs of `files/acl.conf` for `vertumnus-pomona-0001`, `robigus` and
+`homeassistant`, and delete the users `pomona`, `pomona-demeter`, `pomona-ingest`.
+The mapping table above then is history; `values.yaml` keeps the rule list as
+the record `tests/bridge_test.py` checks.
 
 ## ACL disaster recovery (card #156)
 

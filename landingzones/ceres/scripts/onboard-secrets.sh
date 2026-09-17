@@ -91,14 +91,14 @@ ACL[unit-pomona-0001]="$(rules \
   sub:ceres/pomona-0001/actuator/+/set sub:ceres/pomona-0001/dose/request sub:ceres/pomona-0001/desired \
   sub:ceres/pomona-0001/sys/ota/url sub:ceres/pomona-0001/sys/diag/+/get)"
 ACL[vertumnus-pomona-0001]="$(rules \
-  sub:ceres/pomona-0001/# sub:ceres/sys/mode sub:pomona/demeter/ledger \
+  sub:ceres/pomona-0001/# sub:ceres/sys/mode \
   pub:ceres/pomona-0001/actuator/+/set pub:ceres/pomona-0001/dose/request pub:ceres/pomona-0001/sys/role \
-  pub:ceres/pomona-0001/sys/decision pub:ceres/pomona-0001/sys/ledger pub:ceres/sys/status/vertumnus-pomona-0001 \
-  pub:pomona/dose/test pub:pomona/pump/override pub:pomona/unit/ota_url)"
+  pub:ceres/pomona-0001/sys/decision pub:ceres/pomona-0001/sys/ledger pub:ceres/pomona-0001/sys/ota/url \
+  pub:ceres/sys/status/vertumnus-pomona-0001)"   # the v1 transition grants are retired (ceres #295 step 5)
 ACL[carmenta]="$(rules sub:ceres/# pub:ceres/+/sys/prior pub:ceres/sys/advice pub:ceres/sys/status/carmenta)"
 ACL[telegraf-ceres]="$(rules sub:ceres/#)"
 ACL[annona]="$(rules sub:ceres/# pub:ceres/+/sys/config pub:ceres/+/desired pub:ceres/sys/#)"
-ACL[robigus]="$(rules sub:ceres/# sub:pomona/# pub:ceres/+/sys/alerts pub:ceres/+/sys/advice pub:ceres/sys/alerts pub:ceres/sys/status/robigus)"
+ACL[robigus]="$(rules sub:ceres/# pub:ceres/+/sys/alerts pub:ceres/+/sys/advice pub:ceres/sys/alerts pub:ceres/sys/status/robigus)"
 
 for u in "${!PW[@]}"; do
   if [ "$DRY" = 1 ]; then say "[dry-run] would create/reset broker user $u and PUT $(jq length <<<"${ACL[$u]}") ACL rules"; continue; fi

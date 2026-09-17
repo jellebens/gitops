@@ -19,7 +19,10 @@ type: application
 #         ServerSideDiff=true) — ends the phantom-diff self-heal loop.
 # 0.1.2 = kyverno too: its policies.kyverno.io CRDs showed the same phantom diff
 #         once the SyncError condition was cleared.
-version: 0.1.2
+# 0.1.3 = ceres #295 step 5: the `pomona` application (landingzones/pomona — the v1 Telegraf
+#         ingestion bridge and the Pomona history board) is gone; the tower speaks
+#         ceres/pomona-0001/# and is archived by landingzones/ceres. The `pomona` bucket stays.
+version: 0.1.3
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
