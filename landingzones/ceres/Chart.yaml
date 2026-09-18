@@ -62,7 +62,13 @@ name: ceres
 #          vertumnus-ciliumnetworkpolicy.yaml now admits the ceres-janus POD (by label) to the API
 #          port, which was host/remote-node only. Owner pre-deploy: the `janus` EMQX user, then seal
 #          MQTT_USER/MQTT_PASS/JANUS_TOKEN plus VERTUMNUS_TOKEN_<UNIT> into ceres-janus-secrets.
-version: 0.16.0
+# 0.17.0 = ceres #316 (ADR-0016): vertumnus 0.20.0 (+ 0.19.0, the v1 wire gone — it loads the values this chart
+#          renders), annona 0.10.0 (migration 0005: water changes, reagent product), robigus 0.9.0 (critical pH /
+#          acid hold), carmenta 0.5.1. Every sys/config consumer moves to ceres_shared 0.14.0 in this one release —
+#          record a water change or a product only after it is live (older consumers refuse the new keys).
+#          Why: a model-sized 4 ml probe took the tower from pH 7.27 to 3.44 at 04:51 on 2026-09-18.
+#          No broker change: platform/mqtt is untouched (a changed acl.conf rolls EMQX and drops the retained tree).
+version: 0.17.0
 type: application
-appVersion: "0.9.0"
+appVersion: "0.20.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
