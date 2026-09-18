@@ -324,8 +324,13 @@ listener in `.config/<env>/gateway.yaml`, the A record in
 `.config/<env>/coredns-lab.yaml`. Deliberately **not** Annona's
 `world`-admitted LoadBalancer: that shape exists because the GIGA's OTA client
 resolves no hostname and speaks no TLS, and a browser does both. Reads are open
-on the LAN; writes need `JANUS_TOKEN`. There is no SSO in the lab (card #232)
-and ceres ADR-0015 records that as an accepted cost, not an oversight.
+on the LAN; writes need a signed-in operator (janus 0.2.0, chart 0.17.0: a
+username and a password at `/login`, a 12-hour `HttpOnly` session cookie — the
+account is `JANUS_USERNAME` / `JANUS_PASSWORD_HASH` / `JANUS_SESSION_KEY` in
+`ceres-janus-secrets`, the password itself only in the owner's
+`.secrets/ceres/janus.password`). `JANUS_TOKEN` remains for scripts. There is no
+SSO in the lab (card #232) and ceres ADR-0015 records that as an accepted cost,
+not an oversight.
 
 **Owner pre-deploy** — three things, all in `.config/lab/ceres.yaml`'s comment:
 the `janus` EMQX user (`onboard-secrets.sh` carries its ACL), then

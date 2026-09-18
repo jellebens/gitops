@@ -52,6 +52,15 @@ rnd() { openssl rand -base64 33 | tr -d '\n/+=' | cut -c1-32; }
 declare -A PW
 for u in vertumnus-pomona-0001 annona robigus carmenta telegraf-ceres janus unit-pomona-0001; do PW[$u]="$(rnd)"; done
 VERTUMNUS_TOKEN="$(rnd)"; ANNONA_TOKEN="$(rnd)"; JANUS_TOKEN="$(rnd)"; GRAFANA_PW="$(rnd)"
+# janus 0.2.0: the operator account. The password is typed by the owner, so it is
+# saved to .secrets/ below; the cluster only ever gets its hash — the same format
+# ceres_janus.auth.hash_password writes (pbkdf2_sha256$600000$<salt>$<hash>).
+JANUS_USERNAME=jelle; JANUS_PASSWORD="$(rnd)"; JANUS_SESSION_KEY="$(openssl rand -base64 48 | tr -d '\n')"
+JANUS_PASSWORD_HASH="$(printf '%s' "$JANUS_PASSWORD" | python3 -c '
+import base64, hashlib, secrets, sys
+b = lambda r: base64.urlsafe_b64encode(r).decode().rstrip("=")
+salt = secrets.token_bytes(16)
+print("pbkdf2_sha256$600000$" + b(salt) + "$" + b(hashlib.pbkdf2_hmac("sha256", sys.stdin.read().encode(), salt, 600000)))')"
 
 # ── 2. EMQX users + ACLs (admin REST API, in-cluster) ───────────────────────────────────────────
 TOKEN=""
@@ -167,7 +176,9 @@ export B_C_USER="$(seal $S_C carmenta)" B_C_PASS="$(seal $S_C "${PW[carmenta]}")
 # holds, resealed for this secret: a sealed blob is namespace+name scoped, so it
 # cannot be copied across, and Janus forwards that token rather than minting one.
 export B_J_USER="$(seal $S_J janus)" B_J_PASS="$(seal $S_J "${PW[janus]}")" B_J_TOKEN="$(seal $S_J "$JANUS_TOKEN")" \
-       B_J_VERT_POMONA_0001="$(seal $S_J "$VERTUMNUS_TOKEN")"
+       B_J_VERT_POMONA_0001="$(seal $S_J "$VERTUMNUS_TOKEN")" \
+       B_J_LOGIN="$(seal $S_J "$JANUS_USERNAME")" B_J_HASH="$(seal $S_J "$JANUS_PASSWORD_HASH")" \
+       B_J_SKEY="$(seal $S_J "$JANUS_SESSION_KEY")"
 LAB="$LAB" python3 - <<'PY'
 import os, re
 p = os.environ["LAB"]; s = open(p).read()
@@ -177,7 +188,8 @@ blocks = [  # file order: units.pomona-0001 (vertumnus), annona, robigus, telegr
     {"MQTT_USER": "B_R_USER", "MQTT_PASS": "B_R_PASS"},
     {"MQTT_USER": "B_T_USER", "MQTT_PASS": "B_T_PASS", "INFLUX_TOKEN": "B_T_INFLUX"},
     {"MQTT_USER": "B_C_USER", "MQTT_PASS": "B_C_PASS"},
-    {"MQTT_USER": "B_J_USER", "MQTT_PASS": "B_J_PASS", "JANUS_TOKEN": "B_J_TOKEN",
+    {"MQTT_USER": "B_J_USER", "MQTT_PASS": "B_J_PASS", "JANUS_USERNAME": "B_J_LOGIN",
+     "JANUS_PASSWORD_HASH": "B_J_HASH", "JANUS_SESSION_KEY": "B_J_SKEY", "JANUS_TOKEN": "B_J_TOKEN",
      "VERTUMNUS_TOKEN_POMONA_0001": "B_J_VERT_POMONA_0001"},
 ]
 pat = re.compile(r"^( *)encryptedData: \{\}[^\n]*$", re.M)
@@ -191,7 +203,7 @@ for m, keys in zip(found, blocks):
 out.append(s[pos:]); open(p, "w").write("".join(out))
 print(f"ceres.yaml: {len(blocks)} sealed blocks written")
 PY
-unset B_V_USER B_V_PASS B_V_TOKEN B_A_USER B_A_PASS B_A_TOKEN B_R_USER B_R_PASS B_T_USER B_T_PASS B_T_INFLUX B_C_USER B_C_PASS B_J_USER B_J_PASS B_J_TOKEN B_J_VERT_POMONA_0001
+unset B_V_USER B_V_PASS B_V_TOKEN B_A_USER B_A_PASS B_A_TOKEN B_R_USER B_R_PASS B_T_USER B_T_PASS B_T_INFLUX B_C_USER B_C_PASS B_J_USER B_J_PASS B_J_TOKEN B_J_VERT_POMONA_0001 B_J_LOGIN B_J_HASH B_J_SKEY
 
 # the Grafana read role: one password, sealed twice (ns ceres for CNPG, ns observability for Grafana)
 kubectl create secret generic ceres-pg-grafana -n ceres --from-literal=username=grafana --from-literal=password="$GRAFANA_PW" --dry-run=client -o yaml \
@@ -208,7 +220,12 @@ if [ "$DRY" = 0 ]; then
   chmod 600 "$REPO/.secrets/ceres/unit-pomona-0001.mqtt-pass"
 fi
 say "node password saved to $REPO/.secrets/ceres/unit-pomona-0001.mqtt-pass — MQTT_PASS in firmware/pomona/secrets.h at flash time (#295 item 7a)"
-unset PW VERTUMNUS_TOKEN ANNONA_TOKEN JANUS_TOKEN GRAFANA_PW INFLUX_TOKEN
+if [ "$DRY" = 0 ]; then
+  printf '%s\n' "$JANUS_PASSWORD" > "$REPO/.secrets/ceres/janus.password"
+  chmod 600 "$REPO/.secrets/ceres/janus.password"
+fi
+say "console password for $JANUS_USERNAME saved to $REPO/.secrets/ceres/janus.password — sign in at https://janus.lab.local"
+unset PW VERTUMNUS_TOKEN ANNONA_TOKEN JANUS_TOKEN JANUS_PASSWORD JANUS_PASSWORD_HASH JANUS_SESSION_KEY GRAFANA_PW INFLUX_TOKEN
 
 # ── 6. commit the ciphertext and open the PR ───────────────────────────────────────────────────
 [ "$DRY" = 1 ] && { say "[dry-run] would commit .config/lab/ceres.yaml + 2 sealed manifests and open a PR to develop"; exit 0; }
