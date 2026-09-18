@@ -72,7 +72,9 @@ name: ceres
 #          JANUS_TOKEN into a prompt per tab (owner 2026-09-18, ceres ADR-0015 addendum). The account is
 #          three new keys in ceres-janus-secrets (JANUS_USERNAME, JANUS_PASSWORD_HASH, JANUS_SESSION_KEY),
 #          delivered by the existing envFrom — no template changes, only the image tag.
-version: 0.18.0
+# 0.19.0 = ceres janus 0.3.0: the acid hold of ADR-0016 shown first on the unit page and released by a signed-in
+#          operator (DELETE /ph/hold through the unit's Vertumnus, with its token; logged with who asked). Image tag only.
+version: 0.19.0
 type: application
 appVersion: "0.20.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
