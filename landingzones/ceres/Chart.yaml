@@ -74,7 +74,12 @@ name: ceres
 #          delivered by the existing envFrom — no template changes, only the image tag.
 # 0.19.0 = ceres janus 0.3.0: the acid hold of ADR-0016 shown first on the unit page and released by a signed-in
 #          operator (DELETE /ph/hold through the unit's Vertumnus, with its token; logged with who asked). Image tag only.
-version: 0.19.0
+# 0.20.0 = ceres ADR-0017 prepared, OFF (mesh.enabled: false): vertumnus 0.21.0 / janus 0.4.0 images, their own
+#          ServiceAccounts (no token mounted; every ceres pod ran as `default`), POD_IP from the downward API.
+#          mesh.enabled — only after the owner's Cilium roll (SPIRE + WireGuard, homelab) — adds the token-free
+#          mesh listener on the POD IP, admits it only from the ceres-janus pod (label + SA) with
+#          authentication.mode: required, denies host/remote-node/world on it, and puts Janus in mesh mode.
+version: 0.20.0
 type: application
 appVersion: "0.20.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

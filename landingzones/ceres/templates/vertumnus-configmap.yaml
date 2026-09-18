@@ -31,6 +31,11 @@ data:
     metrics_port: {{ $.Values.metrics.port }}
     api_port: {{ $.Values.vertumnus.apiPort }}
     api_token: "${VERTUMNUS_TOKEN}"
+    {{- if $.Values.mesh.enabled }}
+    # ADR-0017: the token-free mesh listener, on the pod IP only (refused otherwise)
+    mesh_api_port: {{ $.Values.mesh.port }}
+    mesh_api_host: "${POD_IP}"
+    {{- end }}
     mqtt:
       host: {{ $u.mqtt.host }}
       port: {{ $u.mqtt.port }}
