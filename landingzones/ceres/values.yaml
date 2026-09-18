@@ -348,7 +348,7 @@ janus:
   enabled: true
   image:
     repository: jellebens/ceres-janus
-    tag: "0.1.0"  # janus/v0.1.0 (ceres ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
+    tag: "0.2.0"  # janus/v0.2.0: sign in with a username and a password (ADR-0015 addendum) instead of pasting a token; 0.1.0 (ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
     pullPolicy: IfNotPresent
   uiPort: 8080
   intervalSeconds: 30     # the metrics tick
@@ -366,7 +366,10 @@ janus:
     port: 1883
     clientId: janus
   # MQTT_USER / MQTT_PASS of the dedicated `janus` EMQX user (subscribe ceres/#;
-  # publish ONLY ceres/sys/status/janus), JANUS_TOKEN, and one
+  # publish ONLY ceres/sys/status/janus); since 0.2.0 the operator account a
+  # browser signs in with — JANUS_USERNAME, JANUS_PASSWORD_HASH (a PBKDF2 hash,
+  # never the password) and JANUS_SESSION_KEY (signs the session cookie, so a
+  # restart signs nobody out); JANUS_TOKEN (scripts only), and one
   # VERTUMNUS_TOKEN_<UNIT> per unit the console may dose — the same value as
   # that unit's own secret. Seal for ns ceres / secret ceres-janus-secrets.
   secret:
