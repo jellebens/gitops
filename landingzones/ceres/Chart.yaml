@@ -68,7 +68,11 @@ name: ceres
 #          record a water change or a product only after it is live (older consumers refuse the new keys).
 #          Why: a model-sized 4 ml probe took the tower from pH 7.27 to 3.44 at 04:51 on 2026-09-18.
 #          No broker change: platform/mqtt is untouched (a changed acl.conf rolls EMQX and drops the retained tree).
-version: 0.17.0
+# 0.18.0 = ceres janus 0.2.0: a browser signs in with a username and a password instead of pasting
+#          JANUS_TOKEN into a prompt per tab (owner 2026-09-18, ceres ADR-0015 addendum). The account is
+#          three new keys in ceres-janus-secrets (JANUS_USERNAME, JANUS_PASSWORD_HASH, JANUS_SESSION_KEY),
+#          delivered by the existing envFrom — no template changes, only the image tag.
+version: 0.18.0
 type: application
 appVersion: "0.20.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
