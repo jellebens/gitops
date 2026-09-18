@@ -348,7 +348,7 @@ janus:
   enabled: true
   image:
     repository: jellebens/ceres-janus
-    tag: "0.2.0"  # janus/v0.2.0: sign in with a username and a password (ADR-0015 addendum) instead of pasting a token; 0.1.0 (ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
+    tag: "0.3.0"  # janus/v0.3.0 (ADR-0016): the acid hold shown first on the unit page, released by a signed-in operator (logged with who asked); 0.2.0: sign in with a username and a password (ADR-0015 addendum) instead of pasting a token; 0.1.0 (ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
     pullPolicy: IfNotPresent
   uiPort: 8080
   intervalSeconds: 30     # the metrics tick
