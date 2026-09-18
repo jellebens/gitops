@@ -27,6 +27,12 @@ spec:
       targetPort: api
       protocol: TCP
     {{- end }}
+    {{- if $.Values.mesh.enabled }}
+    - name: mesh
+      port: {{ $.Values.mesh.port }}
+      targetPort: mesh
+      protocol: TCP
+    {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

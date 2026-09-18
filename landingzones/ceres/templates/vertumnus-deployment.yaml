@@ -36,7 +36,11 @@ spec:
       annotations:
         # Roll THIS Vertumnus when its documents or the fleet mode change.
         checksum/config: {{ printf "%s|%s|%s" $.Values.mode (toYaml $u) (toYaml $.Values.Vertumnus) | sha256sum }}
+        # ADR-0017: the mesh listener is read at start, so a flip must restart the pod.
+        checksum/mesh: {{ toYaml $.Values.mesh | sha256sum }}
     spec:
+      serviceAccountName: ceres-vertumnus   # ADR-0017; it never talks to the Kubernetes API
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: {{ $.Values.runtime.uid }}
@@ -67,6 +71,10 @@ spec:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ $.Values.tracing.endpoint | quote }}
             {{- end }}
+            # ADR-0017: the ONLY address the mesh listener may bind. Never 0.0.0.0 or
+            # loopback: port-forward and exec dial loopback, where no policy can see.
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
           envFrom:
             - secretRef:
                 name: {{ $u.secret.name }}
@@ -78,6 +86,10 @@ spec:
             {{- if $.Values.vertumnus.apiPort }}
             - name: api
               containerPort: {{ $.Values.vertumnus.apiPort }}
+            {{- end }}
+            {{- if $.Values.mesh.enabled }}
+            - name: mesh
+              containerPort: {{ $.Values.mesh.port }}
             {{- end }}
               protocol: TCP
           {{- with $.Values.probes.readiness }}
