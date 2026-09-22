@@ -35,6 +35,8 @@ spec:
       annotations:
         checksum/config: {{ toYaml .Values.janus | sha256sum }}
     spec:
+      serviceAccountName: ceres-janus   # ADR-0017: the mesh policy matches this, with the label
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: {{ .Values.runtime.uid }}
@@ -71,8 +73,17 @@ spec:
               value: {{ .Values.janus.decisionHistory | quote }}
             # Where a hand dose goes: the unit's own operator API, {unit} substituted.
             # Janus never publishes dose/request — the rails live in the loop.
+            {{- if .Values.mesh.enabled }}
+            # ADR-0017: the unit's mesh listener; Janus holds NO unit token — Cilium mutual
+            # authentication is what admits it.
+            - name: VERTUMNUS_AUTH
+              value: mesh
+            - name: VERTUMNUS_API_URL
+              value: {{ .Values.janus.vertumnusMeshUrl | quote }}
+            {{- else }}
             - name: VERTUMNUS_API_URL
               value: {{ .Values.janus.vertumnusApiUrl | quote }}
+            {{- end }}
             {{- with .Values.janus.grafanaUnitUrl }}
             # Linked from the decision timeline: the in-memory list is only what
             # Janus saw, the record is the InfluxDB archive behind this board.

@@ -34,7 +34,7 @@ spec:
             - port: {{ .Values.vertumnus.apiPort | quote }}
               protocol: TCP
     {{- end }}
-    {{- if and .Values.vertumnus.apiPort .Values.janus.enabled }}
+    {{- if and .Values.vertumnus.apiPort .Values.janus.enabled (not .Values.mesh.enabled) }}
     # ceres ADR-0015: the operator console forwards a hand dose here, so it is
     # the ONE pod admitted to this port — by label, not by namespace. Nothing
     # about the loop's authority changes: Janus still needs this unit's own
@@ -51,7 +51,39 @@ spec:
             - port: {{ .Values.vertumnus.apiPort | quote }}
               protocol: TCP
     {{- end }}
+    {{- if and .Values.mesh.enabled .Values.janus.enabled }}
+    # ceres ADR-0017 — the mesh listener: token-free, so this rule IS the lock. Exactly one
+    # peer: the ceres-janus pod, matched by label AND its own ServiceAccount, and only after
+    # Cilium has mutually authenticated it (SPIFFE identities from SPIRE) — a spoofed IP or
+    # an impostor on another node fails the handshake and is dropped. Janus's old rule to the
+    # token port above is gone while this is on: it holds no token any more.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: ceres
+            app.kubernetes.io/name: ceres-janus
+            io.cilium.k8s.policy.serviceaccount: ceres-janus
+      authentication:
+        mode: required
+      toPorts:
+        - ports:
+            - port: {{ .Values.mesh.port | quote }}
+              protocol: TCP
+    {{- end }}
     {{- if not (or .Values.metrics.enabled .Values.vertumnus.apiPort) }}
     []
     {{- end }}
+  {{- if .Values.mesh.enabled }}
+  # ADR-0017 — deny beats allow in Cilium. Cilium's default allow-localhost lets a pod's own
+  # node reach it whatever the policy says (that is how kubelet probes work); on the mesh
+  # port nothing legitimate comes from a node or the LAN — no probe uses it — so they are
+  # denied outright. mesh-verify.sh proves this from a hostNetwork pod on the same node
+  # before the unit token leaves the Janus secret. (Loopback — port-forward, exec — is
+  # beyond ANY policy: the listener binds the pod IP only, so there is nothing there.)
+  ingressDeny:
+    - fromEntities: [host, remote-node, world]
+      toPorts:
+        - ports:
+            - port: {{ .Values.mesh.port | quote }}
+              protocol: TCP
+  {{- end }}
 {{- end }}

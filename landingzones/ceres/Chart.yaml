@@ -77,8 +77,13 @@ name: ceres
 # 0.21.0 = ceres ADR-0018: vertumnus 0.22.0 — Ceres sees a water change itself (a dilution or a water-temperature
 #          step pauses every automatic dose and the pH learning until the water holds still; settled >= 30 % below
 #          the start EC it is a detected change and resets as a recorded one) — and robigus 0.10.0 (water_settling
-#          is a warning). Image tags only; no broker change. (0.20.0 is the janus-mesh branch's, ADR-0017.)
-version: 0.21.0
+#          is a warning). Image tags only; no broker change. (ADR-0017 followed as 0.22.0.)
+# 0.22.0 = ceres ADR-0017 prepared, OFF (mesh.enabled: false): vertumnus 0.23.0 / janus 0.4.0 images, their own
+#          ServiceAccounts (no token mounted; every ceres pod ran as `default`), POD_IP from the downward API.
+#          mesh.enabled — only after the owner's Cilium roll (SPIRE + WireGuard, homelab) — adds the token-free
+#          mesh listener on the POD IP, admits it only from the ceres-janus pod (label + SA) with
+#          authentication.mode: required, denies host/remote-node/world on it, and puts Janus in mesh mode.
+version: 0.22.0
 type: application
 appVersion: "0.22.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
