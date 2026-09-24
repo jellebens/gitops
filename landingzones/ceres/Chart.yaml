@@ -83,7 +83,9 @@ name: ceres
 #          mesh.enabled — only after the owner's Cilium roll (SPIRE + WireGuard, homelab) — adds the token-free
 #          mesh listener on the POD IP, admits it only from the ceres-janus pod (label + SA) with
 #          authentication.mode: required, denies host/remote-node/world on it, and puts Janus in mesh mode.
-version: 0.22.0
+# 0.22.1 = ceres vertumnus 0.23.1: the first "none" decision after an alert is published, so the retained
+#          sys/decision (and Robigus, Janus) stop carrying alerts that have cleared. Image tag only.
+version: 0.22.1
 type: application
-appVersion: "0.22.0"
+appVersion: "0.23.1"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
