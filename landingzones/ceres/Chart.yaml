@@ -85,7 +85,9 @@ name: ceres
 #          authentication.mode: required, denies host/remote-node/world on it, and puts Janus in mesh mode.
 # 0.22.1 = ceres vertumnus 0.23.1: the first "none" decision after an alert is published, so the retained
 #          sys/decision (and Robigus, Janus) stop carrying alerts that have cleared. Image tag only.
-version: 0.22.1
+# 0.22.2 = ceres vertumnus 0.24.0: an operator's pH-Down dose that does not fit one slow command goes at the
+#          full speed (still one command); only one that fits neither is split, and judged as one dose. Image tag only.
+version: 0.22.2
 type: application
-appVersion: "0.23.1"
+appVersion: "0.24.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
