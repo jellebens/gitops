@@ -90,7 +90,8 @@ name: ceres
 # 0.23.0 = ceres ADR-0016 §11: vertumnus 0.25.0 — no automatic dose the model could not see (blocked with
 #          ph_hand_dose_needed until the guard allows a visible dose); robigus 0.11.0 (that alert is a warning).
 #          Image tags only.
-version: 0.23.0
+# 0.23.1 = ceres vertumnus 0.25.1: an operator's dose does not stay the current decision. Image tag only.
+version: 0.23.1
 type: application
-appVersion: "0.25.0"
+appVersion: "0.25.1"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
