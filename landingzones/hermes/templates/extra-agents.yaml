@@ -73,6 +73,7 @@ metadata:
     hermes.nousresearch.com/agent: {{ $name | quote }}
 spec:
   replicas: {{ default 1 $agent.replicaCount }}
+  revisionHistoryLimit: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $agentName | quote }}
