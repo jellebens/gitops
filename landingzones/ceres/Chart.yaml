@@ -94,7 +94,10 @@ name: ceres
 # 0.24.0 = ceres annona 0.11.0 (migration 0006: a doser's slow_ml_s may be 0 — a speed that delivers nothing)
 #          and vertumnus 0.25.2 (then every pH-Down dose goes at the full speed). Image tags only.
 # 0.24.1 = ceres janus 0.4.1: a published "none" reads "nothing to do" on the unit page. Image tag only.
-version: 0.24.1
+# 0.25.0 = ceres ADR-0019: vertumnus 0.26.0 keeps a copy of its ledger on a Longhorn volume per unit
+#          (ceres-vertumnus-<unit>-ledger, 256Mi, kept on uninstall) at /data/ledger.json — what a unit
+#          learned survives a broker restart (the retainer is RAM-only; 2026-09-30 lost the tower's lessons).
+version: 0.25.0
 type: application
-appVersion: "0.25.2"
+appVersion: "0.26.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

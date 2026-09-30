@@ -36,6 +36,10 @@ data:
     mesh_api_port: {{ $.Values.mesh.port }}
     mesh_api_host: "${POD_IP}"
     {{- end }}
+    {{- if $.Values.ledger.enabled }}
+    # ADR-0019: a copy of the ledger on the unit's volume — survives a broker restart
+    ledger_file: /data/ledger.json
+    {{- end }}
     mqtt:
       host: {{ $u.mqtt.host }}
       port: {{ $u.mqtt.port }}
