@@ -21,6 +21,7 @@ metadata:
     ceres.jellebens.dev/unit: {{ $id | quote }}
 spec:
   replicas: 1
+  revisionHistoryLimit: 0
   selector:
     matchLabels:
       app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
@@ -38,6 +39,8 @@ spec:
         checksum/config: {{ printf "%s|%s|%s" $.Values.mode (toYaml $u) (toYaml $.Values.Vertumnus) | sha256sum }}
         # ADR-0017: the mesh listener is read at start, so a flip must restart the pod.
         checksum/mesh: {{ toYaml $.Values.mesh | sha256sum }}
+        # ADR-0019: ledger_file is read at start
+        checksum/ledger: {{ toYaml $.Values.ledger | sha256sum }}
     spec:
       serviceAccountName: ceres-vertumnus   # ADR-0017; it never talks to the Kubernetes API
       automountServiceAccountToken: false
@@ -120,11 +123,21 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            {{- if $.Values.ledger.enabled }}
+            # ADR-0019: the ledger's copy on disk (ledger_file in values.yaml)
+            - name: ledger
+              mountPath: /data
+            {{- end }}
           resources:
             {{- toYaml $.Values.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: ceres-vertumnus-{{ $id }}
+        {{- if $.Values.ledger.enabled }}
+        - name: ledger
+          persistentVolumeClaim:
+            claimName: ceres-vertumnus-{{ $id }}-ledger
+        {{- end }}
 {{- end }}
 {{- end }}

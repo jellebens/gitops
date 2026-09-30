@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/part-of: jupiter
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: jupiter-cell

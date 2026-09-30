@@ -1,0 +1,31 @@
+{{- if .Values.ledger.enabled }}
+{{- range $id, $u := .Values.units }}
+{{- if $u.enabled }}
+# ceres ADR-0019: the Vertumnus's copy of its ledger — everything the unit has learned (the dose
+# response, the settle time, the bottle counters, the water in force). The retained ledger on the
+# broker lives in EMQX's RAM and went with the cluster restart of 2026-09-30; this one does not.
+# Longhorn (replicated), so it follows the single-replica, Recreate pod to any node. Kept on a
+# chart change or an uninstall (resource-policy: keep): losing it costs the unit its lessons.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ceres-vertumnus-{{ $id }}-ledger
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+    app.kubernetes.io/part-of: ceres
+    ceres.jellebens.dev/unit: {{ $id | quote }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ $.Values.ledger.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ $.Values.ledger.size | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
