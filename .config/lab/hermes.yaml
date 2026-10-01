@@ -63,3 +63,7 @@ git:
 # StorageClass nightly via the online .backup API.
 backup:
   enabled: true
+
+# Gateway stopped on owner request (2026-10-01): scale Cortana's pod to zero.
+# The state PVC is kept; remove this override (or set 1) to start it again.
+replicaCount: 0
