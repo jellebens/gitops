@@ -67,6 +67,7 @@ spec:
                   /opt/hermes/.venv/bin/python - "$STAGE" $DBS <<'PY'
                   import os, sqlite3, sys
                   dest = sys.argv[1]
+                  bad = []
                   for name in sys.argv[2:]:
                       src = os.path.join("/state", name)
                       if not os.path.exists(src):
@@ -75,9 +76,22 @@ spec:
                       bck = sqlite3.connect(os.path.join(dest, name))
                       with bck:
                           con.backup(bck)
+                      # .backup copies corrupt pages faithfully: the 2026-10-01
+                      # run shipped a malformed state.db. Check the staged copy
+                      # and refuse to publish it (or prune older good backups).
+                      try:
+                          res = [r[0] for r in bck.execute("PRAGMA integrity_check(5)")]
+                      except sqlite3.DatabaseError as e:
+                          res = [str(e)]
                       bck.close()
                       con.close()
+                      if res != ["ok"]:
+                          bad.append(name)
+                          print("INTEGRITY FAILED", name, "|".join(res), file=sys.stderr)
+                          continue
                       print("backed up", name)
+                  if bad:
+                      sys.exit("refusing to publish backup: corrupt " + " ".join(bad))
                   PY
                   {{- range .Values.backup.extraPaths }}
                   [ -e "/state/{{ . }}" ] && cp -a "/state/{{ . }}" "$STAGE/" || true
