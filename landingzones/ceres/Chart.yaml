@@ -97,7 +97,8 @@ name: ceres
 # 0.25.0 = ceres ADR-0019: vertumnus 0.26.0 keeps a copy of its ledger on a Longhorn volume per unit
 #          (ceres-vertumnus-<unit>-ledger, 256Mi, kept on uninstall) at /data/ledger.json — what a unit
 #          learned survives a broker restart (the retainer is RAM-only; 2026-09-30 lost the tower's lessons).
-version: 0.25.0
+# 0.25.1 = ceres vertumnus 0.26.1: the disk copy of the ledger is written at boot, not at the next change.
+version: 0.25.1
 type: application
-appVersion: "0.26.0"
+appVersion: "0.26.1"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
