@@ -100,7 +100,8 @@ name: ceres
 # 0.25.1 = ceres vertumnus 0.26.1: the disk copy of the ledger is written at boot, not at the next change.
 # 0.26.0 = ceres janus 0.5.0: the decision timeline is read back from the InfluxDB archive (janus.archive.*,
 #          a read-only INFLUX_TOKEN for bucket ceres sealed in ceres-janus-secrets) — it survives a restart.
-version: 0.26.0
+# 0.26.1 = ceres janus 0.6.0: runs of identical decisions are one line in the timeline. Image tag only.
+version: 0.26.1
 type: application
 appVersion: "0.26.1"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
