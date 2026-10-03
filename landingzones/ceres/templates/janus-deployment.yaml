@@ -86,10 +86,22 @@ spec:
               value: {{ .Values.janus.vertumnusApiUrl | quote }}
             {{- end }}
             {{- with .Values.janus.grafanaUnitUrl }}
-            # Linked from the decision timeline: the in-memory list is only what
-            # Janus saw, the record is the InfluxDB archive behind this board.
+            # Linked from the decision timeline, for any range beyond what the page shows.
             - name: GRAFANA_UNIT_URL
               value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.janus.archive.enabled }}
+            # janus 0.5.0: the decision timeline is read back from the archive Telegraf writes
+            # (measurement unit_docs, doc=decision); INFLUX_TOKEN (read-only, bucket ceres) is
+            # in the sealed secret. Unset/unreachable = the live ring only, and the page says so.
+            - name: INFLUX_URL
+              value: {{ .Values.janus.archive.url | quote }}
+            - name: INFLUX_ORG
+              value: {{ .Values.janus.archive.org | quote }}
+            - name: INFLUX_BUCKET
+              value: {{ .Values.janus.archive.bucket | quote }}
+            - name: ARCHIVE_DAYS
+              value: {{ .Values.janus.archive.days | quote }}
             {{- end }}
           # MQTT_USER / MQTT_PASS of the `janus` broker user, JANUS_TOKEN (writes
           # to the console), and one VERTUMNUS_TOKEN_<UNIT> per unit it may dose.
