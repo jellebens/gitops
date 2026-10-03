@@ -98,7 +98,9 @@ name: ceres
 #          (ceres-vertumnus-<unit>-ledger, 256Mi, kept on uninstall) at /data/ledger.json — what a unit
 #          learned survives a broker restart (the retainer is RAM-only; 2026-09-30 lost the tower's lessons).
 # 0.25.1 = ceres vertumnus 0.26.1: the disk copy of the ledger is written at boot, not at the next change.
-version: 0.25.1
+# 0.26.0 = ceres janus 0.5.0: the decision timeline is read back from the InfluxDB archive (janus.archive.*,
+#          a read-only INFLUX_TOKEN for bucket ceres sealed in ceres-janus-secrets) — it survives a restart.
+version: 0.26.0
 type: application
 appVersion: "0.26.1"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

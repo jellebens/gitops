@@ -348,7 +348,7 @@ janus:
   enabled: true
   image:
     repository: jellebens/ceres-janus
-    tag: "0.4.1"  # janus/v0.4.1: a published none is nothing to do; janus/v0.4.0 (ADR-0017): VERTUMNUS_AUTH=mesh — no unit token held (only when mesh.enabled); 0.3.0 (ADR-0016): the acid hold shown first on the unit page, released by a signed-in operator (logged with who asked); 0.2.0: sign in with a username and a password (ADR-0015 addendum) instead of pasting a token; 0.1.0 (ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
+    tag: "0.5.0"  # janus/v0.5.0: the decision timeline from the InfluxDB archive (#66's DecisionSource); janus/v0.4.1: a published none is nothing to do; janus/v0.4.0 (ADR-0017): VERTUMNUS_AUTH=mesh — no unit token held (only when mesh.enabled); 0.3.0 (ADR-0016): the acid hold shown first on the unit page, released by a signed-in operator (logged with who asked); 0.2.0: sign in with a username and a password (ADR-0015 addendum) instead of pasting a token; 0.1.0 (ADR-0015): the console — decisions, alerts, and a hand dose through the unit's Vertumnus
     pullPolicy: IfNotPresent
   uiPort: 8080
   intervalSeconds: 30     # the metrics tick
@@ -363,6 +363,15 @@ janus:
   # uid ceres-units is the per-unit board ("Ceres — unit"), which has the `unit`
   # variable — not ceres-unit-use, which is the fleet overview.
   grafanaUnitUrl: "http://grafana.lab.local/d/ceres-units/?var-unit={unit}"
+  # janus 0.5.0: the decision timeline from the InfluxDB archive (the same place Telegraf
+  # writes, so the same org/bucket as telegraf.influx). Needs INFLUX_TOKEN — a READ-only token
+  # for bucket ceres — sealed into ceres-janus-secrets (~/ceres-probe/janus-archive-token.sh).
+  archive:
+    enabled: true
+    url: http://influxdb-influxdb2.influxdb
+    org: zeus
+    bucket: ceres
+    days: 14
   mqtt:
     host: mqtt.lab.local
     port: 1883
