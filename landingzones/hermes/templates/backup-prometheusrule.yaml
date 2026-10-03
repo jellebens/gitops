@@ -37,6 +37,8 @@ spec:
               {{ .Values.backup.prometheusRule.maxAgeSeconds }}s. Cortana's
               state (state.db, kanban.db, memory/profile, MS365 token) lives on
               a node-pinned local-path PVC and is only as durable as the last
-              backup. Runbook: landingzones/hermes/README.md, "Storage &
+              backup. A run also fails (on purpose) when a database fails
+              PRAGMA integrity_check — look for "INTEGRITY FAILED" in the job
+              log first. Runbook: landingzones/hermes/README.md, "Storage &
               backups".
 {{- end }}
