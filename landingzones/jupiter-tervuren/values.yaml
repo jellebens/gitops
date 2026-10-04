@@ -57,7 +57,13 @@ image:
   # a cache-frozen last_reported, so 0.18.3's heartbeat approach could not see the
   # true poll. The HA template binary_sensor.bluetti_integration_alive exposes the
   # real liveness as an on/off STATE the lar reads correctly over REST.
-  tag: "0.18.4"
+  # 0.20.0 (#320): the lar rejects the Bluetti integration's reload PLACEHOLDER
+  # snapshot (ha.battery_placeholder_signatures below) and gains a push-aware
+  # battery freshness rule (ha.battery_freshness_mode, observe-first). Also carries
+  # the pulp<4 pin — PuLP 4.0.0 breaks the LP, so no image may be built without it.
+  # ORDERING: the new ha.* keys below are rejected by images < 0.20.0 — they must
+  # only ever ship together with (or after) this tag.
+  tag: "0.20.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -203,6 +209,27 @@ siteConfig:
     # `heartbeat` attribute is now()-driven ON PURPOSE (the lar's 300s freshness
     # gate reads the sensor's own REST last_updated) — never remove it.
     battery_liveness_entity: binary_sensor.bluetti_integration_alive
+    # 0.20.0 (#320, jupiter ADR-0028): every reload/setup of the Bluetti config
+    # entry first publishes PLACEHOLDER states with a FRESH timestamp — SoC 51 %,
+    # grid-in 2008 W, AC-out 607 W — before the real fetch lands (usually ~100 ms;
+    # 106 s on 2026-10-04, 89 min once). A battery snapshot matching ALL THREE is
+    # "no sample" for every consumer (planner SoC → PASSTHROUGH hold for that
+    # cycle, spike sample/trigger, measured mode, realized readings). Enforced as
+    # soon as it is configured; the triple is matched together, never singly
+    # (51 % alone is a legitimate SoC).
+    battery_placeholder_signatures:
+      - {soc: 51, grid_input_power: 2008, ac_output_power: 607}
+    # Push-aware freshness, OBSERVE first (owner 2026-10-04): a legitimately
+    # constant value (grid-in = 0 W while discharging) is not re-stamped by HA, so
+    # the 150 s REST-age rule calls it stale and starves the spike path's #178
+    # correction. The new rule also accepts it when sensor.bluetti_report_ages
+    # (home-assitant bluetti_selfheal >= 1.1.0) shows SOME battery value changed
+    # recently — both ways the integration gets values are a full fetch. `observe`
+    # computes both verdicts, counts disagreements
+    # (jupiter_lar_battery_freshness_disagreement_total) and acts on the OLD rule.
+    # Flip to `enforce` only after observe data across a charge start/stop.
+    battery_freshness_mode: observe
+    battery_report_ages_entity: sensor.bluetti_report_ages
   # HA entity ids — value-for-value from the LIVE zeus config
   # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA
   # read path once the lar reads them; carried here so the read wiring is
