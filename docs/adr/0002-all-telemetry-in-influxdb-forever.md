@@ -150,13 +150,18 @@ halves had lost its subject:
   between the decision and the release are lost for them. The `ceres`,
   `pomona`, `zeus` and `homeassistant` archives are intact.
 - **Storage grows without bound.** Measured on 2026-10-05 the keep/drop rules
-  pass about 1 900 series at 30 s (≈ 5.5 M points/day): ~1 250 are InfluxDB's
-  own `/metrics`, ~390 ceres, ~250 jupiter. At a few bytes per compressed
-  point that is on the order of 10 MB/day, a few GB per year, against a 10 Gi
-  data PVC that held ~510 MiB on that day. That is a year or two of headroom,
-  not "years": the PVC is a **watch item** on the InfluxDB health dashboard,
-  and the first week's real number goes on card #290. The cheapest lever is
-  the keep regex (dropping InfluxDB's own internals removes two thirds).
+  pass about 650 series at 30 s (≈ 1.9 M points/day): ~390 ceres, ~250
+  jupiter, a handful hermes/zeus. At a few bytes per compressed point that is
+  on the order of 3–4 MB/day, roughly 1 GB per year, against a 10 Gi data PVC
+  that held ~510 MiB on that day. The PVC stays a **watch item** on the
+  InfluxDB health dashboard, and the first week's real number goes on card
+  #290. These are estimates from series counts, not a measured write rate.
+- **InfluxDB's own metrics are not archived (owner, 2026-10-05).** The first
+  draft kept namespace `influxdb` — ~1 250 series of the database's own
+  `/metrics`, two thirds of the volume. The owner dropped it: the historical
+  evolution of the database's internals is of no interest. Prometheus keeps
+  its usual 15 days of them for alerting and the health dashboard, and that
+  includes the telemetry-archive's own `internal_*` stats.
 - **Prometheus cannot be stopped by this.** Remote write is a side channel
   off the WAL: with the receiver down or misbehaving, scraping, rules and
   queries carry on, the queue retries, and samples older than the WAL (~2 h)

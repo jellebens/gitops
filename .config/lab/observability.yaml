@@ -125,11 +125,13 @@ prometheus:
     #   drop  what kube-state-metrics / cAdvisor / the kubelet prober say ABOUT
     #         those namespaces (kube_*, container_*, the recording rules derived
     #         from them, prober_* histograms) — cluster plumbing, volume not
-    #         value. Measured 2026-10-05: ~1 900 series pass, ~1 250 of them
-    #         InfluxDB's own /metrics (namespace influxdb).
+    #         value. Measured 2026-10-05: ~650 series pass.
     # Cluster/platform namespaces (kube-system, longhorn, cilium, argocd,
-    # observability, mqtt ...) are NOT archived. The keep regex is the one place
-    # to widen or narrow that.
+    # observability, mqtt, influxdb ...) are NOT archived. `influxdb` was in
+    # the first draft and is ~1 250 series of the database's own /metrics; the
+    # owner dropped it on 2026-10-05 (no interest in its historical evolution —
+    # Prometheus keeps 15 d of it for alerting). The keep regex is the one
+    # place to widen or narrow that.
     remoteWrite:
       - url: http://telemetry-archive.influxdb.svc.cluster.local:8080/receive
         name: telemetry-archive
@@ -141,7 +143,7 @@ prometheus:
           batchSendDeadline: 10s
         writeRelabelConfigs:
           - sourceLabels: [namespace]
-            regex: "jupiter-.*|ceres|zeus|hermes|influxdb"
+            regex: "jupiter-.*|ceres|zeus|hermes"
             action: keep
           - sourceLabels: [__name__]
             regex: "kube_.*|container_.*|.*:(kube|container)_.*|prober_.*"

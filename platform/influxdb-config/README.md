@@ -68,15 +68,18 @@ Prometheus side, in `.config/<env>/observability.yaml` →
 `prometheus.prometheusSpec.remoteWrite[0].writeRelabelConfigs`:
 
 1. **keep** series whose `namespace` label is a project namespace:
-   `jupiter-.*|ceres|zeus|hermes|influxdb`;
+   `jupiter-.*|ceres|zeus|hermes`;
 2. **drop** what Kubernetes says *about* those namespaces: `kube_*`,
    `container_*`, the recording rules derived from them, `prober_*`.
 
-Measured on 2026-10-05, that is about **1 900 series** every 30 s: ~1 250 from
-InfluxDB's own `/metrics`, ~390 ceres, ~250 jupiter, a handful hermes/zeus.
-Cluster and platform namespaces (kube-system, Longhorn, Cilium, Argo, the
-observability stack, the broker) are deliberately not archived. Widening or
-narrowing is a one-line change to the keep regex.
+Measured on 2026-10-05, that is about **650 series** every 30 s: ~390 ceres,
+~250 jupiter, a handful hermes/zeus. Cluster and platform namespaces
+(kube-system, Longhorn, Cilium, Argo, the observability stack, the broker, and
+InfluxDB itself) are deliberately not archived. InfluxDB's own `/metrics`
+(~1 250 series) was in the first draft; the owner dropped it on 2026-10-05 —
+its history is of no interest, and Prometheus still holds 15 days of it for
+alerting and the health dashboard. Widening or narrowing is a one-line change
+to the keep regex.
 
 ### What happens when a piece is missing
 
@@ -127,9 +130,8 @@ Nothing here is done by merging; all of it is by hand, in this order.
    climbs with it. In InfluxDB the `prometheus` bucket has points.
 3. **After one week, write the real growth on card #290.** The data PVC
    (`influxdb-influxdb2`, 10 Gi) held ~510 MiB on 2026-10-05; the estimate for
-   the archive is on the order of 10 MB/day (see the ADR). If it is much more,
-   narrow the keep regex (InfluxDB's own `/metrics` is two thirds of it) or grow
-   the PVC.
+   the archive is on the order of 3–4 MB/day (see the ADR). If it is much more,
+   narrow the keep regex or grow the PVC.
 4. **Optional, when wanted: the MQTT document archive** — next section.
 
 ## Owner runbook — enabling the MQTT document archiver (one-time)
