@@ -45,7 +45,7 @@
       "id": 2,
       "type": "stat",
       "title": "Savings today (EUR)  —  jupiter",
-      "description": "Side-by-side. During the soak jupiter re-reads zeus's banked value, so these should match near-exactly. A gap here is the signal once savings-independence lands.",
+      "description": "jupiter_savings_today_eur — computed independently by the reporting-service since v0.8.0 (2026-07-07). The zeus series it was once compared against ended with the 2026-07-30 decommission (#169); the parity soak was signed off 2026-07-20 (#164).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 5 },
       "fieldConfig": {
