@@ -173,7 +173,13 @@ forecast:
   image:
     repository: jellebens/jupiter-forecast
     # jupiter repo release tag (arm64, --provenance=false — the cluster is arm64).
-    tag: "0.16.0"
+    # 0.21.0 (#318 / #321, jupiter ADR-0027): forecaster v2 fit options (all
+    # opt-in — the live model is unchanged) and SHADOW MODE (sites[].shadow_variants
+    # below). Between 0.16.0 and 0.20.0 the forecast code only changed by a ruff
+    # reformat and the pulp<4 pin.
+    # ORDERING: images < 0.21.0 reject the shadow_variants key and the trainer
+    # exits 2 — the key ships only together with (or after) this tag.
+    tag: "0.21.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, same reasoning as the price-service: the artifact PVC
@@ -314,6 +320,58 @@ forecast:
       # zeus_* remains in the bucket (union still reads it for pre-cutover history).
       whole_home_union_jupiter: true
       critical_load_union_jupiter: true
+      # SHADOW MODE (#321, jupiter ADR-0027 §8; needs forecast image >= 0.21.0).
+      # Every trainer run still bakes the live artifact exactly as before and
+      # ALSO records the forecasts of the live model and of each candidate below
+      # in InfluxDB (measurement jupiter_forecast_shadow, bucket zeus). Candidates
+      # are never written to the artifact PVC and never served to the lar.
+      #
+      # PROMOTION RULE, fixed up front: a variant replaces the live model only if,
+      # over at least 28 days of shadow data, it beats BOTH persistence_24h and
+      # `live` on BOTH targets on MAE, with |bias| no worse than live's. Score with
+      # jupiter services/forecast/scripts/score_shadow.py. Clock started with this
+      # release, 2026-10-05; first eligible read 2026-11-03.
+      #
+      # The two 90-day variants are recorded but NOT eligible yet: the history is
+      # contaminated by carried-forward and placeholder hours (gitops
+      # docs/soaks/2026-10-05-critical-load-overlap-soak.md, card #323). A 90-day
+      # window is clean for whole_home from 2026-11-24 and for critical_load from
+      # 2026-12-29 — their 28 days count from those dates.
+      #
+      # An invalid document disables shadow for the run (never the live training).
+      shadow_variants:
+        - persistence_24h
+        - persistence_7d
+        - name: v1_w30
+          weather_past_days: 30
+        - name: how_30d
+          hour_of_week_base: true
+          min_bucket_samples: 3
+          ac_max_staleness_hours: 48
+          weather_past_days: 30
+        - name: how_hd_30d_hl7
+          hour_of_week_base: true
+          min_bucket_samples: 3
+          heat_base_temp_c: 15.0
+          recency_half_life_days: 7
+          ac_max_staleness_hours: 48
+          weather_past_days: 30
+        - name: how_hd_90d_hl15
+          hour_of_week_base: true
+          min_bucket_samples: 3
+          heat_base_temp_c: 15.0
+          recency_half_life_days: 15
+          ac_max_staleness_hours: 48
+          history_days: 90
+          weather_past_days: 90
+        - name: how_hd_90d_hl7
+          hour_of_week_base: true
+          min_bucket_samples: 3
+          heat_base_temp_c: 15.0
+          recency_half_life_days: 7
+          ac_max_staleness_hours: 48
+          history_days: 90
+          weather_past_days: 90
 
   # InfluxDB token for the trainer, injected via envFrom (optional: true so
   # the chart deploys before the seal exists — the trainer is suspended until

@@ -63,7 +63,15 @@ image:
   # the pulp<4 pin — PuLP 4.0.0 breaks the LP, so no image may be built without it.
   # ORDERING: the new ha.* keys below are rejected by images < 0.20.0 — they must
   # only ever ship together with (or after) this tag.
-  tag: "0.20.0"
+  # 0.21.0 (#228, jupiter ADR-0029): mode-write discipline. Slot 0 is netted to
+  # one direction before actuation, the charge guard no longer pulls a
+  # discharging battery to passthrough, plan/recheck writes of an active mode go
+  # through a churn guard, and an unknown SoC at cold start holds passthrough.
+  # The churn guard's keys (control.min_dwell_seconds 120, max_writes_per_window
+  # 6, write_window_seconds 900) are optional and NOT set here — the defaults
+  # apply. If they are ever added, images < 0.21.0 reject them.
+  # jupiter_lar_target_charge_kw / _discharge_kw carry the NET from this tag on.
+  tag: "0.21.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
