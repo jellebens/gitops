@@ -1,0 +1,42 @@
+{{- if and .Values.archive.enabled .Values.archive.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for telemetry-archive (the
+# docs/network-policies.md pattern; same shape as ceres-telegraf).
+#
+# It selects ONLY the telemetry-archive pod. Nothing else in this namespace
+# carries that label, so InfluxDB itself, the backup jobs and the buckets job
+# stay exactly as open as they are today (the namespace has no other policy).
+#
+# Ingress-only: in Cilium that puts the selected endpoint into default-deny
+# for INGRESS ONLY; its egress stays fully open (it must reach in-cluster
+# InfluxDB, DNS and, once enabled, the EMQX VIP). The only ingress admitted is
+# from the observability namespace — Prometheus's remote_write pushes and its
+# scrape of the metrics port. One rule, `fromEndpoints` only (never mixed with
+# `fromEntities`, Cilium 1.16). Kubelet probes arrive as `host` and are allowed
+# by default.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: telemetry-archive
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: telemetry-archive
+    app.kubernetes.io/part-of: influxdb
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: telemetry-archive
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.archive.networkPolicy.sourceNamespace | quote }}
+      toPorts:
+        - ports:
+            {{- if .Values.archive.remoteWrite.enabled }}
+            - port: {{ .Values.archive.remoteWrite.port | quote }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.archive.metrics.enabled }}
+            - port: {{ .Values.archive.metrics.port | quote }}
+              protocol: TCP
+            {{- end }}
+{{- end }}
