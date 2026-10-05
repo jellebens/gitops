@@ -45,7 +45,7 @@
       "id": 2,
       "type": "stat",
       "title": "Savings today (EUR)  —  jupiter",
-      "description": "Side-by-side. During the soak jupiter re-reads zeus's banked value, so these should match near-exactly. A gap here is the signal once savings-independence lands.",
+      "description": "jupiter_savings_today_eur — computed independently by the reporting-service since v0.8.0 (2026-07-07). The zeus series it was once compared against ended with the 2026-07-30 decommission (#169); the parity soak was signed off 2026-07-20 (#164).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 5 },
       "fieldConfig": {
@@ -311,7 +311,7 @@
       "id": 24,
       "type": "stat",
       "title": "Interlock  —  live controllers",
-      "description": "jupiter_controllers_live — how many jupiter controllers report themselves live (should be 0 during shadow soak; the live check stays zeus).",
+      "description": "jupiter_controllers_live — how many jupiter controllers report themselves live. Reads 1 since the 2026-07-06 cutover: jupiter-lar is the sole controller on the tervuren battery (zeus decommissioned 2026-07-30, #169).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 44 },
       "fieldConfig": {
