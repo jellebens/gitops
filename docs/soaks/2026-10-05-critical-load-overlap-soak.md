@@ -30,7 +30,7 @@
 > | 3. `ac_kwh` | **PASS** | 215 of 217 h identical (17 of 19 A/C-on hours to 4 decimals); the 2 mismatches are on/off edges shifted one hour by the same 15-min offset. Sum +0.5 %. |
 > | 4. Whole-home same signal? | **CONFIRMED** | Hourly mean 1021.4 W vs 1021.1 W (+0.03 %), r = 0.986; where zeus has only its 4 quarter-hour samples MAE is 0.56 %. jupiter stores the same readings zeus did. |
 > | 5. Seam and holes | **Seam is 2026-07-20T21:00Z, not the flip date. The union has two holes and ~10 % fabricated hours.** | Missing 176 h (08-20T14 → 08-27T21Z) and 17 h (09-29T17 → 09-30T09Z); 197 flat-lined / carried / placeholder hours. `grid_power_w` hole confirmed: **2026-08-19T14:14:34Z → 08-26T20:23:52Z**. |
-> | 6a. #228 root cause? | **NO** (not "cannot tell") | Replaying the 07-30 training window both ways moves the baseline forecast for 07-30 by **−1.4 %** (−0.26 kWh/day); (weekday,hour) bucket means move 0.021 kWh on average — a third of what the window's own weekly roll does (0.066 kWh). |
+> | 6a. #228 root cause? | **NO**, within the limits of §7 | Replaying the 07-30 training window both ways moves the baseline forecast for 07-30 by **−1.4 %** (−0.26 kWh/day); (weekday,hour) bucket means move 0.021 kWh on average — a third of what the window's own weekly roll does (0.066 kWh). |
 > | 6b. 90-day window safe today? | **NO for both targets** | `critical_load` is clean only from **2026-09-30T10:00Z**; `whole_home` from **2026-08-26T21:00Z** (so its 30-day window is clean, its 90-day window is not). |
 >
 > **Gate:** #228's "biased jupiter-side integration" hypothesis can be closed. The
