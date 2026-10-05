@@ -1,0 +1,29 @@
+{{- if .Values.archive.enabled }}
+# telemetry-archive Service: the remote_write endpoint Prometheus pushes to
+# (http://telemetry-archive.influxdb:{{ .Values.archive.remoteWrite.port }}{{ .Values.archive.remoteWrite.path }}) and the metrics port.
+apiVersion: v1
+kind: Service
+metadata:
+  name: telemetry-archive
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: telemetry-archive
+    app.kubernetes.io/part-of: influxdb
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: telemetry-archive
+  ports:
+    {{- if .Values.archive.remoteWrite.enabled }}
+    - name: remote-write
+      port: {{ .Values.archive.remoteWrite.port }}
+      targetPort: remote-write
+      protocol: TCP
+    {{- end }}
+    {{- if .Values.archive.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.archive.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+    {{- end }}
+{{- end }}

@@ -71,6 +71,7 @@ see "ACL disaster recovery" below):
 | `telegraf-ceres` | the v2 archive (#295): `subscribe ceres/#` only | `deny all #` |
 | `annona`, `robigus` | ceres services (#292/#293), see acl.conf | `deny all #` |
 | `janus`         | the ceres operator console (ADR-0015): `subscribe ceres/#`, publish **only** `ceres/sys/status/janus` — a hand dose goes to the unit's Vertumnus over HTTP, never on the wire, so the console has no publish on any unit's tree. Live in mnesia since 2026-09-17; **its lines are deliberately still missing from `files/acl.conf`** — see the DR gap below. | `deny all #` |
+| `telemetry-archive` | **not created yet** — the InfluxDB document archiver (card #290, gitops [ADR-0002](../../docs/adr/0002-all-telemetry-in-influxdb-forever.md), [`platform/influxdb-config`](../influxdb-config/README.md)): **`subscribe jupiter/#`, `subscribe zeus/#`**, no publish, ever. The owner creates it when the archive's MQTT half is switched on; like `janus`, **its lines are held out of `files/acl.conf`** — see below. | `deny all #` |
 
 ### Known DR gap: `janus` is not in the acl.conf mirror yet (2026-09-17)
 
@@ -96,6 +97,29 @@ The follow-up PR does exactly that and should be merged in a quiet window — no
 dose pending judgement, nothing mixing. Check with
 `kubectl -n ceres exec deploy/ceres-vertumnus-pomona-0001 -- ...` against
 `GET /` (`pending` and `mixing_until` both null).
+
+### Also held out: `telemetry-archive` (card #290, 2026-10-05)
+
+The archive's MQTT half ships switched **off** and its broker user does not
+exist yet, so today there is nothing to mirror and no gap. The original #290
+change (gitops PR #362) added the user's lines to `files/acl.conf`; the port
+left them out for the reason above — the edit alone would roll all three
+brokers on the next release, for a user nobody has created.
+
+When the owner creates the user (runbook in
+[`platform/influxdb-config/README.md`](../influxdb-config/README.md)), the live
+rule goes into mnesia through the admin API as for every other user. The mirror
+lines ride along with the `janus` follow-up, **one** roll in a quiet window for
+both. Before the `{deny, all}.` fallback:
+
+```erlang
+{allow, {username, "telemetry-archive"}, subscribe, ["jupiter/#", "zeus/#"]}.
+{deny,  {username, "telemetry-archive"}, all, ["#"]}.
+```
+
+Until then a from-scratch rebuild restores no grant for this one user (the
+fallback denies it): the document archive stops until the rule is put back,
+and nothing else notices.
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
 `homeassistant` is scoped to **its own tree plus the ceres relay grants**

@@ -1,0 +1,90 @@
+{{- if .Values.buckets.enabled }}
+# Bucket + retention reconciler (card #290, ADR-0002 "all telemetry, forever").
+#
+# Buckets and their retention used to be hand-created (`influx bucket create
+# --retention 8760h` in a README) — invisible to Argo, so a finite retention
+# could silently age data out. This CronJob makes `.Values.buckets.list` the
+# source of truth: a missing bucket is created, an existing one has the
+# declared retention (re)applied, every hour. Idempotent. It NEVER deletes a
+# bucket and never touches one that is not in the list (`_monitoring`, `_tasks`).
+#
+# A CronJob rather than an Argo Sync hook on purpose: this chart syncs at wave
+# 17, BEFORE the influxdb2 chart (wave 18) exists on a fresh cluster — a hook
+# Job would fail there and hold the bootstrap. The CronJob simply retries next
+# hour. To apply a change immediately:
+#   kubectl -n influxdb create job --from=cronjob/influxdb-buckets buckets-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: influxdb-buckets
+  namespace: {{ .Values.secret.namespace }}
+  labels:
+    app.kubernetes.io/name: influxdb-buckets
+    app.kubernetes.io/part-of: influxdb
+spec:
+  schedule: {{ .Values.buckets.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: influxdb-buckets
+            app.kubernetes.io/part-of: influxdb
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: buckets
+              image: {{ .Values.buckets.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  host="http://influxdb-influxdb2.{{ .Values.secret.namespace }}"
+                  org="{{ .Values.buckets.org }}"
+                  rc=0
+                  # Look the bucket up by name and take its ID. An empty ID means
+                  # "not there" whichever way the CLI reports that (an error or an
+                  # empty table), and also "InfluxDB unreachable" — in which case
+                  # the create below fails too and the job reports it.
+                  reconcile() {
+                    name="$1"; retention="$2"
+                    id="$(influx bucket list --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" \
+                      --name "$name" --hide-headers 2>/dev/null | awk 'NR==1 {print $1}')" || true
+                    if [ -n "$id" ]; then
+                      echo "bucket $name ($id): exists -> retention $retention"
+                      # `bucket update` takes the ID only — it has no --org flag.
+                      influx bucket update --host "$host" --token "$INFLUXDB_TOKEN" \
+                        --id "$id" --retention "$retention" --hide-headers || rc=1
+                    else
+                      echo "bucket $name: not found -> create with retention $retention"
+                      influx bucket create --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" \
+                        --name "$name" --retention "$retention" --hide-headers || rc=1
+                    fi
+                  }
+                  {{- range .Values.buckets.list }}
+                  reconcile {{ .name | quote }} {{ .retention | default "0" | quote }}
+                  {{- end }}
+                  echo "current buckets:"
+                  influx bucket list --host "$host" --token "$INFLUXDB_TOKEN" --org "$org" || rc=1
+                  exit $rc
+              env:
+                - name: INFLUXDB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: admin-token
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+{{- end }}
