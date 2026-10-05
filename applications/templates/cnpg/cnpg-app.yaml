@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # CloudNativePG — the PostgreSQL operator (demeter ADR-0011, card #292).
+    # A platform service: after storage (longhorn, wave 12), before the
+    # landing zones that declare a Cluster (demeter, wave 30). The operator
+    # only; each landing zone owns its Cluster and its credentials.
+    argocd.argoproj.io/sync-wave: "14"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  sources:
+    - repoURL: {{ .Values.repos.cnpg.url | quote }}
+      chart: cloudnative-pg
+      targetRevision: {{ .Values.repos.cnpg.targetRevision | quote }}
+      helm:
+        releaseName: cnpg
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/cnpg.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

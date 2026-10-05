@@ -1,0 +1,31 @@
+# PostgreSQL datasource for Grafana on Annona, Ceres' config database (ceres
+# card #298). Same STATIC file mount as the InfluxDB datasource (the sidecar path
+# loses the boot race and 403s on reload — see grafana-influxdb-datasource-
+# configmap.yaml). The password comes from env CERES_PG_PASSWORD
+# (grafana.envFromSecrets -> secret grafana-ceres-postgres, sealed per env);
+# the role `grafana` is read-only, managed by CloudNativePG (landingzones/ceres).
+# NOTE: deliberately NO grafana_datasource label (the sidecar must not pick it up).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-ceres-postgres-datasource
+  namespace: observability
+data:
+  ceres-postgres.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Annona (PostgreSQL)
+        uid: ceres-annona
+        type: postgres
+        access: proxy
+        url: ceres-pg-rw.ceres:5432
+        user: grafana
+        isDefault: false
+        editable: false
+        jsonData:
+          database: ceres
+          sslmode: require
+          postgresVersion: 1600
+          timescaledb: false
+        secureJsonData:
+          password: $CERES_PG_PASSWORD

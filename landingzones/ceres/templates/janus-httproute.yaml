@@ -1,0 +1,79 @@
+{{- if and .Values.janus.enabled .Values.janus.gateway.enabled }}
+# janus.lab.local -> the operator console (ceres ADR-0015), through the shared
+# Cilium gateway, the hermes pattern: the route, the redirect and the
+# certificate ship together in the landing zone so a UI is never half-exposed.
+#
+# AGENTS.md, the rule this obeys: the shared `http` listener serves any
+# *.lab.local hostname, but HTTPS needs its OWN listener + lab-CA certificate
+# per hostname. Without the listener in .config/<env>/gateway.yaml the console
+# answers on http:// only, and a browser auto-upgrading to https:// makes it
+# look down while the pod, the route and DNS are all healthy.
+#
+# Deploy alongside: an A record `janus IN A 192.168.50.200` in
+# .config/<env>/coredns-lab.yaml — AND BUMP THE ZONE SERIAL.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ceres-janus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.janus.gateway.parentRef.name }}
+      {{- with .Values.janus.gateway.parentRef.namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      {{- with .Values.janus.gateway.parentRef.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  hostnames:
+    {{- toYaml .Values.janus.gateway.hostnames | nindent 4 }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: ceres-janus
+          port: {{ .Values.janus.uiPort }}
+          weight: 1
+{{- if .Values.janus.gateway.httpToHttpsRedirect.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ceres-janus-http-to-https
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-janus
+    app.kubernetes.io/part-of: ceres
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.janus.gateway.parentRef.name }}
+      {{- with .Values.janus.gateway.parentRef.namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      sectionName: {{ .Values.janus.gateway.httpToHttpsRedirect.sectionName }}
+  hostnames:
+    {{- toYaml .Values.janus.gateway.hostnames | nindent 4 }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 302
+{{- end }}
+{{- end }}

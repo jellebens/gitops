@@ -7,6 +7,13 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
   annotations:
     argocd.argoproj.io/sync-wave: "25"
+    # Diff via a server-side dry-run instead of Argo's local structured-merge
+    # diff. The local diff drops CRD-schema defaults inside atomic lists (the
+    # kyverno CRD defaults `skipBackgroundRequests` and
+    # `validate.allowExistingViolations` on every rule), so the ClusterPolicies
+    # were forever OutOfSync and self-healed every 5 min with a no-op apply.
+    # See AGENTS.md "Known Pitfalls".
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: platform-services
   sources:

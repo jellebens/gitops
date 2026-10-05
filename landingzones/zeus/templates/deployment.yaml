@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/part-of: zeus
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: zeus

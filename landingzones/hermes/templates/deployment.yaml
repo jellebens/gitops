@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/part-of: hermes
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: hermes
@@ -194,8 +195,22 @@ spec:
               value: {{ .Values.dashboard.host | quote }}
             - name: HERMES_DASHBOARD_PORT
               value: {{ .Values.dashboard.port | quote }}
-            - name: HERMES_DASHBOARD_INSECURE
-              value: {{ .Values.dashboard.insecure | quote }}
+            {{- with .Values.dashboard.basicAuth }}
+            {{- if and .enabled .sealedSecret.encryptedPasswordHash .sealedSecret.encryptedSigningSecret }}
+            - name: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
+              value: {{ required "dashboard.basicAuth.username is required" .username | quote }}
+            - name: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName | quote }}
+                  key: {{ .passwordHashKey | quote }}
+            - name: HERMES_DASHBOARD_BASIC_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName | quote }}
+                  key: {{ .signingSecretKey | quote }}
+            {{- end }}
+            {{- end }}
             {{- end }}
             {{- if .Values.openai.enabled }}
             - name: OPENAI_API_KEY

@@ -1,0 +1,73 @@
+{{- if .Values.annona.backup.enabled }}
+# Nightly `pg_dump` of the Annona database (the units' facts, ADR-0011) to the
+# NAS through the smb StorageClass — the same shape as the InfluxDB backup in
+# platform/influxdb-config. CloudNativePG's own WAL archiving needs object
+# storage the house does not run; a custom-format dump of a database this size
+# (kilobytes) restores in seconds with `pg_restore -d ceres <file>`.
+# Credentials: the operator's app secret (`<cluster>-app`), key `uri`.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ceres-annona-backups
+  namespace: ceres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.annona.backup.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.annona.backup.size | quote }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ceres-annona-backup
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-annona
+    app.kubernetes.io/part-of: ceres
+spec:
+  schedule: {{ .Values.annona.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 26
+            runAsGroup: 26
+            fsGroup: 26
+          containers:
+            - name: pg-dump
+              image: {{ .Values.postgres.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  ts=$(date +%Y%m%d-%H%M%S)
+                  f="/backup/ceres-annona-$ts.dump"
+                  echo "pg_dump -> $f"
+                  pg_dump "$PG_URI" -Fc -f "$f"
+                  echo "pruning dumps older than {{ .Values.annona.backup.retentionDays }} days"
+                  find /backup -maxdepth 1 -name 'ceres-annona-*.dump' -type f \
+                    -mtime +{{ .Values.annona.backup.retentionDays }} -delete || true
+                  echo "done; recent dumps:"; ls -1t /backup | head -5
+              env:
+                - name: PG_URI
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.postgres.name }}-app
+                      key: uri
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: ceres-annona-backups
+{{- end }}

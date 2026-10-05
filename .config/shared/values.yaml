@@ -18,6 +18,10 @@ repos:
   influxdb:
     url: https://helm.influxdata.com
     targetRevision: 2.1.2
+  # CloudNativePG operator (demeter ADR-0011, card #292): chart 0.29.0 = operator 1.30.0.
+  cnpg:
+    url: https://cloudnative-pg.github.io/charts
+    targetRevision: 0.29.0
 
   longhorn:
     url: https://charts.longhorn.io

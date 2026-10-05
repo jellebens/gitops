@@ -49,9 +49,12 @@ buckets:
     # the gateway). Infinite since creation.
     - name: homeassistant
       retention: "0"
-    # pomona hydroponics telemetry via the landingzones/pomona Telegraf bridge
-    # (+ Demeter's dose/decision/ledger stream since #290). Was 8760h.
+    # Historical v1 tower telemetry through 2026-09-15. The old writer is retired;
+    # this bucket is kept forever under ADR-0002.
     - name: pomona
+      retention: "0"
+    # Current tower telemetry and control-plane archive from landingzones/ceres.
+    - name: ceres
       retention: "0"
     # Prometheus remote_write archive (telemetry-archive below): every app
     # series from the project namespaces, forever. Prometheus itself keeps 15 d.
@@ -70,8 +73,8 @@ buckets:
 #     prometheusSpec.remoteWrite); Telegraf writes them to the `prometheus`
 #     bucket. Measurement `prometheus`, one FIELD per metric name, every label a
 #     tag. This is what preserves the 15 d Prometheus-only series (demeter_*,
-#     jupiter_lar_*, jupiter_price_*, jupiter_forecast_*, pomona telegraf
-#     internals ...) that model training needs.
+#     jupiter_lar_*, jupiter_price_*, jupiter_forecast_*, and Ceres app
+#     metrics) that model training needs.
 #   * MQTT document archiver (optional until the broker user is sealed) —
 #     subscribes to whole project trees and stores every message VERBATIM as a
 #     string field, so retained JSON documents that a controller overwrites
@@ -155,6 +158,10 @@ backup:
     buckets:
       - zeus
       - homeassistant
+      # pomona hydroponics telemetry (card #222) — the tower's v1 history up to
+      # 2026-09-15. The v1 writer is retired; ADR-0002 now reconciles its
+      # retention to infinite so this historical training data is never aged out.
       - pomona
+      - ceres
       - prometheus
       - mqtt

@@ -10,6 +10,7 @@ spec:
   # ONE replica by design: Badger is embedded single-writer storage (directory
   # lock + RWO local-path PVC). Tracing is diagnostic, not on a control path.
   replicas: 1
+  revisionHistoryLimit: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: jaeger

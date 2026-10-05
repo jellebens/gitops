@@ -67,6 +67,23 @@ gateway:
             kind: Secret
             name: longhorn-server-tls
             namespace: longhorn-system
+    # ceres ADR-0015: the operator console. The certificate is emitted by the
+    # ceres landing zone (janus-certificate.yaml, lab-ca-issuer); this chart
+    # emits the cross-namespace ReferenceGrant for it. Reads are open on the
+    # LAN, writes carry a bearer token — the same posture as Annona's API, and
+    # weaker than it should be for a UI that can ask for a dose. The owner
+    # accepted that as an interim because the lab has no SSO; the durable fix is
+    # card #232, and it is recorded as a cost in ceres ADR-0015.
+    - name: ceres-janus-https
+      port: 443
+      hostname: janus.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: ceres-janus-server-tls
+            namespace: ceres
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -122,6 +139,30 @@ routes:
     backend:
       name: jaeger-query
       port: 16686
+
+  # Ceres firmware images (ceres card #304 / #315): the OPERATOR's door to the share —
+  # `POST http://firmware.lab.local/firmware/<type>/<version>` (raw .ota body,
+  # `Authorization: Bearer $ANNONA_TOKEN`), `GET …/firmware` (the listing) and
+  # `GET …/firmware/<type>/<version>` (the image; annona 0.9.0 serves it itself).
+  # The `/firmware` prefix is the only path that reaches Annona on this host. PLAIN HTTP:
+  # the token crosses the LAN in clear, which the owner accepted for the lab; writes are
+  # token-gated, reads are open by design.
+  # The NODES do not fetch through here: the GIGA resolves no lab.local name (OTA -3003)
+  # and its OTA client speaks HTTP/1.0, which Envoy answers with 426 Upgrade Required —
+  # every OTA of 2.3.1 through this gateway on 2026-09-17 delivered a 16-byte error page.
+  # They fetch from the Annona service's own LB address (landingzones/ceres annona.lan,
+  # http://192.168.50.202/firmware/<type>/<version>). The ceres-firmware nginx and its two
+  # routes (hostname + by-IP /pomona) are gone with landingzones/ceres 0.15.0.
+  - name: ceres-annona-firmware
+    namespace: ceres
+    listeners:
+      - http
+    hostnames:
+      - firmware.lab.local
+    path: /firmware
+    backend:
+      name: ceres-annona
+      port: 8080
 
   # Longhorn admin UI — HTTPS-ONLY route, INTERIM (#233, owner decision
   # 2026-08-14). This partially rolls back #193 (security review 2026-07-12),

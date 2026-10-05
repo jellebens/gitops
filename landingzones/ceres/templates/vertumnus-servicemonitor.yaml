@@ -1,0 +1,27 @@
+{{- if and .Values.metrics.enabled .Values.serviceMonitor.enabled }}
+# One ServiceMonitor for every Vertumnus: the Services share the
+# app.kubernetes.io/name label, and every series carries the Vertumnus's own
+# unit + unit_type labels, so one dashboard with a `unit` variable serves
+# the fleet.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ceres-vertumnus
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/part-of: ceres
+    # Picked up by the kube-prometheus-stack Prometheus serviceMonitorSelector.
+    release: {{ .Values.serviceMonitor.releaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ceres-vertumnus
+  namespaceSelector:
+    matchNames:
+      - ceres
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

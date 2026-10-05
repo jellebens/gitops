@@ -57,7 +57,7 @@ backups. The gap was coverage and enforcement, not the store.
    with
    - a **Prometheus `remote_write` receiver** → bucket `prometheus`.
      kube-prometheus-stack ships every series from the project namespaces
-     (`jupiter-*`, `pomona`, `zeus`, `hermes`, `influxdb`) and drops `kube_*` /
+     (`jupiter-*`, `ceres`, `zeus`, `hermes`, `influxdb`) and drops `kube_*` /
      `container_*`. Measurement `prometheus`, one field per metric name, every
      label a tag. Prometheus itself stays at 15 d — it is the live-ops store
      (ADR-0010), the archive is InfluxDB.
@@ -69,14 +69,11 @@ backups. The gap was coverage and enforcement, not the store.
    precedent set by the backup CronJobs for platform services co-located with
    the database.
 4. **Project bridges archive their control plane, not just their sensors.**
-   The pomona Telegraf now ingests every remaining `pomona/#` topic verbatim
-   (`pomona_events`: dose commands and results, Demeter decision/ledger/
-   status/mode, pump/light/control requests and reasons, OTA results, I2C
-   scans) plus Demeter's decision and ledger **parsed** into typed
-   measurements (`demeter_decision`, `demeter_model`) so the learning curve is
-   queryable in Flux without JSON parsing. Verbatim first, parsed second: the
-   raw string is the lossless record, the parsed view is a convenience that
-   can be rebuilt.
+   The Ceres Telegraf archives the current tower's `ceres/#` telemetry and
+   control-plane documents, including decisions, ledger, alerts, advice, and
+   dose results. Documents are stored verbatim in the `ceres` bucket as the
+   lossless training record; the retired v1 `pomona` bucket remains historical
+   data and is reconciled to infinite retention.
 5. **What is deliberately NOT archived:** cluster and platform metrics
    (`kube_*`, `container_*`, node-exporter, Longhorn, Cilium, Kyverno —
    volume, not value, on a 10 Gi PVC), logs, and traces (Jaeger drops on
@@ -95,7 +92,7 @@ backups. The gap was coverage and enforcement, not the store.
   2026-08-31 and the zeus/jupiter/HA archives are intact.
 - **Storage grows.** Rough order: the project namespaces emit ~1–2 k series
   at 30 s, which InfluxDB's TSM compresses to the order of 10 MB/day;
-  `pomona_events` and the parsed Demeter measurements add a few MB/day;
+  Ceres control-plane documents add a few MB/day;
   jupiter's plan documents ~100 kB/day. The 10 Gi data PVC has years of
   headroom at that rate, but it is a **watch item** on the InfluxDB health
   dashboard, and the first week's real number goes on card #290.
@@ -106,9 +103,8 @@ backups. The gap was coverage and enforcement, not the store.
   replicas).
 - **Retained-topic replays produce duplicates.** Telegraf's MQTT consumers get
   every retained message again on reconnect: one extra point per retained
-  topic at reconnect time in `pomona_events` and `mqtt`. `demeter_decision`
-  is immune (its point time is the document's own `ts`, so a replay rewrites
-  the same point). Consumers of the string archives should `distinct()` or
+  topic at reconnect time in the Ceres document archive and `mqtt`. Consumers
+  of the string archives should `distinct()` or
   window; this is cheaper than session tracking.
 - **The admin token is used by a second workload.** Accepted for a platform
   service in the database's own namespace; the alternative (an owner-minted
@@ -120,7 +116,7 @@ backups. The gap was coverage and enforcement, not the store.
   seal its credentials into `.config/lab/influxdb-config.yaml`, flip
   `archive.mqtt.enabled`. Until then only the remote_write half runs. After
   the first release, confirm `influx bucket list` shows retention 0 for all
-  five buckets (the CronJob runs at :20) and that the `prometheus` bucket is
+  six buckets (the CronJob runs at :20) and that the `prometheus` bucket is
   receiving (`telemetry-archive` internal metrics on the InfluxDB dashboard).
 - **Per-landing-zone Prometheus scraping into InfluxDB is unnecessary** now
   and should not be added: `remote_write` covers every ServiceMonitor'd app.

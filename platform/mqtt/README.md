@@ -61,19 +61,48 @@ see "ACL disaster recovery" below):
 
 | user            | allow                                                        | then |
 | --------------- | ------------------------------------------------------------ | ---- |
-| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe pomona/#` (#277 relays), **`publish pomona/pump/power`** (#278, demeter ADR-0005) | `deny all #` |
+| `homeassistant` | `all homeassistant/#` (own tree — see note below), `subscribe ceres/#` (#293), `publish ceres/+/actuator/+/power_w` (the plug's watts, ceres ADR-0005), `publish ceres/+/actuator/+/set` (#295, v2), `publish ceres/+/sys/alerts/ack`, `ceres/+/sys/advice/ack`, `ceres/sys/alerts/ack` (#302: the ack HA publishes after notifying, echoing the document's traceparent; Robigus opens the span) | `deny all #` |
 | `zeus-mqtt`     | `all homeassistant/#`, `all zeus/#`                          | `deny all #` |
 | `cell-tervuren` | `all jupiter/tervuren/#`, **`subscribe zeus/tervuren/commander`** | `deny all #` |
 | `reporting`     | **`subscribe jupiter/+/plan`, `subscribe jupiter/+/heartbeat`** (no publish) | `deny all #` |
-| `pomona`        | `all pomona/#` (the GIGA firmware)                           | `deny all #` |
-| `pomona-demeter` | `subscribe pomona/#`, `publish pomona/dose/test`, `publish pomona/pump/override`, `publish pomona/demeter/#` | `deny all #` |
 | `telemetry-archive` | **`subscribe jupiter/#`, `subscribe zeus/#`** (no publish — the InfluxDB document archiver, #290 / ADR-0002) | `deny all #` |
+| ~~`pomona`~~, ~~`pomona-demeter`~~, ~~`pomona-ingest`~~ | the v1 world (firmware 1.x, the 0.5.1 controller, the v1 Telegraf bridge) — retired with ceres #295 step 5; delete them on the broker | — |
+| `unit-pomona-0001` | v2 node (pomona fw ≥ 2.3.0, #295): publish `ceres/pomona-0001/{tele/#, actuator/+/state, actuator/+/reason, dose/result, sys/status, sys/meta, sys/health, sys/ota/result, sys/diag/#}`; subscribe `{actuator/+/set, dose/request, desired, sys/ota/url, sys/diag/+/get}` | `deny all #` |
+| `vertumnus-pomona-0001` | v2 Vertumnus (#295): subscribe `ceres/pomona-0001/#`, `ceres/sys/mode`; publish `ceres/pomona-0001/{actuator/+/set, dose/request, sys/role, sys/decision, sys/ledger, sys/ota/url}`, `ceres/sys/status/vertumnus-pomona-0001` (the v1 transition grants went with step 5) | `deny all #` |
+| `telegraf-ceres` | the v2 archive (#295): `subscribe ceres/#` only | `deny all #` |
+| `annona`, `robigus` | ceres services (#292/#293), see acl.conf | `deny all #` |
+| `janus`         | the ceres operator console (ADR-0015): `subscribe ceres/#`, publish **only** `ceres/sys/status/janus` — a hand dose goes to the unit's Vertumnus over HTTP, never on the wire, so the console has no publish on any unit's tree. Live in mnesia since 2026-09-17; **its lines are deliberately still missing from `files/acl.conf`** — see the DR gap below. | `deny all #` |
 | `mqtt-admin`    | superuser (bypasses authz — no ACL rules)                    | — |
 
-`homeassistant` is scoped to **its own tree plus the pomona relay grants**
-(card #188 — least-privilege hardening; `subscribe pomona/#` since #277 and
-`publish pomona/pump/power` since #278 — the single pomona topic HA writes,
-the pump plug's watts for Demeter). It previously also held `all zeus/#`, which was
+### Known DR gap: `janus` is not in the acl.conf mirror yet (2026-09-17)
+
+The live mnesia rules for `janus` are in place and were read back against this
+table. The matching lines are **held out of `files/acl.conf`** on purpose:
+that file's contents are the StatefulSet's `checksum/acl`, so any edit — a
+comment included — rolls all three brokers, and the retainer runs
+`storage_type = ram`, so a roll drops every retained message (ceres card #314:
+the ledger has exactly one copy).
+
+Nothing is broken while the gap stands. The console authenticates against
+mnesia; `acl.conf` is only consulted on a from-scratch rebuild with empty
+mnesia. **If you rebuild before the follow-up lands**, add these three lines
+before the `{deny, all}.` fallback:
+
+```erlang
+{allow, {username, "janus"}, subscribe, ["ceres/#"]}.
+{allow, {username, "janus"}, publish, ["ceres/sys/status/janus"]}.
+{deny,  {username, "janus"}, all, ["#"]}.
+```
+
+The follow-up PR does exactly that and should be merged in a quiet window — no
+dose pending judgement, nothing mixing. Check with
+`kubectl -n ceres exec deploy/ceres-vertumnus-pomona-0001 -- ...` against
+`GET /` (`pending` and `mixing_until` both null).
+
+`homeassistant` is scoped to **its own tree plus the ceres relay grants**
+(card #188 — least-privilege hardening; it reads `ceres/#` and writes the pump
+plug's watts, a human actuator override and the notifier acks — the v1
+`pomona/#` grants of #277 / #278 went with ceres #295 step 5). It previously also held `all zeus/#`, which was
 over-provisioning: HA never needs the `zeus/` tree because `zeus-mqtt` publishes
 HA discovery + state under `homeassistant/#` (that is how HA consumes zeus data).
 After the change, **publish under the `zeus/` tree — including the commander
@@ -125,6 +154,47 @@ mqtt-0 -- curl ...` (the emqx image ships `curl`).
 password on one stdin to two `read`s — the admin password carries a newline and
 misframes the second read (a wrong password gets set). Pass the admin password
 via stdin (single `read`) and the new password via a `kubectl cp`'d file.
+
+## Republish bridge `pomona/# <-> ceres/pomona-0001/#` (ceres card #295, ADR-0008)
+
+The tower's firmware speaks the v1 tree; everything Ceres (Vertumnus on
+`contract: v2`, Robigus, the Telegraf archive) and Home Assistant 2.0 read is
+the v2 tree `ceres/pomona-0001/…`. `values.yaml` `rules.list` declares one
+rule-engine **republish** rule per topic mapping, both directions, rendered
+onto the StatefulSet as `EMQX_RULE_ENGINE__RULES__<id>__…` env vars — config,
+not REST: git is the source of truth and a fresh cluster gets the bridge back
+with the ACL. Env-declared rules are read-only in the dashboard.
+
+| v1 (firmware) | v2 | retained |
+|---|---|---|
+| `pomona/<water\|air>/<metric>`, `unit/rssi_dbm`, `unit/uptime_s` | `tele/<zone>/<metric>`, `tele/node/<metric>` | no |
+| `unit/status`, `unit/sensors`, `unit/fw_version` | `sys/status`, `sys/health`, `sys/meta` (synthesised JSON, `contract: 1`) | yes |
+| `pump/request`, `pump/reason`, `pump/power` (HA), `light/request` | `actuator/pump/state`, `actuator/pump/reason`, `actuator/pump/power_w`, `actuator/light/state` | yes |
+| `dose/result` (v1 event line), `unit/i2c_scan`, `unit/ota_result` | `dose/result`, `sys/diag/i2c_scan`, `sys/ota/result` | yes |
+| `pump/override` ← | ← `actuator/pump/set` | no |
+| `unit/ota_url`, `unit/i2c_scan/get` ← | ← `sys/ota/url`, `sys/diag/i2c_scan/get` | no |
+| `control/mode` ← | ← `desired` (`payload.stage`, the registry's document) | yes |
+
+No loop is possible: no v1→v2 rule reads a topic a v2→v1 rule writes. The
+Vertumnus's own documents are not bridged — a v2 Vertumnus publishes `sys/*` itself.
+`dose/request` (ml, JSON) is NOT bridged either: while the node is v1 the
+Vertumnus converts ml to the bench command on `pomona/dose/test` with its own
+calibration (`legacy_base_topic`, ceres Vertumnus ≥ 0.9.0).
+
+A JSON payload template must be HOCON-quoted (outer `"`, inner `\"`) — the
+env parser otherwise reads it as an object and the node refuses to boot.
+Validated 2026-09-12 on a local `emqx/emqx:5.8.9` (all 16 rules load; every
+mapping and retain flag checked by a script). Changing `rules` rolls the
+StatefulSet (one pod at a time; clients reconnect to the VIP).
+
+**Step 5 of the transition** — due since firmware 2.3.0 went onto the tower
+(2026-09-15): set `rules.enabled: false` (chart 0.4.0; rolls the StatefulSet once —
+mind ceres #314), clear the old retained `pomona/#` topics (admin API
+`DELETE /mqtt/retainer/message/<topic>`, or an empty retained publish), PUT the
+trimmed ACLs of `files/acl.conf` for `vertumnus-pomona-0001`, `robigus` and
+`homeassistant`, and delete the users `pomona`, `pomona-demeter`, `pomona-ingest`.
+The mapping table above then is history; `values.yaml` keeps the rule list as
+the record `tests/bridge_test.py` checks.
 
 ## ACL disaster recovery (card #156)
 

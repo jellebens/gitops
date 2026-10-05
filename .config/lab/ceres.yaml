@@ -1,0 +1,181 @@
+# ceres landing zone — lab overrides (one Vertumnus per unit, cards #291/#295).
+#
+# HISTORY: Ceres landed in shadow next to the previous controller (the Demeter brain,
+# retired at the cutover of 2026-09-13 18:32Z, its namespace and chart deleted in the
+# same commit as `mode: active` below — two controllers must never dose one tank,
+# architecture §4). Until firmware 2.3.0 (#295 item 7) the tower spoke the v1 tree through
+# the EMQX republish bridge (platform/mqtt) and the Vertumnus dosed through
+# `mqtt.legacyBaseTopic: pomona`; item 8 (chart 0.12.0) removed the legacy root — the
+# Vertumnus sends ml-based dose/request and judges the node's acks (ADR-0008).
+#
+# BROKER CREDS: every encryptedData below is sealed by landingzones/ceres/scripts/
+# onboard-secrets.sh (ns ceres):
+#   printf '%s' "$VALUE" | kubeseal --raw \
+#     --controller-name sealed-secrets --controller-namespace argocd \
+#     --namespace ceres --name <secret-name>
+
+mode: active          # since the cutover (#295 item 4b, 2026-09-13): the Vertumnus owns the tank
+
+units:
+  pomona-0001:
+    contract: v2          # ADR-0008 native since firmware 2.3.0 (#295 item 8): no legacy root
+    configSource: mqtt    # #295 item 5b (2026-09-13): Annona projected the tower document (config v1);
+                          # the config: block below stays as the import source of record only
+    secret:
+      sealedSecret:
+        encryptedData:
+          MQTT_USER: "AgBH07/IHJKepCqIwO0+omlyjqufDtqq7Vq9CjdwbKCqi0KcU2PSEGNKrAWqNQVaKPZ2KLrZWGGn4Onl/+gUAxbLJpJFbYu5tHXojenm5cojuJaMygovJHMjcW4wZy0AFDvYcMJPKs/W3AjMlUsc6cSTosJ7MwncSqT7ujWEa8l3XXyVgrrGhJuIE7sUj4FwbrWq5KpDO8f9zJ5PMKB5AMpMlgZST6oC32hT7zcbfvlcnAh6s94Gs5cfjyDrbdMNeYJzRbOJfWf1R8wHmK09KA7LvjBC73apeWe5FyXyJhuayKmbe6zjfGBL4XnusIbPkkT/hiq6g06occp/eEvbk/ou1up/zhADioUREDL1qMarpzOqymSoql72WzjWNj1DqtHt/qqanzYEecL0M7x1uNCWaHh7n8zQeYYcL9cWAenxPyn+n9SasKAQhIYpkfqgqxSupNtgebgcXqMnsKNsRQYR+NYYPXc/VHRaFE7megS20UKf4BHe98H2ung8i6m/gI56oLFOoyxY+SQ5kdtkH9ag4JmxBGv/RiaCPvCGYEkTKk/pNFZacsCI1pbOpQZ19SLx1RSQ+8T9RK/6eKmBPB7Qg2TYA4u4gCbJiYA060FPchsm3hZPIKT24jXPeUwHeDGSksREV8BaXQrl0CFhVB/hLa8n2OGlwsHHCK6BSSVbeTkauTNj9b3I1PIkd4uvHIWfKeSfox+wuQACxQViFlh+097PYzM="
+          MQTT_PASS: "AgBcW11KLGSRzzATc+wy6kym8OMl0wn0FSJe0E5IqFhX6MQkeb3wTQJczlJLvyMb3h1FT2l96jawfYoiTsFHsbQJ3QqP5wuKOFK5e2iJ+1cHPXvlEOMfyMl9aKt0Gnhk/C+e+fLRw6hMhp+WVv28gWGGYgN2quBIwzD9sPIjYPfP00dvboeMBX5hEyYqlu+2zAIG4wKovmExt1ew4Z6NO2RkY038iWJ+8Q5NR1XGyTcLuqc1Ak+MmqtYXYQkfCqE82SWMopWcasIuajS4Wiv6pPlVfiQw/2GIj4g0WRjgUF9qUa8QRDZn9sTrMLleif0BGguchJ9wnftNe6rXcWtDXxSY0Q6mWJXvtSRrf40gO0qlImHSyIj/wo08FNM6SAyBRYWkVQHHUaQFr4OyVUpm+bleffd69v/fr0w0iDwXRaVLDpsMkLP1/1l03P08XsqpV+lb75X2NU3GNHilGb72Re9YrxvplD7kFiNvD1I/FkMHeMxqzK1Gft3Iogx1I3bRBU48G/X3KjoXUXSbP1TLx0p8c58tFqUAETFwLrku5Gmy4d/CaWEN73igtsv75Bv0dnnuYaGYObdGNUpq5okO/9xEhhxYnNFPjKOUeZwqONwTub5E4xfyxWhj0Jquj/ROLeeCJwEmcK1/kRfqX2ZGnaoMydiyAtYT5hhgxWog39XBA08u+CQwUguaxMv+V8CoB/fBHa00G7JgU0W06jLJeODJkvswKiRdywHP2mL3kvlBg=="
+          VERTUMNUS_TOKEN: "AgAMcWaDWJuk2YfEHUMWu0muakZ3mA3EKPmrXw6HfwG1Ahof3frLvlfXIw263eJx8e79ZA/YFmOT3lu8Kg6BB+VFVKjQs1K5k7FuDollXJgdmPtBxQSrZsS7rz59M2op8KsC2xBvwke6xz6ehF+d3McLbdIqbRsR7fDkzXPy9r6U2GhsVcMeAu3n/M/+rq8as/2BC8pOtieb4pPVcLGKiE1jn/6q00ZkeYHnBOo1862htHWnWpEgMCDHFUSJFgzk92iG52nqfvpPDpI1P0WEPoLVo8Jin+FgJ2URlRY+/vgbHlSvbbxHlGDtN1NI9v3SPWGNj4OcV9v2rCcfXC+swABR1Kh1btL4KJsAdSbN05ijaS2EwjYKwvHdmY0+dgvsJss0Ji0d52e53xRnaPBhzAb62/zgR8hwPWbXgHGHFGSjAmnDfzjFwv+ffcyg8j3UFDfpo3IK0HyeK8yOzu0xuq6dAFSedFPct7aFKfjS6RH7m9qeqzrw3e935bKrKINSA18YGK1/2J34OVIzZe1RarPgxCE5tXL5gGbSvIZHdPOSgTBHLzYVTE7WvI0HJRcnfCRE37xhVDWe6o6aaxCoXLQ+WijZyhkHMkEdq/qJL8jQGO9VnW0Cp6h7FFenJBsYObjgGcWDXN5qjwkX0L1t90z/nj9xyUXYoTHDk++0tP+D3uqdm6q56Q+zaw+O9yb8IeYZLK8xZJhw61oF0lilZmqoIiuWMhA077ObBjh2P7LvIQ=="
+    # DAILY CAPS REMOVED (owner 2026-09-11), carried over from the retired
+    # pod's lab overrides in .config/lab/pomona.yaml. NOTE: 0, not null — a
+    # null in a Helm values override DELETES the key and the chart default wins.
+    rails:
+      ph_daily_cap_ml: 0
+      nutrient_feeds_per_24h: 0
+      # Owner 2026-09-13: the 2 ml single-dose cap is lifted; owner 2026-09-16 (#315):
+      # the node bounds ONE request and nothing per day — firmware 2.3.1
+      # DOSE_MAX_ML_PER_CMD pH-Down = 4.0 ml (a regular dose is ~2 ml), and this rail
+      # must not exceed it or the node refuses the request outright (2.3.0's 2 ml cap
+      # refused every dose for a day: pH 8.5). The controller sends one command per
+      # dose. The guard (97.5 % predictive drop above the tolerance floor) still sizes
+      # the dose below this rail.
+      ph_max_single_dose_ml: 4.0
+    # THE LAB FACTS (carried over from .config/lab/pomona.yaml): the stage
+    # ramp date and the bottle fills as of the 2026-09-11 baseline. This file
+    # is now the source of truth for the tower's facts until the registry
+    # (migration slice 2) takes over.
+    config:
+      established_from: "2026-09-14"
+      reagents:
+        ph_down:    { container_ml: 200,  filled_on: "2026-09-11", line_volume_ml: 0 }
+        nutrient_a: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
+        nutrient_b: { container_ml: 950,  filled_on: "2026-09-11", line_volume_ml: 0 }
+
+# --- registry (slice 2, #292) -----------------------------------------------
+# OWNER PRE-DEPLOY: create the `annona` EMQX user + ACL, then seal
+# MQTT_USER / MQTT_PASS / ANNONA_TOKEN (ns ceres / secret
+# ceres-annona-secrets). Until sealed the registry serves reads only and
+# projects nothing; the Vertumnus keeps reading its file (configSource: file).
+# After the one-off import (landing-zone README), set
+# units.pomona-0001.configSource: mqtt here and drop the `config:` block above.
+annona:
+  secret:
+    sealedSecret:
+      encryptedData:
+        MQTT_USER: "AgCIcKC+5t0dGeAVGZKQRG4gP87HS/8gp9TSgoQIvZQTw2F61pze00bWZm45y0lx8VXNbWIqvuzsd3nVe7w3jnLvKtOTRJSQuySeVmYE5yeDGHgh6Fdz9ESmhimpNiLv4X9xi0XsVPEBtbvLifpXwl42PBNx9RruTdx6rmdXCHPOrjiJXfsUSW+jVAUTxS+NqlFsdIw5C5LM85Bv8tbSNJZ00f1cBoIeTlJcq9KNwg6I4aSyu6JxAxc3aacaThv1sy2oJyLqlOkfAARgfeNDv1suLL/dOQrrG6+2jd5RktSFaGqG8TDFA9gbRi7ohaAaNUUWnGkWg8+dmRvoH6uGpABb97GNk3f7AIpkbdFvapNDUvKRU8EOmALHemUiYFPdQ+3p4HHJfdhOVjGBnd2meKMr6/5Fc1k5bhZ5fp8y7YdLpSily5OJL1GhGyZRMc39VgilgUYe+z80QwVrxqDxyECe5fTGC36wtzQlG6xSL1G6cLYfkkhXh48noCSxiqjvq4hMMiEX3WsLfUCpegKkTQfgxGfDa3gl+VhvtRQ0Dp8savI4xOTI+x3ZQiJgh/Y+BIJoJ2uYBmyLqP28ug0lSHIOy3eUwNmdVW/kaY5ZwNw0AQERNkG2zKnGnVsz4bf8y23Rm7US13G7xvtjN/GBTHrnZBc51zht5vezMDcAFUFxlGXzRGcwT2Z4DANw9meIKZwz3RIidFs="
+        MQTT_PASS: "AgDAFxes/9jsIKfv2tgTQDKhr4LymkuxIzxPPIGt3WuZ4A0RC+MciKi7gjWHvq5K4r4vOO6Vf9PUjpolicxGjseTNBBkD9QjHirK6oj8s3DVtxGM/mY/MGPquhNxYJmTQV9ResfuunfxZvKBut5K79+8o/GoRVqIjD3iyRx0UzjJui2Eou6DxR2wJlGPamgguwLQdhqC7vxeJ1NbexsJzhIBR2o6uBHkp/aLbTppraGwZdicpguxSsdwiOk1NyB3kc32qVY2EJG21kYudJi/1nrLnJnKPms79aaJimcNTgYCOncBgByjRRf675HXq5nbrgk0xqCh9Od1WYEl5JLstrpvpVtxg6iKYBeNL1PYo92b+EJkn/7K2sKOJz/fkpKVBirnPGNjfwAA3WRopS5SeXRMmAhLLeh9dRIJBIgE91HpUB4LGOVnmHRb+oZTSWasIzmBEjJJTrLP1M4YCA7Ldgj9MuaDW9fNAxA+QgGXpIJdkvaz9A5vEOH/RE6eU0Xr9043apPDIQkqDApauO1nsg3c1CkZa1chFZEuQxtimwkJLX6oboTvuZ06TModCqYMv+u9+uvuZ8sGg4SZSZtDbKL4/J30uEPa+wwDJJHIm6Pr1aIFomQnStIPvOzHms4JpmR7GRAyPjv6PqGo09uSNkrN+3NcqQGmU6BNvJp4nCTw677HUbCzbGgGsOpzrINqkrSZ4WYcDSF+t1b/DH+aWRdWzx54i8hZnVwC8r1EKrZ5ZQ=="
+        ANNONA_TOKEN: "AgCzw6/d6l3Z8fXxj0I6jnXeIHjWSN47akI2tpbrAgdoFq9RhCAlpSbx3W9Pk0J6vnfs+uu/nJdtEezlkG1B5b4pVLmgOzM5VTMp++VZjQw8/zZqDGlxsqVyT8TCZhvKgSbRHETd6hp/UY+KOJ1uoc23njOSjqJra5U4muV53yPNqRvx3BRZKpeqgQJsIkAwmPhyMQI2Kil3k+cwztERl6M7Z0iK91MvkrdcRaDe2TltIqVndvpy2IqYOn4JTVMeWLNhT4Dirgz/l8M7I1vDr7I1GRtbB1CpkUP0ZrOGKYiY8SzW35kOJ4/POsSQkn+8RUG7E+SUuT4ec73Y4k5Sz0wpuHqS87b4buJWfLUWaZpLBgMd6CzMQUQ8bdVwdHWH9swR13b0hs9EjTE2VdG3pNV7pEktXsJozVFvwA59xT/hFWOKSOxMBKpnXuHsr7unqmtfB0Ih7kq7j/FQ1kkjDZJQMYRUts53//zGGB09bL9UGXXxi4wojRQ6KViESa23fPxItC4gQ7B0EjJihVdYZmm3/dtibhh+5eI7RMR4iAMY5oVf7bvDowmBLraeoP6DbGGBY3+6Af0nrAFU+1DHHLiOEn6mnsHOc5mApsoZGqXkvJqpD0O28NSvneSXGd0nbY48pO8g0ojdxzAfhSkO6ZwDRNcWPaxwcUxu8rBURHaQSWqoaanm398UJfXxB1CNog8x0rsVgMUDq3ixk2gdS2jVZ0Wj4ihHqf2/RyjnAaAc7Q=="
+
+# --- robigus (slice 4a, #293) -------------------------------------------------
+# OWNER PRE-DEPLOY: create the `robigus` EMQX user + ACL (platform/mqtt/files/
+# acl.conf is the DR mirror), then seal MQTT_USER / MQTT_PASS (ns ceres /
+# secret ceres-robigus-secrets). Until sealed it cannot connect and publishes
+# nothing; the PrometheusRule's plant-health mirror stays quiet.
+robigus:
+  secret:
+    sealedSecret:
+      encryptedData:
+        MQTT_USER: "AgBMz29odJKObbFRSLuKsnGtq0bD4aeUL6C/xlwdmDaMW3HDb7//TBxMfJfDlSCOHIw9bnUJEp2zqatQhfn8F+wH1Wog7EtNlr1V/iN0pSVrYhv4PAsLDEXMJ7GZ4borkaCREDTh0U+TkTT4kjZqeu1IMI4WcxOODrOzbvVEAO40o2uHLdqv9OtwyekHmcrVQ0+rzwwgSfYOsFWInVJGj2kgXVOES7q9Ri+LEGzJyDQZQq1xCLcXfeVjEjs8T2EvnXUfWYRsaf3JIjdeFr0a9K0+7PmBqSSQjan1yirjr7S636PPOsfd7cM4RV8eUT9lYvf/4OjquBCjzVzzsFsMULQzwnBpleAh0/ls32czJvxmhi0m0q0inZxHg2P0WQIFDXGBvKsRImeyz1eDqnZMdFWAwzLXW/9jmg3Zdd2sUEgDp6kkoHpCmMsvWqPdl/L5+oPzNql+PfBkpLZHDkEvcr+J8ia2mnm79v3va/bS0uSFQbsmq5hbpPS3VCisHAbbAbBbKBpd6oj26A6nRJbutcf1dGBSISw2NynfY3TgOPBTDOyuif6pchhDG6I3rU0dzir4FOK7qy7CItgCDezh+M55SHAjs3vR/6OWd177MEAaKdYHmjEaI8rSuPI/7V4i5j0RXQFaKVDZpxDZxRhMOu/3m4EQPFRWrA6iS8C2yduQijYhVUZV13i4PjOakchUWjjYG6gpPKY7"
+        MQTT_PASS: "AgA1gY2kyl8Fuu0HacHL1rFqG4YrvWzoEMYoR3kdBJJyUFHTWlBIhyhNcKTDN99b+jh0EJOxg9XsPQQeGkaHmd8wLERj2Oyz2KtnqltXARxbjmW0tnikB6i7ssAMI2fSQGk+uZxYGPqkxZNz48jKpIMQQCjCUEMayWBbyY+ePd2JSiUv1LuR+L/QrJ4L0JhnDkABJmR8NstR71y/QTMlMN4EWgwhf3T57AuP2fn1+WiKG2MEMdWoEGLFrRQxgH43TSAdFVDv68Kz8m7U3+a5Y+SZXcdgM9CC87FFItErz9HCJMwhKstxvKO18xMwr5jdGm3ZJD5CWLmTKO/Cs2YTk8AtNj6RTOqSWbru00SoTxyFYmNCRrQGEf42bjy+O1AqwP2ZcJpz0ko/SmbKMGmIZ5lAC8pKC9Mlzz+Ddh1M3p42nfL7YRUoNZudIBBV0oM+G2q+dqLqO5/2tSUHLoPg4BRXFaIFtvtUqhVbxNSogWhPpgxC4rppaOCKnze2FKP0UdeB76m4DzMFYZvfYGo7MUY2JcLg+HfsG0zYSov4JTQmS3b7z/d8Fyq59RZ53jfAt3vIcKGheNzKfyCO+gUl/YQxdM6cB7jIKIa13YLARz+i7+kag9ogtVZ3jmYZB1UeWWt+5jJZWu+zRZFArCXucHsxHJBcTFwLd2Di/IE2KS698t7G1vFQ4dTwch8saWI/GAUpK5IKp6/67ZIeRuQYuKp4r4NON7/EqrIIs9vt872MaA=="
+
+# --- telegraf archive (slice 3, #295) --------------------------------------------
+# OWNER PRE-DEPLOY: EMQX user `telegraf-ceres` (subscribe ceres/#), Influx
+# bucket `ceres` + write token, then seal MQTT_USER / MQTT_PASS / INFLUX_TOKEN
+# (ns ceres / secret ceres-telegraf-secrets). Until sealed nothing flows.
+telegraf:
+  secret:
+    sealedSecret:
+      encryptedData:
+        MQTT_USER: "AgACfkWsA+OtZ5EAuSxoRMOANYkRpX2Znv6iNQCbwo5Z0xsFXmxkeskCnWNNvgqb5Cs5Ksd6SDVifWxSGbAvFa7S9sjGujADZiugaA81JL/wkl/K9uOX8wdmagrrQP2zMVHAiUen2zp+v3+AFOtg7bzOxBocrEF7cSNbIcVSOy7KKQe2NVFXdO5Oo0x2UnSnv2ozfJX7JsbVBsVJ+LrzuxEL7Y1EKESUojHKu34QLIu/0k65+xPHajSumNN5F+izOkzjebuTe3hx++XjcKMORG0Fv0G8nZZRHI+hhh8/OwqoufcDJNZVTti+P+Y2KRCpsDwUFCRbZ6tvgKAftq/r8hnQkSsTbz0jxbh46wKQ23IWE7ukbiDiXTJFaxOba0xZ0YGazASGHQOOcJhyIM+3dXcmM5JgN1SfraOEOsGbGKeZrM1ZxNEJNqZOMNBaKcOS2CYWxP4fxYS2EZ6kifQyP0UGSXW6FYHPDWsLnDGPGOHoLEjmbcjIGOnJVxQxNTE3HEhQzKZQrZShllrAaZdRP4nphg7ani4OqxRjGVxPDswPkoUfOthhHD40EzYZDJSqCfIbSRQGHZZA29FPhcS+heTQ/ARkzik1g75/s/cKLr8pO4kS7bAEetOk60aBkMKJ3A49f+TLT5zfOFWhq0djXkmGMIx16wcgUmUkex2GsFti9QW2dUZirew/iD26XuzOc8dgqzFX/sTzmdpHCEUHDw=="
+        MQTT_PASS: "AgCk21fdgqdAIUtYlt0bU74fEJWdFuLGaPWolra1nXgg3oRajcaUGJi/SOLCk6ct6vEZQ/yXDey6rnSA/+BqZ7GC+KYBeVQRoKoUHKl82ckdVnawFddkhilcRNxNQgZTlcjf9ecQpOTIHzmQSp4qbkdSnmJoLk4/4VlzivvM7rtYFqb8KhgrbjTkdth0/KwQNqKJj7AilRi/shVdfXLjMJnUGrv8oG20sSsH8I7qoZZMVbKEG783qGG929vBr5NeVRLyLJ2XDPhUBNVrKlAj40Bv9jgTUwgIwq/nzvSlj9VWQmNt/XgAJxc1I82sU5zvLo9fmwMP9h5c1l5x/gfEdR9Wttc8jJcrAxnrlwAk6RFK677ihPEIMTIxPxHc68cQEktuuUGLJq3lYLWPYG8STh8UFsiWRYus6U6nnQ8WRaxd2YX/ZLgvTx8XA4AsIvX7O5P5TDq2kOvJoIoRa5zMK+/QT7WgFJM5ySvgp11lie9aCCQ/L5gv1PUOxgGCwe6xBKqb2K5rZ2pzLTAJN7ATlNjKwW/uVuSs50Mflju91sevQEj1xddnE/15Osyjd4VYbSUHAbq9ni5h9SGpNKK0OpZolAxLzUKTT4q6tTUcYjUjLdwRj2ZMnhT6lSVFf/qZktK9Oi7ogbIdzn0vW1ay6YOE9xZ4veuwlFhfCiBOnsDtwWNK88JxgVdsarkVEBo7oLnwM/5dKA99ph5aBX3HiXbzzDDD1oaj0OL+/UYW2Al1Ig=="
+        INFLUX_TOKEN: "AgDYu9S7ZZJycVPFjKhGTIwo44cr0/B4tCj/5iWB/gDYc+zDM65q+HAmhR5CuIbYRvkmOifr4BcDuazXioiNDT3/Di+DI//A4IvCf6+2n6D36MvFWIaFYbQnWmAopkUFduOh1vUswoUCKt7UShzQ0hR2INmQeGqyAehNtoEjyUhYq44cZmvWeTSX6HdZGolAJGdaDSKnivpm6Cfcxb0AkF5/VH3NSHlv472i4P4MaU/ga5iajZsNAGXzO269cVRGSdVVkHa8AGg0fT/nnoDGcZ1UYgBoB4vT9mkNzSBVtbcxxo2lAJBueZ7dLnFMuE+5o0IeFYi3ivIdjbQ6NRK+EcSAlErX0RiYFG/+6/+ZBAh2uEyD+86a1N9u7nCXhl5+kT7dCVxcpi5xL7Qt/Pv0kE0glexwtVpevre7FOfA/12fO1OAwHInSmFhQL02mlpsQJJdRsS1ZnBzYjlikT25l24YwpBwclVLuYbx6UHnm+pL+UTcVELWnDgSXcKA1Wnj974U21opEtBoZbJ1YAsJ9adk68Vuo9j2buIOebhoSn6iLFZj4l0Q728vNHrXtSN4DABHdYICLP3xtLWNB+b1igZLy39RIJGLlSZCH0Ar1r/7vMS7NmJPZi15iLHsZ6GHvg4yYGv4ttgoaWopkjus6Clp4WnH1fwAJxlCm3DMmNCvXwR1RMtqfZTkM+IwoUMNtDyTBFi30nEuQI+YYiOfVUgojVhaBHBDpL4OKVElg4y8PPEzmySRvRFRlYDki5iePxepUNYRTz9bhbJJZCAFHvPo0Jq+M8D3SXJr+1WePJsZYlFdrUvffeSk"
+
+# --- carmenta (slice 5, #298) -----------------------------------------------------
+# OWNER PRE-DEPLOY: EMQX user `carmenta` (subscribe ceres/#; publish
+# ceres/+/sys/prior, ceres/sys/advice, ceres/sys/status/carmenta), then seal
+# MQTT_USER / MQTT_PASS (ns ceres / secret ceres-carmenta-secrets).
+carmenta:
+  secret:
+    sealedSecret:
+      encryptedData:
+        MQTT_USER: "AgAfprF+M7cAJU8TIEWUaXHDOOArE4nZtgrRwV52XHPfNYWMy6lhBpJ38xEQZMdCrs2rgZzeRxXJWFFMQADXu+ma4RmTRKo8R8P047o9MwX2sn6CO1wG5ULbnY1qr5HcBbdfQRJclff99M8QtoSdENrvJSSzwTdhW9yL6Mw6M8EFVij7/pJlqZV0NqY+BTmyjhV8OCIC21LmdS4pIXw+iZJfvQqBfZOyWIhZgI0O2poX368Yc/XJJ56pZU2aosubaHhUrQVKLkLqUtovdt4S8mnFp5wUvKzKRpYBlO0QrQ1clwKEwTgQ47lzHfzRTghA+emwo2YrodoxVzpbcyfRUEKG6Zw9vPVeMgPzqF1ncCOPZ7ibUxnYsFTr1KOJq52UlvRwd2Ml5MCDHHMLqFqC4Xj8dd75CQH25EJlZz4Xk2JvzbaiWk0zQ5emqSjnTAz7LVkLWmSa0l3wm2Kuu0fgwO8egzpHo7+OiN/ilqQ5SG5N+UyXcbJF1L3NwhgEUUcMf99Eu+5xbneD7Sw112x1DnMpziozJr5cTmie6rT0A06LtU7YqvvB9SVHVo+QcM8V8N0EsPjsyIww30zJEezhUpweEH8hcX48GOvEv1ow++OxmU9hUSWfTuD7hLJMGAgq7jazYaeyLrboozpik4ghxLn7gJ3RQCreNrMwSO9KUBlCWeTlKNm4TcKtn2kielkuBDY96GaJxkHSQw=="
+        MQTT_PASS: "AgAxcmt5XLljdpSNNFn+LAU9nbplnOjMnIcNDgBpbPXk+ocSBegsVj7frtSFMiDzKsyKkdfw4owzCaieeKl2YwSTHFbuGcyJCDEB2psPW5yhv0kdFAtfm/otxYQa3sbGPj0ZH5uHSSdX58rjrRQo16rXDOSC/ZXkgt89V07R/L0GsjkEcvX6/AXUefVm4WjnykoklwFU72EvEOM2lNSoI48YBPch2bB3PZEYN9drX6RdotoHRrZnfbpSLSyR8Ywy1fmF8fZuT/9PSnJTESbKkPzHIHAWlD+vIKpSIDzJ+6jKThs1WVY199TIh18eR4Shlm2zmTpZfptXdLZVOlALSEwYAiDniAr95KC3aI2FTbAC0lAWWCjE+PuvYySh+/tkBTY387eZA3SulDUljiNvEwkpFbuvw9E1MU0hzKg1wabaCrFSPEVGoImqMsgHD5Uu2Q1dwq8sOGwLlDKybsh/TiSOUjWSnCp8Ud4GvKjqNyMG3AHeKF8fcfYLs6YBR/4pkdq4kFn+HcLYreuhpqVS2c1jwneWXXTJVHmbj6j8NlFdYWPVYE5Fy5eCpa6e+4+7bYEhNsbTaKKdhvmvOjICwLNkZPEdwW2TkAyBoCW5CuIAbsuJSzbJr12HsuKn+LVWjUpZeqEpLiipVXINER0hW/4tzCqASbd7tvDrWZWALpU93uDF1bwKybwj82J2SFaCdIzURDvPKtjCuWMe9xPaN5cTudPHpmuUmLnj/AuH1hw1qg=="
+
+# --- the grafana read-only role on ceres-pg (#298) -----------------------------------
+# OWNER: pick a password, seal it as key `password` for ns ceres / secret
+# ceres-pg-grafana (a plain SealedSecret; add it to this file as an extra
+# manifest or seal by hand), and as CERES_PG_PASSWORD for ns observability /
+# secret grafana-ceres-postgres (.config/lab/observability.yaml).
+
+# --- janus: the operator console (ceres ADR-0015) ------------------------------------
+# OWNER PRE-DEPLOY — all three steps done on 2026-09-17, before the first
+# release of this block. Kept as the record of WHAT was done and HOW, because a
+# zone rebuild or a second unit repeats it:
+#   1. DONE 2026-09-17 — EMQX user `janus` created live with a generated
+#      password that never reached a terminal or a file
+#      (~/ceres-probe/janus-mqtt.sh). Its ACL is `subscribe ceres/#`, publish
+#      ONLY ceres/sys/status/janus, then deny # — read back and matching the
+#      mirror in platform/mqtt/files/acl.conf. That ACL is what makes "the
+#      console cannot act on the tree" a broker fact rather than a promise in
+#      the code. onboard-secrets.sh carries the same line for a zone rebuild.
+#   2. DONE 2026-09-17 — MQTT_USER / MQTT_PASS sealed in the same run, and a
+#      fresh random JANUS_TOKEN sealed by ~/ceres-probe/janus-tokens.sh. The
+#      console needs that token for every write; the OWNER types it into the
+#      page, so it is kept in .secrets/ceres/janus.token (0600, gitignored) —
+#      the same place onboard-secrets.sh leaves the node's MQTT password.
+#   3. DONE 2026-09-17 — the tower's EXISTING VERTUMNUS_TOKEN was read from
+#      ceres-vertumnus-pomona-0001-secrets and resealed for this one as
+#      VERTUMNUS_TOKEN_POMONA_0001. All four blobs were then checked with
+#      `kubeseal --validate` against the live controller (~/ceres-probe/
+#      janus-validate.sh), which is what catches the scoping trap below.
+#      For a SECOND unit, repeat exactly this — seal each unit's EXISTING VERTUMNUS_TOKEN again for THIS secret, as
+#      VERTUMNUS_TOKEN_<UNIT> (pomona-0001 -> VERTUMNUS_TOKEN_POMONA_0001). A
+#      sealed blob is namespace+name scoped, so the blob in the unit's own
+#      secret cannot be copied here — reseal the same plaintext:
+#        kubectl get secret -n ceres ceres-vertumnus-pomona-0001-secrets \
+#          -o go-template='{{index .data "VERTUMNUS_TOKEN" | base64decode}}' \
+#        | kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd \
+#            --namespace ceres --name ceres-janus-secrets --from-file=/dev/stdin
+#   4. DONE 2026-09-18 (janus 0.2.0) — the operator account a browser signs in
+#      with: JANUS_USERNAME `jelle`, JANUS_PASSWORD_HASH (PBKDF2, made by janus's
+#      own `python -m ceres_janus.auth hash`, so the format cannot drift) and
+#      JANUS_SESSION_KEY, sealed by ~/ceres-probe/janus-account.sh and checked
+#      with `kubeseal --validate`. The PASSWORD is in .secrets/ceres/janus.password
+#      (0600, gitignored) and nowhere else — the cluster holds only its hash. To
+#      change it: `python -m ceres_janus.auth hash`, reseal JANUS_PASSWORD_HASH.
+# The degraded modes, for whoever hits them later: with no MQTT creds the
+# console serves an empty page; with no JANUS_TOKEN it reads but refuses every
+# write with 403; with no VERTUMNUS_TOKEN_<UNIT> it reads that unit but cannot
+# dose it. In each case the page names what is missing rather than failing quietly.
+#
+# Exposure: https://janus.lab.local through the shared gateway — the
+# ceres-janus-https listener in .config/lab/gateway.yaml, the A record in
+# .config/lab/coredns-lab.yaml (serial bumped), and the lab-CA certificate from
+# the landing zone. Reads are open on the LAN, writes need JANUS_TOKEN; there is
+# no SSO in the lab (card #232) and ceres ADR-0015 records that as a cost.
+janus:
+  gateway:
+    parentRef:
+      name: cilium-gateway
+      namespace: gateway
+      sectionName: ceres-janus-https
+    httpToHttpsRedirect:
+      enabled: true
+      sectionName: http
+  tlsCertificate:
+    enabled: true
+    issuerRef:
+      name: lab-ca-issuer
+      kind: ClusterIssuer
+  secret:
+    sealedSecret:
+      encryptedData:
+        MQTT_USER: "AgCSsEIP2b50ddnnphSi0qn2UF67wZh+9ss4NEJDuxriOAJcz2ltBn8FDlOHa2KWNzhFuWqz5+jX1/jHT5jqE+oR9W+xxNsF4w+CF/QdY3i1KZFfOoiV00NsBUgndMC8aR00Xq16hFqtCVn4ciQj/LPwXA2R+cyRQ+UwHldLrRuaADVU+ecg+bwKz7rmyuzIEPmTAvSuts1lymKQsO8QfGknjaun0b/HVL0otNQHBl5kfGkScp+CamSF1T6afXSGcPZv3cQYlqtKGZiTL51+ZPv/ptR/HCayHreNHO88k/XJritZm1BKanyTwlRT2S3tckV4HPELRXbqZoHJamIwjuwxeVMSXXm8Fj8BPyxD1KILZYXa1meOYkRjKXmWbkivpEe5TooT9mcC4NE309MbltZCt6HUhXCGmegUyXe3q13H8iPy8Rm7aC1YCDwBnTGo76YfVksTPmOq0n6RJhRSZr1/LbbuKb8FUi4V2AUdSMQMOeeFpXsLvaVbxi6C3E+KFj412cn07vRweuFRe8bVbh5Bstcn2GCd2a8dbaTBXAk2GzxS31on4i3Hyu24d5VJhU0BnwNxPoH7QpFt+02WvIg2j5WRWFuiPO6Jn624Z04JIiIgYEtMiD2HZ1Ihm1H9xhid8ET2z0a9ODq/BMxrVbJcTIfW6zfHoXcS/H4clPL2efPK9SHvRJZLapcu+EiJgTHoE9FOUw=="
+        MQTT_PASS: "AgBEuFRrEjBO5/MFQt5/KaZSWHDUEJciNsFcQBJ5AfZ0/J/2kJ735bmN/bpK/4Z1L0P4z3ubj9TcsujgBEiL8tTGcSZ5vVPCUGdJXYGA0YlLYXnBQBiwj3R+2m0Avmo9Mxq40DeNgWbNHtzBneUbFTV5r194RdxazX40mfgVVd7PsZKaxdDyZkmDe3nIXxQms2L/YjwMFl9VgFs8Zgob+JUnLj4uZlClggI0EOtl/gDB3Z8BjfSVLaLwwUhBqad3ecfSTWSvtegndWL/Y7c4ZIyTKa2YQIIc4+YryCuCKfPqRP4xnjX4a7tkV9GO7lHk+wvAclSWKvRyIwnE7lUTOdaIeAaMEcUS45/YpTeaAkvAEispqry9vbM4reA1XLC8aZ/gdLToiow+BSpj6D4jx9uSqV9FHKH6NI/WnrRgVUdLiB1P+sVFrejWr6jcrYVTiRoKC/kJq+FWRbcTf2Y922eR+ZNlwDZcJLa+nlZbAS8UKYgwuqWtxwKDJoAbcDtDLdZEvK1srFJ4ItkTvpicGotibVqE51T954Vqm52rojC2bUbOy6tqHSVGo1Lg6ti2xqLYxnY/kvhvMJ5Vg5w1EUWTlUuB6k5blIdfalYL7nk2OV73jqehEpjTXDwm9nrUf9BBivVx/0w5wr6eeIGG5G/aHrnaSw6YTAb4WlWP4atkfxb8XpgCW78CKzNCXFcrH2fIvO8hdOGL217yvYZjjlWrkMauopafidVi2tzdcgiUYw=="
+        INFLUX_TOKEN: "AgAReNvE3QVJQljCTn5c0KM8qqsZhnYCX/xfCR18GK/T+VZztuHW/P1jPissFk2v/uyIXVC2B2npsp06xABLR4xIv7lPp8qYIWDJ5f4u0cdTyqraqIV5G6q3V3M2JXKHmCRsBa3eUFt47f6ANvVJ6HivLfAdQqIK2XhRxomwse73HbNCTQ1jAdsiH4DVuZXzMWC8I2i5jSPWJdGYO6fZufR2StpD88+TBZE9I++pcHa0zYpQXDKqjkPcA5wQncnHGAfT2TTK5bon9pazodIXYiW0Ta1qU0byOUHgG6Z4lfMidHMlR69koobXiXOc0fPiVNt1mQG0Pa2u0gswJ4qzPPg3oGn/g56C8QU3r1KMRUcI4WclAdRivodD7dKe0P7lyyl8mr8fe/nG9sXG7bEMJv/aAPbnkKB03m9Cy0l0Z5lI2xKNK4kRXzOTiatFpnx45Cm54lzcCmflb8Qwkxo237KKGeXjEWHXM1Q/l+vT7KlQd5u76gERJb1upTwId8yC3L4gzX3LN8aiZILFepkowBWBAPE+u6nx8d824hExiATz7K1tzoQ1ylGuN7zl8J/qVKGFmsrchcHsE9xW97aZBeN9cpkmpPmrvt871we8QywssDV0y1zLP+CToZ17Mq90JMJspkyKJtnMw8w6L9TimG338LdCAz7PwnXU1pOvcaI/zNvwHB/uwStQ+MyQFSa80V05HO04pO00OJi0CUXmuJMmwXlhHq3lEnbcUbAEH/IArkEZvScveJxUQ9LSOf/5YrDZjXvZTRHspg8G0GSuRcf8gc5BsE4VL1/C0XB9Uz4UmslLL5RM8GPh"
+        JANUS_USERNAME: "AgDJcRq72x6DxKeE3zRUl4phUypvJhQaHGvCNY3EClCXAlfuF4jHpe1JVU5XTJsotQFzVqKnW1QsQmio+w5HQHB2cz9H+pO5tyaiW/aNbHmTlyx4ZvN5l74ZRJ73RxCY2WX5c1gRKSrSiKcShuZjD88LeAo2eyLJSwTjsZf3GHL9oID+26NzciBPBtb2YV/fnYuy6zDe8LbaIIzH3F504s2e4LUmYOl3VGKRu9bYTkTSXPY+lCNhopxAVTPD480OwN50eJbb1gNvfVKuQiwZ+Gbud2RmdcjzW0Ch2Onb7ibQtyObrSLHjr1eA2ce1ypY8KqlOO6IkcMMKklRGkyUEL7uOP/iK7WDOpvRc0/c4N0tfVjk74ZPy/ctnYp+zroNM3G6uX1DLFJOhq/nqdNidLUlRk3SHYIZ1dDRMrpQVcO5dg+GQRjNg3szpyYTIeWvPdazAqJwl/wph09o7kYZaI491XjpzLyGFieZd5ANcUz9pCUZvV7VEwpTafJpCUzcAGukSzaMvmZOS/7ima3St+z7pSyXjQvCcpneqzJiv6JEYxLTtFIkjmeHJIxkxlpe0fBGIlUeWufsIU4Cgl3LKfOKAn9bf02Sy0XCDtVS5Sv3wqZWJyOaeskOvaU+JIBKWSpF/lBtet86UlGvEo8a4k/CzevsiUPHdUynLPkDtGo8drhLoqKy4XFOyePQLiwSzTz3OJd8bw=="
+        JANUS_PASSWORD_HASH: "AgCYnC+cH4lb3yYJIJiqn3SKrDvoGB6nXz1lRbdesuECJXzYpZ2qP534xNnOgpjpXl5Yoi69nugXTArA0Gzr0gvE8ed1tdTLITOoaC/E6h+Yg5+mgESnxxUun3oCuo+AOHGVmSJUnBmClI3zkKVLjHRgLnGPxXopb6CsqBt/3g3ImqCR18FvIN9OZ2ky3+zlF2M+Ln0PE5/6MZcQ76+wSLvbBjCy1TKwO6kQQI+fSQkM7l2Z6RYj++irWfguFkhhAhWHACMVK8vq0+vo2O6hmnhtVaAOtgDaLmn1+Tag6ukEqB7V+7hiJNc9ekT5EKxC8m33U8SrAYOhHRss+kN69eIUXuskP9SV8APdxAwmtek3JpQw0m9h9G5kmKL5otCAmQFuB8xIbZgExySbkD9omOP4VwVOFU2Ho52p6Jju5H7aEVqMVSWEZP6gUCEIq0lmsQWDnXTV10eVQTn9zSO0tn+wiT6wo4Vu6E9sPOW/CDFbjDrpAKE5kNItvoCOjaolnfOgBW43jo/PBd2w+t1/gpXoM1BJdcTflqAGJazcKXDDKVRMlm8kAbrobyFgxv6qgg8iXFbjDpTI+QPaVFsFt40rOU5xicESiigomGOA181q7iah/+E8ilo+XIs6IpL6pkzzgUkjdtYyjdeEnnai3lsZNfGd5AT0qP/JfFRKMohbS2e3iiS8/6c43HvjGHc2kisBgsWcJPtotAMRjr1yewyOVlr4hUrrKmSdaUdjlFkkyj+IoMovcpdpXAr+ovbv9fIdMei7mHKMa4zl5UC68hgd40MCYyLfzMUO3dJ39aAPP/SrNcxB3Pg="
+        JANUS_SESSION_KEY: "AgC5wylFt1Epcws03ebHPOO/OIz/jvLwtYuBnCb+3hE/TNH69FsP32GHlcy5e8WMx7xhpWX4oJr/M4rJhevpD5A36HliA9bHBlE0M54WpqQ5KBoePgDrFpspI+oJePMaam9EL7hUduFKFJfycTH4ZE6Q522XDd8/Ma7Q2d2uvIYtwuTrZMhNIGn5H/6D1zY46SIt4+FEmTYrm989KKTpgEy8HR9esxAx2vIWdVRgaAbj2esvfRQVcjkH0+sYih1jnf4MLbhZfejHk9B4Vck9Y4mgHSKHPuQazJj98svCom8902KH2mcSw6rOUe/vnLDqWPsdfCg5/Ku29C7F74ZZ62XwsMQ1FoUJR3K2tdy3YMeMFJlAkLC7fqwWvyHvbkOicYgyCb9MvYCfGf7ui4H/G+lRrpkE9lAJZQw0IEmwdQWsDPhq7ucXgcXjJHK5Ib0NCJOqZBmS2Rf+8NdyH4huntmnkDMmM8qK6Gx4xLEbtpDLWwfq6imA/rGlCu2c9ugie3Cxd2sPPo91ChitgJu9VvWKvetIlhIoiANWwDqQcMas+vngACmmEUzZe9fC89o6C2ziJM3AkxHmyr9Ikquk9LVI47MfGVtO+NMfl7ZhpLcOzlVqpKZet4XmPp8VIbdBn9i6xkVGQnAXNuXGnNcSKgdjpnWuTDizGrtFD7KdM3ycwc6C5fMF6OeIcoSWgKJfYd3T73r3qTB31SUMQ8RbQdjQO+84yzJbjPOcaxlqb9T5WIdr44bn/kVa7/YMnA3HF/P5MsjXzfBhLgHj44uOy9JU"
+        JANUS_TOKEN: "AgC0pUkXb6R9nEpusA9sofHSywDeLtUS3acgGZx+XuBOFqsk7596fb4ecC4c9yrc0hByFlZbRuqBeMksb7DztOXF4WtszFTJAyS7vgVh5wcFVLoQd9STU03sTtMZVRhVChkwhobmeSO6yabhFjClmsqWgEBtjcZpfO53TPJDCC6yQsk1HSqChrQXh4LMpnr5fmlAVILPzWIObZxD52FJmi+vmH/H3axsuLqtLRYrwKgOOju4lH0xKXv9n5cOYEYyEz7ePeobrX4q/qLiyphGghYWf0ZfB6wgxt9MIQ0oNG18+7KBYSFzolY/rcyljfn7RzGDK1ssAZ8W4PgArF9B/ZiCHDun782gpNEwTFQW/meiVYRMYn1zIV7Cs1q/vwhAhkNiOyQmcZgp7sVVXkqClxdw1YT1yGyIFVhAk7PX30pNUn/LhefXHmHtdQUndtat47dmLY3dohC1DtXOKy8vygxXmGCcnW9W0vAQBVoF/haLrsMQJdjuvoJCtSB7IRnKm1ECRgAxj6JRTxZcYyIgI5RmsDSSgeMJ2ZlrrxydPG5SuAr9i7i194F23KHtCTXHPeCtUGSGB4b8VcXJcxSr7FTpZ0E5cRkq731rquBfnX5/mqU9Q5TmXyBKFRruSFExLewEAJWBbh8C23RJOJDJUoSbaXvqvWB0O9PSiq6JLYge6B31FuXhi+QVglTQls1vegczb8NFvg1GEeVWjjP4Xu23ZJgu7gSZa6S4UM2PwApxcg=="
+        VERTUMNUS_TOKEN_POMONA_0001: "AgCa9m3pOCMYNmUwLsZ8vlU5EBwa4fJaHPbhTHmkG5Tp99xue5CofIDPvAhEQfXRy0HTAHfA9lX5Lpf3UjFOWZ00yXFgP7M41TUeC/LZdDxafNLEAk2w/WYbPRFhQZ0BFa+0JwuhYV/0B74JMjcMvK5sPYdyW/bQfuGVSv9cqMAjSCuHT4rOENC6M3yLdWopmTt5VudID+TEdEUrV3VaHxjZi1Lz0T9IYB/oIEQuCVBz0dRVCt1WjtRbjnvQMxXJ9LVym3H1oO13AZ9idPs0fAmhSYCS1nxCVM3CqA/teo/dSt89BhLFIGNDKSR4Scddk15hLEIJpwpFUXg5Ac7ydykifCigles4F1DbbQ9J7atRw99qi8FQ1SQPJFrDx45ygPagJcBYNnyurlFL4gp2RRJYTNDLndGTbczNd8dC1TQlz7qJhhGuIZG/e4KwRonP5I/tjaEcNZvoHAif3hulVMaTMlBl0sOEMg+jHHCLzBwZ42vmPT2ovHVbKqB8lBavl+6iwu+BS/V0iv+0ALsCLg4l79cFpL5+ZcTTcaHl8zaaMQmBDQoWy+fS//ujW9zIimpZQc0GYEa4h5baDo0wLpFk9xgECxMdaQd5VMu2I+Ou//of1dGSUtet6+XoIL010KvRHPJ9xZuLFFKgj2BmBcSgXUqyX5kH0EhRmJmUViCcGMoSwh4lwfZhfqn7ZyRBJLVEXhb3gvP+vRSoOj75A0DMpV9m29Sjtfx4zpx7pRqnmg=="

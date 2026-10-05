@@ -16,8 +16,9 @@ declared and reconciled from `values.yaml` `buckets.list`:
 |---|---|---|
 | `zeus` | jupiter reporting + forecast services (direct line protocol, `site_id`-tagged); zeus (frozen since #169) | battery state, savings, load history, forecasts |
 | `homeassistant` | Home Assistant's InfluxDB integration (off-cluster, via the gateway) | every HA entity, unfiltered |
-| `pomona` | `landingzones/pomona` Telegraf bridge | tower sensors + the whole dosing control plane (Demeter decisions, ledger/model, dose events, pump/light requests) |
-| `prometheus` | **telemetry-archive** (this chart) ← kube-prometheus-stack `remote_write` | every Prometheus series from the project namespaces (`jupiter-*`, `pomona`, `zeus`, `hermes`, `influxdb`), minus `kube_*`/`container_*` |
+| `pomona` | retired v1 Telegraf bridge (historical bucket) | tower v1 telemetry through 2026-09-15; retained forever |
+| `ceres` | `landingzones/ceres` Telegraf bridge | current tower telemetry and control-plane documents |
+| `prometheus` | **telemetry-archive** (this chart) ← kube-prometheus-stack `remote_write` | every Prometheus series from the project namespaces (`jupiter-*`, `ceres`, `zeus`, `hermes`, `influxdb`), minus `kube_*`/`container_*` |
 | `mqtt` | **telemetry-archive** (this chart) ← EMQX `jupiter/#`, `zeus/#` | every MQTT message on the project trees, verbatim (plan/heartbeat/schedule documents get a history) |
 
 Service `influxdb-influxdb2.influxdb:80`, pod `influxdb-influxdb2-0`.
@@ -50,9 +51,9 @@ Values: [`values.yaml`](values.yaml) (chart defaults) overlaid by
   verbatim, tag `topic` always, tags `project`/`site`/`doc` for three-level
   topics (`jupiter/tervuren/plan`). Retained messages replay on every
   reconnect → one duplicate point per retained topic at reconnect time.
-- `pomona` bucket — see [`landingzones/pomona/README.md`](../../landingzones/pomona/README.md)
-  "Data model" (`pomona`, `pomona_meta`, `pomona_events`, `demeter_decision`,
-  `demeter_model`).
+- `ceres` bucket — see [`landingzones/ceres/README.md`](../../landingzones/ceres/README.md)
+  for the current tower archive. The retired v1 `pomona` bucket remains as
+  historical data and is reconciled to infinite retention.
 
 Adding a bucket = one entry in `buckets.list` **and** one in
 `backup.incremental.buckets`; the CronJob creates it within the hour (or run it

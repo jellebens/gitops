@@ -91,7 +91,21 @@ dashboard:
   enabled: true
   port: 9119
   host: 0.0.0.0
-  insecure: true
+  # Since v0.16 a non-loopback dashboard refuses to start without an auth
+  # provider (HERMES_DASHBOARD_INSECURE no longer bypasses it). Basic auth via
+  # env: the hash from plugins.dashboard_auth.basic.hash_password
+  # (never the plaintext) plus a token-signing secret so logins survive pod
+  # restarts. Both are sealed into `secretName`; disabled until the sealed
+  # values are set in the environment overlay (.config/<env>/hermes.yaml).
+  basicAuth:
+    enabled: false
+    username: ""
+    secretName: hermes-dashboard-auth
+    passwordHashKey: password-hash
+    signingSecretKey: signing-secret
+    sealedSecret:
+      encryptedPasswordHash: ""
+      encryptedSigningSecret: ""
 
 # Writer subagent git target. The writer is spawned by Cortana via delegate_task
 # (native delegation); it drafts Markdown and commits/pushes to this repo. The

@@ -1,0 +1,107 @@
+apiVersion: v2
+name: ceres
+# version: bump on EVERY release that touches this chart (owner rule 2026-08-31):
+# patch for fixes/docs/reports, minor for features.
+# 0.1.0 = #291 first landing zone: one ceres-vertumnus Deployment per unit
+#         (pomona-0001 in shadow, soaking next to the live pomona-demeter).
+# 0.2.0 = #291 cutover (2026-09-12, soak skipped by the owner): ownPrefix ceres — the
+#         Vertumnus inherits the live retained ledger; pomona-0001 goes ACTIVE in lab.
+# 0.3.0 = #292 slice 2: the config database (CloudNativePG Cluster ceres-pg) + the
+#         registry service; Vertumnus instances can read sys/config from MQTT (configSource).
+# 0.4.0 = #293 Robigus, the plant-health watch, as a service; CeresPlantHealth reads
+#         robigus_alert_active.
+# 0.5.0 = #294 slice 4b: Vertumnus 0.8.0 (observe / advise roles), robigus 0.2.0 (sys/advice:
+#         crop-window validation, the Vertumnus's hand-dose advice), registry 0.1.1 (validation route).
+# 0.6.0 = #295 slice 3 batch 1: the Telegraf archive of the v2 tree (bucket ceres), the
+#         "Ceres — units" dashboard, mqtt.legacyBaseTopic for a v2 Vertumnus in transition.
+# 0.7.0 = #297 ADR-0012: the zone IS Ceres now — namespace ceres, ceres-vertumnus-<unit>, ceres-annona,
+#         ceres-robigus, ceres-telegraf, ceres-pg, bucket ceres; the operator API port + token.
+# 0.8.0 = #298 slice 5: ceres-carmenta (pooled priors, fleet advice); Annona nightly pg_dump to the
+#         NAS; the read-only grafana role on ceres-pg for the Grafana datasource.
+# 0.9.0 = #300 the "What Vertumnus learned" row on the Ceres — units dashboard (Model A/B/C gauges,
+#         the learning curve, the streak) — pairs with GET /learned of vertumnus 0.12.0.
+# 0.10.0 = #302 tracing to the platform Jaeger: tracing.enabled/endpoint -> OTEL_EXPORTER_OTLP_ENDPOINT on
+#          every Ceres deployment; vertumnus 0.13.0, annona 0.3.0, robigus 0.4.0, carmenta 0.2.0.
+# 0.11.0 = #304 firmware over the air from Ceres: the ceres-firmware image server (nginx on the NAS share,
+#          http://firmware.lab.local), vertumnus 0.14.0 (desired firmware -> OTA), annona 0.4.0 (PUT /firmware).
+# 0.11.1 = #305 images: vertumnus 0.15.0, annona 0.4.1, robigus 0.4.1, carmenta 0.2.1 (tower -> facts;
+#          metrics ceres_tower_* are ceres_unit_*).
+# 0.11.2 = fix: the Vertumnus container was named "Vertumnus" (the #297 rename capitalised a k8s name) — the API
+#          refused the Deployment, so no Vertumnus pod started in the first ceres release.
+# 0.11.3 = #295 coexistence: vertumnus 0.15.1 (the shadow mirrors the live ledger), pomona-0001 configSource mqtt.
+# 0.11.7 = ceres #302 follow-up: the trace across every MQTT document and through HA — vertumnus 0.16.0,
+#          annona 0.5.0, robigus 0.5.0 (reads the HA notifier acks), carmenta 0.3.0.
+# 0.11.8 = ceres #302: the message body in every trace span — vertumnus 0.17.0, annona 0.6.0, robigus 0.6.0, carmenta 0.4.0.
+# 0.11.9 = ceres #302: robigus 0.6.1 — what the notifier said (ack.title / ack.message).
+# 0.12.0 = #295 item 8 (slice 3, the wire): firmware 2.x (2.3.0, pomona PR #102) on the tower, so the lab
+#          override drops mqtt.legacyBaseTopic — the Vertumnus doses through ml-based dose/request with acks
+#          (ADR-0008). RELEASE ONLY AFTER THE FLASH: on firmware 1.3.8 a v2 dose/request reaches nothing.
+# 0.12.1 = #307 the "Ceres — units overview" board (uid ceres-unit-use): one tile per unit — node, water, pH, EC,
+#          the three bottles — each value coloured by its own state; hand-written in the ceres repo's grafana/
+#          workflow and provisioned next to the three generated boards.
+
+# 0.13.0 = ceres #315: annona 0.7.0 — the firmware image goes through the API (POST /firmware/{type}/{version}
+#          onto the ceres-firmware share, which is now mounted read-write into Annona: annona.firmware.upload).
+# 0.14.0 = ceres ADR-0014 (PR #63, 2026-09-16): the weather forecast is a fleet fact — vertumnus 0.18.0, annona 0.7.0
+#          (location), carmenta 0.5.0 (sys/weather from Open-Meteo, heat_ahead / frost_ahead), robigus 0.7.0 (relays
+#          Carmenta's per-unit advice). Deploy steps outside the chart: the live EMQX ACL gives `carmenta` publish on
+#          ceres/+/sys/weather (platform/mqtt/files/acl.conf is the mirror), then PUT /units/pomona-0001/location.
+# 0.14.1 = ceres #315: annona 0.8.0 — the firmware upload endpoint is live (the mount and the gateway route shipped in 0.13.0 / 0.14.0).
+# 0.15.0 = ceres #315: annona 0.9.0 serves the firmware images itself (GET /firmware/<type>/<version>) at a pinned
+#          Cilium LB address on the LAN (annona.lan, 192.168.50.202, plain http; the policy admits `world` on the
+#          API port). The ceres-firmware nginx, its Service and its two gateway routes are REMOVED (firmware-server.yaml
+#          -> firmware-claim.yaml keeps only the RWX claim). Why: the GIGA's OTA client speaks HTTP/1.0 and the shared
+#          gateway's Envoy answers that with 426 — every OTA of 2.3.1 on 2026-09-17 fetched a 16-byte error page.
+#          Deploy note: the live `ceres-firmware-direct` NodePort (a hand test of 2026-09-17) is deleted by hand.
+# 0.16.0 = ceres ADR-0015: ceres-janus 0.1.0, the operator console — the decisions and the alerts in a
+#          browser at https://janus.lab.local (gateway route + lab-CA cert + the ceres-janus-https
+#          listener, the hermes pattern; NOT a `world`-admitted LAN LB — that is Annona's shape and it
+#          exists only because the GIGA speaks no DNS or TLS). A hand dose is forwarded to the unit's
+#          Vertumnus operator API, so every rail still applies; the `janus` broker user gets
+#          `subscribe ceres/#` and publish on ceres/sys/status/janus only. The one real widening:
+#          vertumnus-ciliumnetworkpolicy.yaml now admits the ceres-janus POD (by label) to the API
+#          port, which was host/remote-node only. Owner pre-deploy: the `janus` EMQX user, then seal
+#          MQTT_USER/MQTT_PASS/JANUS_TOKEN plus VERTUMNUS_TOKEN_<UNIT> into ceres-janus-secrets.
+# 0.17.0 = ceres #316 (ADR-0016): vertumnus 0.20.0 (+ 0.19.0, the v1 wire gone — it loads the values this chart
+#          renders), annona 0.10.0 (migration 0005: water changes, reagent product), robigus 0.9.0 (critical pH /
+#          acid hold), carmenta 0.5.1. Every sys/config consumer moves to ceres_shared 0.14.0 in this one release —
+#          record a water change or a product only after it is live (older consumers refuse the new keys).
+#          Why: a model-sized 4 ml probe took the tower from pH 7.27 to 3.44 at 04:51 on 2026-09-18.
+#          No broker change: platform/mqtt is untouched (a changed acl.conf rolls EMQX and drops the retained tree).
+# 0.18.0 = ceres janus 0.2.0: a browser signs in with a username and a password instead of pasting
+#          JANUS_TOKEN into a prompt per tab (owner 2026-09-18, ceres ADR-0015 addendum). The account is
+#          three new keys in ceres-janus-secrets (JANUS_USERNAME, JANUS_PASSWORD_HASH, JANUS_SESSION_KEY),
+#          delivered by the existing envFrom — no template changes, only the image tag.
+# 0.19.0 = ceres janus 0.3.0: the acid hold of ADR-0016 shown first on the unit page and released by a signed-in
+#          operator (DELETE /ph/hold through the unit's Vertumnus, with its token; logged with who asked). Image tag only.
+# 0.21.0 = ceres ADR-0018: vertumnus 0.22.0 — Ceres sees a water change itself (a dilution or a water-temperature
+#          step pauses every automatic dose and the pH learning until the water holds still; settled >= 30 % below
+#          the start EC it is a detected change and resets as a recorded one) — and robigus 0.10.0 (water_settling
+#          is a warning). Image tags only; no broker change. (ADR-0017 followed as 0.22.0.)
+# 0.22.0 = ceres ADR-0017 prepared, OFF (mesh.enabled: false): vertumnus 0.23.0 / janus 0.4.0 images, their own
+#          ServiceAccounts (no token mounted; every ceres pod ran as `default`), POD_IP from the downward API.
+#          mesh.enabled — only after the owner's Cilium roll (SPIRE + WireGuard, homelab) — adds the token-free
+#          mesh listener on the POD IP, admits it only from the ceres-janus pod (label + SA) with
+#          authentication.mode: required, denies host/remote-node/world on it, and puts Janus in mesh mode.
+# 0.22.1 = ceres vertumnus 0.23.1: the first "none" decision after an alert is published, so the retained
+#          sys/decision (and Robigus, Janus) stop carrying alerts that have cleared. Image tag only.
+# 0.22.2 = ceres vertumnus 0.24.0: an operator's pH-Down dose that does not fit one slow command goes at the
+#          full speed (still one command); only one that fits neither is split, and judged as one dose. Image tag only.
+# 0.23.0 = ceres ADR-0016 §11: vertumnus 0.25.0 — no automatic dose the model could not see (blocked with
+#          ph_hand_dose_needed until the guard allows a visible dose); robigus 0.11.0 (that alert is a warning).
+#          Image tags only.
+# 0.23.1 = ceres vertumnus 0.25.1: an operator's dose does not stay the current decision. Image tag only.
+# 0.24.0 = ceres annona 0.11.0 (migration 0006: a doser's slow_ml_s may be 0 — a speed that delivers nothing)
+#          and vertumnus 0.25.2 (then every pH-Down dose goes at the full speed). Image tags only.
+# 0.24.1 = ceres janus 0.4.1: a published "none" reads "nothing to do" on the unit page. Image tag only.
+# 0.25.0 = ceres ADR-0019: vertumnus 0.26.0 keeps a copy of its ledger on a Longhorn volume per unit
+#          (ceres-vertumnus-<unit>-ledger, 256Mi, kept on uninstall) at /data/ledger.json — what a unit
+#          learned survives a broker restart (the retainer is RAM-only; 2026-09-30 lost the tower's lessons).
+# 0.25.1 = ceres vertumnus 0.26.1: the disk copy of the ledger is written at boot, not at the next change.
+# 0.26.0 = ceres janus 0.5.0: the decision timeline is read back from the InfluxDB archive (janus.archive.*,
+#          a read-only INFLUX_TOKEN for bucket ceres sealed in ceres-janus-secrets) — it survives a restart.
+# 0.26.1 = ceres janus 0.6.0: runs of identical decisions are one line in the timeline. Image tag only.
+version: 0.26.1
+type: application
+appVersion: "0.26.1"
+description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

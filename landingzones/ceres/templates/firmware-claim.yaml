@@ -1,0 +1,26 @@
+{{- if .Values.firmware.enabled }}
+# The firmware share (card #304 / #315): the .ota images the nodes pull over the air.
+# One RWX claim on the NAS, mounted only into Annona (templates/annona-deployment.yaml,
+# annona.firmware.upload), which both takes an image over its API
+# (POST /firmware/<type>/<version>) and serves it back (GET of the same path) at its
+# plain-http LAN address (annona.lan). The nginx that used to serve this share
+# (ceres-firmware, chart 0.11.0 – 0.14.x) is gone: the GIGA's OTA client speaks
+# HTTP/1.0, which the shared gateway's Envoy refuses with 426, so the images must come
+# from a plain server the node reaches directly — Annona's own is one.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ceres-firmware
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-firmware
+    app.kubernetes.io/part-of: ceres
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.firmware.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.firmware.size | quote }}
+{{- end }}

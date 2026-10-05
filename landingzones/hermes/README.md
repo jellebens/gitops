@@ -336,6 +336,14 @@ alerted directly by **`HermesBackupNotRun`**
 fires when `kube_cronjob_status_last_successful_time` is older than
 `backup.prometheusRule.maxAgeSeconds` (default 48h = 2× the schedule) or absent.
 
+**Integrity gate** (added after the 2026-10-01 `state.db` corruption): the
+`.backup` API copies corrupt pages faithfully, so the 2026-10-01 run happily
+shipped a malformed `state.db`. Each staged database now has to pass
+`PRAGMA integrity_check` before anything is published. On failure the job logs
+`INTEGRITY FAILED <db> …` and exits non-zero **before** the copy to the share and
+**before** retention pruning. Older good backups are therefore never rotated out
+by bad ones, and `HermesBackupNotRun` fires once no good run lands for 48h.
+
 **Verify backups are healthy:**
 
 ```sh
@@ -370,8 +378,54 @@ kubectl -n hermes get pods -l app.kubernetes.io/name=hermes-backup -w
 3. Any other wedge: the job self-terminates at `activeDeadlineSeconds` and the
    next nightly window runs; fix the cause before then if the alert persists.
 
-**Restore:** scale the agent to 0, copy a dated dir from the `hermes-backup`
-PVC (or straight from the share) back into `hermes-cortana-state`, scale up.
+**Restore** (done for real on 2026-10-01; the gateway logs
+`StateDbCorruptError` / "database disk image is malformed" and diverts
+transcripts to `sessions/*.jsonl`):
+
+1. Pick the newest dated dir whose `state.db` passes
+   `PRAGMA integrity_check` (mount `hermes-backup` read-only in a throwaway pod
+   with the hermes image and check each one). Since the integrity gate, every
+   published dir should pass, but check anyway.
+2. Pause Argo self-heal so it doesn't scale the agent back up: remove
+   `spec.syncPolicy.automated` from the `bootstrap` **and** `hermes`
+   Applications (`bootstrap` would otherwise restore `hermes`'s policy).
+3. `kubectl -n hermes scale deploy/hermes --replicas=0`.
+4. In a pod that mounts `hermes-cortana-state` (RWO, so the agent must be down)
+   and `hermes-backup`: move the bad `state.db`, `state.db-wal`, `state.db-shm`
+   and any `state.db.repair.lock` aside (e.g. `corrupt-<date>/`), copy the good
+   `state.db` in, keep the original uid:gid, and re-run the integrity check.
+5. Delete the pod, scale back to 1, and re-apply `automated: {prune: true,
+   selfHeal: true}` to both Applications (matches git).
+
+Expect Hermes's startup auto-maintenance to prune sessions inactive for 90
+days right after a restore, so the row counts drop. That's normal; the backup
+still has them. Spooled `pending_messages/` for sessions newer than the backup
+fail to replay (`FOREIGN KEY constraint failed`) and stay on disk.
+
+## Dashboard login
+
+Since v0.16, Hermes refuses to bind the dashboard to `0.0.0.0` without an auth
+provider, and `HERMES_DASHBOARD_INSECURE` no longer bypasses that. With no
+provider the gateway just logs "Refusing to bind dashboard…" in a loop. Basic
+auth is passed in through env (`dashboard.basicAuth`) from the
+`hermes-dashboard-auth` SealedSecret. It holds only the password **hash**, plus
+a signing secret so sessions survive pod restarts. To set or rotate it, keep the
+plaintext in your password manager only:
+
+```sh
+read -rs P   # the new dashboard password
+H=$(printf %s "$P" | kubectl -n hermes exec -i deploy/hermes -c gateway -- \
+  sh -c 'cd /opt/hermes && .venv/bin/python -c "import sys; from plugins.dashboard_auth.basic import hash_password; print(hash_password(sys.stdin.read()))"')
+seal() { printf %s "$1" | kubeseal --raw --controller-name sealed-secrets \
+  --controller-namespace argocd --namespace hermes --name hermes-dashboard-auth \
+  --from-file=/dev/stdin; }
+seal "$H"                         # -> dashboard.basicAuth.sealedSecret.encryptedPasswordHash
+seal "$(openssl rand -base64 32)" # -> dashboard.basicAuth.sealedSecret.encryptedSigningSecret
+unset P H
+```
+
+Then set `dashboard.basicAuth.enabled: true`, `username`, and both encrypted
+values in `.config/<env>/hermes.yaml`. A new signing secret logs everyone out.
 
 ## Secrets (all SealedSecrets, controller `sealed-secrets` in `argocd`)
 
@@ -384,6 +438,7 @@ PVC (or straight from the share) back into `hermes-cortana-state`, scale up.
 | `hermes-plutus-anthropic-admin` | Anthropic **Admin** API key for Plutus (read-only usage/cost) — only when `plutus.anthropic.enabled` |
 | `hermes-plutus-openai-admin` | OpenAI **Admin** key for Plutus (read-only org usage/costs) — only when `plutus.openai.enabled` |
 | `hermes-cerberus-trello` | Cerberus's Trello API key + token (`api-key`, `token`) — only when `cerberus.trello.enabled` |
+| `hermes-dashboard-auth` | dashboard basic-auth password **hash** + session signing secret (`password-hash`, `signing-secret`) — only when `dashboard.basicAuth.enabled` |
 
 ## Common operations
 
@@ -392,7 +447,7 @@ PVC (or straight from the share) back into `hermes-cortana-state`, scale up.
 kubectl -n hermes logs deploy/hermes -c gateway -f
 kubectl -n hermes exec -it deploy/hermes -c gateway -- bash
 
-# dashboard
+# dashboard (basic auth, see "Dashboard login" below)
 #   https://hermes.lab.local
 
 # effective config inside the pod

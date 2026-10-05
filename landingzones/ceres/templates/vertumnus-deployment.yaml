@@ -1,0 +1,143 @@
+{{- range $id, $u := .Values.units }}
+{{- if $u.enabled }}
+# ceres-vertumnus-{{ $id }}: the self-learning chemistry loop for ONE unit
+# (ceres ADR-0007/0010; card #291). It watches the unit's tree on the
+# platform broker and — only when its effective mode is active — corrects
+# chemistry through the unit's dose channel, inside the tested rails of the
+# ceres repo. It needs the broker and nothing else.
+#
+# Single replica + Recreate is a SAFETY property: two controllers would each
+# believe they own the lockout clock and could double-dose the reservoir.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ceres-vertumnus-{{ $id }}
+  namespace: ceres
+  labels:
+    app.kubernetes.io/name: ceres-vertumnus
+    app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+    app.kubernetes.io/part-of: ceres
+    ceres.jellebens.dev/unit: {{ $id | quote }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ceres-vertumnus
+        app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
+        app.kubernetes.io/part-of: ceres
+        ceres.jellebens.dev/unit: {{ $id | quote }}
+      annotations:
+        # Roll THIS Vertumnus when its documents or the fleet mode change.
+        checksum/config: {{ printf "%s|%s|%s" $.Values.mode (toYaml $u) (toYaml $.Values.Vertumnus) | sha256sum }}
+        # ADR-0017: the mesh listener is read at start, so a flip must restart the pod.
+        checksum/mesh: {{ toYaml $.Values.mesh | sha256sum }}
+        # ADR-0019: ledger_file is read at start
+        checksum/ledger: {{ toYaml $.Values.ledger | sha256sum }}
+    spec:
+      serviceAccountName: ceres-vertumnus   # ADR-0017; it never talks to the Kubernetes API
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ $.Values.runtime.uid }}
+        runAsGroup: {{ $.Values.runtime.gid }}
+        fsGroup: {{ $.Values.runtime.gid }}
+      containers:
+        - name: vertumnus
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          args:
+            - --values
+            - /config/values.yaml
+            {{- if ne ($u.configSource | default "file") "mqtt" }}
+            - --config
+            - /config/config.yaml
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # MQTT_USER / MQTT_PASS for this unit's broker user. optional: true so
+          # the chart deploys before the owner seals real creds — until then the
+          # MQTT connect fail-and-retries and nothing can dose.
+          env:
+            {{- if $.Values.tracing.enabled }}
+            # OTel OTLP endpoint (card #302): presence is the switch (ceres_shared.tracing)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ $.Values.tracing.endpoint | quote }}
+            {{- end }}
+            # ADR-0017: the ONLY address the mesh listener may bind. Never 0.0.0.0 or
+            # loopback: port-forward and exec dial loopback, where no policy can see.
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+          envFrom:
+            - secretRef:
+                name: {{ $u.secret.name }}
+                optional: true
+          {{- if $.Values.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ $.Values.metrics.port }}
+            {{- if $.Values.vertumnus.apiPort }}
+            - name: api
+              containerPort: {{ $.Values.vertumnus.apiPort }}
+            {{- end }}
+            {{- if $.Values.mesh.enabled }}
+            - name: mesh
+              containerPort: {{ $.Values.mesh.port }}
+            {{- end }}
+              protocol: TCP
+          {{- with $.Values.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- with $.Values.probes.liveness }}
+          # Deliberately tolerant (zeus discipline): /metrics is served on
+          # prometheus_client's own thread, so only a truly wedged process
+          # fails it — a restart loop on a dosing controller helps nobody.
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            {{- if $.Values.ledger.enabled }}
+            # ADR-0019: the ledger's copy on disk (ledger_file in values.yaml)
+            - name: ledger
+              mountPath: /data
+            {{- end }}
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: ceres-vertumnus-{{ $id }}
+        {{- if $.Values.ledger.enabled }}
+        - name: ledger
+          persistentVolumeClaim:
+            claimName: ceres-vertumnus-{{ $id }}-ledger
+        {{- end }}
+{{- end }}
+{{- end }}

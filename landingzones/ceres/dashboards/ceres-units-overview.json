@@ -1,0 +1,595 @@
+{
+  "uid": "ceres-unit-use",
+  "title": "Ceres — units overview",
+  "description": "Every unit at a glance: one tile per unit with node state, water temperature, pH and EC and the three bottles, each value coloured by its own state.\n\nProvisioned from gitops landingzones/ceres/dashboards/ceres-units-overview.json (hand-written in the ceres repo's grafana/ workflow, card #307) — edit there, not here.",
+  "tags": [
+    "ceres",
+    "hydroponics",
+    "unit",
+    "overview"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "schemaVersion": 42,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "weekStart": "",
+  "fiscalYearStartMonth": 0,
+  "links": [],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "pomona-0001",
+      "description": "Node (retained LWT), water temperature, pH, EC — latest raw readings. The value cell is coloured by its own state: water amber from 24 °C and red from 27 °C; pH and EC red outside the stage's target band (ceres_target low/high), green inside. Mechanism: one PromQL query per state (only one returns), each adding a code offset (colour digit 1/2/3 = green/amber/red, row digit 1-4, then thousands), the value is converted to text and regex value mappings strip the code and colour the cell.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "links": [
+        {
+          "title": "Unit detail",
+          "url": "/d/ceres-units/ceres-e28094-unit?var-unit=pomona-0001&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "showHeader": false,
+        "cellHeight": "md",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": []
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "mode": "seriesToRows",
+            "reducers": [
+              "lastNotNull"
+            ],
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "Last *",
+                "destinationType": "string"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "—",
+          "links": [
+            {
+              "title": "Unit detail",
+              "url": "/d/ceres-units/ceres-e28094-unit?var-unit=pomona-0001&${__url_time_range}",
+              "targetBlank": false,
+              "oneClick": true
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false,
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Field"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "markdown"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last *"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "center"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "11001": {
+                        "text": "ONLINE",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "31000": {
+                        "text": "OFFLINE",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^120*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 °C",
+                        "color": "green",
+                        "index": 2
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^220*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 °C",
+                        "color": "orange",
+                        "index": 3
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^320*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 °C",
+                        "color": "red",
+                        "index": 4
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^130*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1",
+                        "color": "green",
+                        "index": 5
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^330*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1",
+                        "color": "red",
+                        "index": 6
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^140*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 mS/cm",
+                        "color": "green",
+                        "index": 7
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^340*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 mS/cm",
+                        "color": "red",
+                        "index": 8
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^150*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "green",
+                        "index": 9
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^250*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "orange",
+                        "index": 10
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^350*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "red",
+                        "index": 11
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^160*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "green",
+                        "index": 12
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^260*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "orange",
+                        "index": 13
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^360*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "red",
+                        "index": 14
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^170*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "green",
+                        "index": 15
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^270*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "orange",
+                        "index": 16
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^370*(\\d[\\d.]*)$",
+                      "result": {
+                        "text": "$1 %",
+                        "color": "red",
+                        "index": 17
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "node_on",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Node**",
+          "expr": "max by (unit) (ceres_unit_online{unit=\"pomona-0001\"} == 1) + 11000"
+        },
+        {
+          "refId": "node_off",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Node**",
+          "expr": "max by (unit) (ceres_unit_online{unit=\"pomona-0001\"} == 0) + 31000"
+        },
+        {
+          "refId": "water_ok",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Water**",
+          "expr": "(max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"water_temp\"}) < 24) + 12000"
+        },
+        {
+          "refId": "water_warm",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Water**",
+          "expr": "((max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"water_temp\"}) >= 24) < 27) + 22000"
+        },
+        {
+          "refId": "water_hot",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Water**",
+          "expr": "(max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"water_temp\"}) >= 27) + 32000"
+        },
+        {
+          "refId": "ph_in",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**pH**",
+          "expr": "((max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"ph\"}) >= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ph\", bound=\"low\"})) <= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ph\", bound=\"high\"})) + 13000"
+        },
+        {
+          "refId": "ph_out",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**pH**",
+          "expr": "(max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"ph\"}) unless ((max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"ph\"}) >= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ph\", bound=\"low\"})) <= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ph\", bound=\"high\"}))) + 33000"
+        },
+        {
+          "refId": "ec_in",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**EC**",
+          "expr": "((max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"ec\"}) >= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ec_ms_cm\", bound=\"low\"})) <= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ec_ms_cm\", bound=\"high\"})) + 14000"
+        },
+        {
+          "refId": "ec_out",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**EC**",
+          "expr": "(max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"ec\"}) unless ((max by (unit) (ceres_reading{unit=\"pomona-0001\", metric=\"ec\"}) >= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ec_ms_cm\", bound=\"low\"})) <= max by (unit) (ceres_target{unit=\"pomona-0001\", metric=\"ec_ms_cm\", bound=\"high\"}))) + 34000"
+        },
+        {
+          "refId": "ph_down_ok",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**pH-Down**",
+          "expr": "round((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"ph_down\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"ph_down\"}) * 100) >= 35) + 15000"
+        },
+        {
+          "refId": "ph_down_low",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**pH-Down**",
+          "expr": "round(((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"ph_down\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"ph_down\"}) * 100) >= 15) < 35) + 25000"
+        },
+        {
+          "refId": "ph_down_empty",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**pH-Down**",
+          "expr": "round((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"ph_down\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"ph_down\"}) * 100) < 15) + 35000"
+        },
+        {
+          "refId": "nutrient_a_ok",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Nutrient A**",
+          "expr": "round((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"nutrient_a\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"nutrient_a\"}) * 100) >= 35) + 16000"
+        },
+        {
+          "refId": "nutrient_a_low",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Nutrient A**",
+          "expr": "round(((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"nutrient_a\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"nutrient_a\"}) * 100) >= 15) < 35) + 26000"
+        },
+        {
+          "refId": "nutrient_a_empty",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Nutrient A**",
+          "expr": "round((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"nutrient_a\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"nutrient_a\"}) * 100) < 15) + 36000"
+        },
+        {
+          "refId": "nutrient_b_ok",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Nutrient B**",
+          "expr": "round((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"nutrient_b\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"nutrient_b\"}) * 100) >= 35) + 17000"
+        },
+        {
+          "refId": "nutrient_b_low",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Nutrient B**",
+          "expr": "round(((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"nutrient_b\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"nutrient_b\"}) * 100) >= 15) < 35) + 27000"
+        },
+        {
+          "refId": "nutrient_b_empty",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "**Nutrient B**",
+          "expr": "round((max by (unit) (ceres_reagent_remaining_ml{unit=\"pomona-0001\", reagent=\"nutrient_b\"}) / max by (unit) (ceres_reagent_container_ml{unit=\"pomona-0001\", reagent=\"nutrient_b\"}) * 100) < 15) + 37000"
+        }
+      ]
+    }
+  ],
+  "id": null
+}

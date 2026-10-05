@@ -7,6 +7,11 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
   annotations:
     argocd.argoproj.io/sync-wave: "20"
+    # Diff via a server-side dry-run instead of Argo's local structured-merge
+    # diff, which drops schema defaults inside atomic lists: the
+    # policies.kyverno.io CRDs were forever OutOfSync with an empty
+    # `argocd app diff`. See AGENTS.md "Known Pitfalls".
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: platform-services
   destination:
