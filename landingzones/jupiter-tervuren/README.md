@@ -145,6 +145,37 @@ read label (raw rule R10 stops re-filing cards for absorbed blips); the other
 read labels (`soc|grid|house_load|ac` — local zwave/Bluetti) deliberately
 stay on R10's any-error catch.
 
+### Mode-write discipline (card #228, jupiter ADR-0029)
+
+The same file ships a second group, `jupiter-tervuren-mode-writes`. It needs a
+lar image that carries #228; on an older image the series do not exist and the
+rules stay silent.
+
+| Alert | Severity | Fires when | Normal |
+|---|---|---|---|
+| `JupiterLarModeWriteChurn` | warning | more than 6 mode writes in 15 min | at most 2 |
+| `JupiterLarModeWriteStorm` | critical | more than 20 mode writes in 15 min | the 2026-10-05 flap was about 180 |
+| `JupiterLarWriteCeilingHit` | warning | the churn guard reached `control.max_writes_per_window` | never |
+| `JupiterLarGuardHoldOnDischarge` | warning | more than 6 guard holds in 15 min aimed at a discharging battery | one per spike response |
+| `JupiterLarDwellSustained` | warning | more than 24 dwell-suppressed ticks in 30 min | at most 12 per mode change |
+| `JupiterLarSocUnknown` | warning | no SoC reading for 20 min (battery held idle) | clears on the first reading |
+| `JupiterLarPlanNotOptimal` | warning | the LP is not Optimal for 20 min | 2 cycles in 14 days |
+| `JupiterLarPlanBothFlowsElevated` | info | more than 12 both-flows plans in 24 h | at most 6 (known, netted; card #324) |
+| `JupiterLarPlanCostVolatile` | info | plan cost swings more than EUR 2 per cycle over 2 h | about EUR 0.02 |
+
+`JupiterLarPlanNotOptimal` is the owner's decision of 2026-10-05: a non-Optimal
+plan is still acted on (a battery below `soc_min` is infeasible every cycle and
+the leftover charge is what recovers it), so it is alerted rather than held.
+
+To see which writer is responsible when a churn alert fires:
+
+```promql
+sum by (mode, source) (increase(jupiter_lar_mode_writes_total{site_id="tervuren"}[15m]))
+```
+
+The two `info` alerts are observe-first; retune them after the #228 re-judge
+(three clean days including one wide-spread day).
+
 ## Known gotchas
 
 - **`capacity_peak`** (`sensor.fluvius_meter_..._peak_power`) is intermittently

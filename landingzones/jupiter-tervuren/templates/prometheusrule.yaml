@@ -81,4 +81,175 @@ spec:
               (Settings -> Devices & Services; cloud login/token), then the
               lar logs in ns jupiter-tervuren for "capacity-peak read failed".
               Card #185 has the full diagnosis.
+
+    # Mode-write discipline (card #228 part 3, jupiter ADR-0029).
+    #
+    # WHY THIS EXISTS: on 2026-10-05 16:30-17:00Z the charge guard and the
+    #   re-check fought over the working-mode select — about 350 writes in 30
+    #   minutes — and on 2026-07-30 the battery cycled 3.2 times in a day.
+    #   Neither was visible to alerting. The lar image that carries #228 exports
+    #   one counter per select write (by source) and one per write it held back.
+    #
+    # NEEDS lar >= the #228 image. On an older image none of these series
+    #   exist, so every rule below evaluates to empty and stays silent.
+    #
+    # BASELINE (lar logs 2026-10-04 -> 05): 22 legitimate mode writes in a day,
+    #   never closer together than 898 s; 2 non-Optimal plans in 14 days; 22
+    #   both-flows slots in 14 days, at most 6 on one day.
+    - name: jupiter-tervuren-mode-writes
+      rules:
+        - alert: JupiterLarModeWriteChurn
+          # Normal is at most 2 writes per 15 minutes (one per planning cycle).
+          expr: |
+            sum by (site_id) (increase(jupiter_lar_mode_writes_total[15m])) > 6
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar is switching the battery mode too often
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — more than 6 working-mode
+              writes in 15 minutes (normal: at most 2). Two writers are
+              probably disagreeing. Break it down with
+              sum by (mode, source) (increase(jupiter_lar_mode_writes_total[15m]))
+              and read the lar log in ns jupiter-tervuren. jupiter ADR-0029
+              has the writer precedence table.
+
+        - alert: JupiterLarModeWriteStorm
+          # The 2026-10-05 flap was about 180 writes per 15 minutes.
+          expr: |
+            sum by (site_id) (increase(jupiter_lar_mode_writes_total[15m])) > 20
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: lar mode-write storm — the churn guard is not containing it
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — more than 20 working-mode
+              writes in 15 minutes. The churn guard caps plan/recheck writes at
+              control.max_writes_per_window, so this many means an exempt
+              source (safety, guard, spike) is flapping. Consider
+              control.enabled: false until it is understood.
+
+        - alert: JupiterLarWriteCeilingHit
+          # Never expected: 6 plan/recheck writes inside one 15-minute window.
+          expr: |
+            sum by (site_id) (
+              increase(jupiter_lar_mode_writes_suppressed_total{reason="ceiling"}[15m])
+            ) > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar churn guard hit its write ceiling — battery parked idle
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the lar reached
+              control.max_writes_per_window and is holding PASSTHROUGH until
+              the window clears. Savings are being lost while it rests; find
+              what keeps changing the plan's mode.
+
+        - alert: JupiterLarGuardHoldOnDischarge
+          # One tick per spike response is normal; a run is the 10-05 flap
+          # coming back (now suppressed instead of written).
+          expr: |
+            sum by (site_id) (
+              increase(jupiter_lar_mode_writes_suppressed_total{reason="guard_not_charging"}[15m])
+            ) > 6
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: charge guard keeps tripping while the battery is discharging
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the charge guard asked for a
+              hold more than 6 times in 15 minutes while the lar was
+              discharging. The hold is not written (it would raise grid
+              import), but the guard should not be tripping here: check the
+              plan intent against the commanded mode.
+
+        - alert: JupiterLarDwellSustained
+          # One dwell is at most 12 poll ticks (120 s / 10 s). More than two
+          # full dwells in 30 minutes means something keeps changing its mind.
+          expr: |
+            sum by (site_id) (
+              increase(jupiter_lar_mode_writes_suppressed_total{reason="dwell"}[30m])
+            ) > 24
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar churn guard is repeatedly delaying mode changes
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — plan/recheck mode writes were
+              held back by control.min_dwell_seconds for more than two full
+              dwells in 30 minutes. The plan's mode is unstable.
+
+        - alert: JupiterLarSocUnknown
+          # The cold-start hold re-reads SoC every planning cycle (15 min);
+          # 20m is two cycles without a reading.
+          expr: |
+            max by (site_id) (jupiter_lar_soc_unknown) == 1
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar has no battery SoC reading — holding PASSTHROUGH
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the lar has had no SoC
+              reading for 20 minutes and is holding the battery idle. Check the
+              Bluetti integration on HA (vesta) and
+              jupiter_lar_ha_read_ok{read="soc"}.
+
+        - alert: JupiterLarPlanNotOptimal
+          # Owner decision 2026-10-05 (ADR-0029): a non-Optimal plan is still
+          # acted on — a battery below soc_min is infeasible every cycle and
+          # the leftover charge is what recovers it — so it is alerted instead.
+          expr: |
+            min by (site_id) (jupiter_lar_plan_optimal) == 0
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar dispatch plan is not Optimal for two cycles
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the LP has not returned an
+              Optimal plan for 20 minutes; the lar is acting on a leftover
+              slot-0 setpoint. Usual cause: a SoC reading below soc_min (real,
+              or a 0 % glitch). Check the lar log for "Infeasible" and the SoC
+              the planner used.
+
+        - alert: JupiterLarPlanBothFlowsElevated
+          # The LP plans a charge+discharge wash on some peak-flagged slots
+          # (card #324). The lar nets it before actuation, so a few per day is
+          # known and harmless: worst day in the 14-day baseline was 6 slots.
+          # This fires only when it becomes much more frequent than that.
+          expr: |
+            sum by (site_id) (increase(jupiter_lar_plan_simultaneous_flows_total[24h])) > 12
+          for: 0m
+          labels:
+            severity: info
+          annotations:
+            summary: LP is planning charge+discharge on the same slot unusually often
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — more than 12 planning cycles
+              in 24 hours had both flows in slot 0 (baseline: at most 6). The
+              lar nets them, so the battery is not affected, but the plan's
+              later slots carry phantom throughput. See card #324.
+
+        - alert: JupiterLarPlanCostVolatile
+          # 14-day median swing is about EUR 0.02 per cycle; the 2026-07-30
+          # churn day swung between EUR 2 and 25. Observe first — retune after
+          # the #228 re-judge.
+          expr: |
+            avg_over_time(jupiter_lar_plan_cost_delta_eur[2h]) > 2
+          for: 30m
+          labels:
+            severity: info
+          annotations:
+            summary: lar plan objective is swinging between cycles
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} — the plan's cost changed by
+              more than EUR 2 per cycle on average over 2 hours. On 2026-07-30
+              this pattern came with 3.2 battery cycles in a day. Check
+              jupiter_lar_mode_writes_total and the forecast inputs.
 {{- end }}
