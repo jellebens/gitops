@@ -311,7 +311,7 @@
       "id": 24,
       "type": "stat",
       "title": "Interlock  —  live controllers",
-      "description": "jupiter_controllers_live — how many jupiter controllers report themselves live (should be 0 during shadow soak; the live check stays zeus).",
+      "description": "jupiter_controllers_live — how many jupiter controllers report themselves live. Reads 1 since the 2026-07-06 cutover: jupiter-lar is the sole controller on the tervuren battery (zeus decommissioned 2026-07-30, #169).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 44 },
       "fieldConfig": {
