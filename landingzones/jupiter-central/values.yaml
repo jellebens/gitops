@@ -329,8 +329,10 @@ forecast:
       # PROMOTION RULE, fixed up front: a variant replaces the live model only if,
       # over at least 28 days of shadow data, it beats BOTH persistence_24h and
       # `live` on BOTH targets on MAE, with |bias| no worse than live's. Score with
-      # jupiter services/forecast/scripts/score_shadow.py. Clock started with this
-      # release, 2026-10-05; first eligible read 2026-11-03.
+      # jupiter services/forecast/scripts/score_shadow.py; the Grafana view is the
+      # shadow-mode section of the Forecast Accuracy dashboard (zeus-accuracy, #322:
+      # rolling MAE/bias per variant + variant × lead table, per target). Clock
+      # started with this release, 2026-10-05; first eligible read 2026-11-03.
       #
       # The two 90-day variants are recorded but NOT eligible yet: the history is
       # contaminated by carried-forward and placeholder hours (gitops
