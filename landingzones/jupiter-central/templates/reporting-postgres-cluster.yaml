@@ -1,0 +1,60 @@
+{{- if .Values.reporting.postgres.enabled }}
+# The long-term reporting ledger (jupiter ADR-0030, card #308): a small
+# CloudNativePG Cluster in the landing zone — the operator is the platform
+# service `cnpg` (wave 14), each landing zone owns its Cluster and creds, the
+# same shape as ceres-pg (landingzones/ceres). Bootstrap creates database
+# `jupiter` owned by role `jupiter`; the operator writes the app credentials to
+# Secret `{{ .Values.reporting.postgres.name }}-app` (keys username, password,
+# host, port, dbname, uri) which the reporting Deployment maps to PG* env — no
+# password ever passes through git.
+#
+# The reporting-service is the ONLY writer (one daily_savings row per site-day,
+# monthly_peaks, the rollup views); it applies its own SQL migrations on the
+# first connection, so the schema appears with the first refresh after the
+# Cluster is Ready. Longhorn = redundancy, not backup — the nightly pg_dump
+# CronJob (reporting-postgres-backup.yaml) to the NAS is the recovery path.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.reporting.postgres.name }}
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: jupiter-postgres
+    app.kubernetes.io/part-of: jupiter
+spec:
+  instances: {{ .Values.reporting.postgres.instances }}
+  imageName: {{ .Values.reporting.postgres.image | quote }}
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: jupiter
+      owner: jupiter
+  {{- if .Values.reporting.postgres.grafanaRole.enabled }}
+  # A read-only role for the Grafana PostgreSQL datasource "Jupiter ledger"
+  # (platform/observability-config). The operator creates the role and reads
+  # its password from the secret named here (owner seals `username` +
+  # `password` for ns jupiter-central; the same password is sealed as
+  # JUPITER_PG_PASSWORD for Grafana in ns observability). The reporting-
+  # service's migration 0002 grants SELECT on its tables and views to this
+  # role when it exists.
+  managed:
+    roles:
+      - name: grafana
+        ensure: present
+        login: true
+        inherit: true
+        passwordSecret:
+          name: {{ .Values.reporting.postgres.grafanaRole.secret }}
+  {{- end }}
+  storage:
+    storageClass: {{ .Values.reporting.postgres.storageClass }}
+    size: {{ .Values.reporting.postgres.size }}
+  resources:
+    {{- toYaml .Values.reporting.postgres.resources | nindent 4 }}
+  monitoring:
+    enablePodMonitor: {{ .Values.reporting.postgres.podMonitor }}
+  postgresql:
+    parameters:
+      max_connections: "50"
+      shared_buffers: "64MB"
+{{- end }}

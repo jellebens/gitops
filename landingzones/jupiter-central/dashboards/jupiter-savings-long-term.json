@@ -1,0 +1,237 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "templating": {
+    "list": [
+      {
+        "name": "site_id",
+        "label": "Site",
+        "type": "query",
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+        "query": "select site_id from sites order by site_id",
+        "definition": "select site_id from sites order by site_id",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": { "text": "tervuren", "value": "tervuren" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "What this dashboard shows",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Jupiter — Savings long-term** reads the **long-term ledger** (PostgreSQL `jupiter-pg`, jupiter ADR-0030 / card #308): one `daily_savings` row per site-day with the full ADR-0005 result, frozen at local midnight, plus the month's capacity peak. Every number is **net-battery accounting** (SoC-delta flows, ADR-0024 §5). Rows tagged `zeus_daily` (pre-2026-07-06) carry EUR only — their kWh / cost columns are empty by design. The **open day** (today, `final = false`) still moves with the reporting-service's refresh."
+      }
+    },
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Lifetime",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 3 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Saved since the first ledger day",
+      "description": "site_totals.savings_eur — every day in the ledger (jupiter-derived + imported zeus days).",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "green" }, "noValue": "no data" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "value", "orientation": "auto" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select savings_eur from site_totals where site_id = '${site_id}'" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Days in the ledger",
+      "description": "site_totals.days, first_day → last_day.",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" }, "noValue": "no data" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^days$/", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "value", "orientation": "auto" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select days, first_day, last_day from site_totals where site_id = '${site_id}'" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Average per day",
+      "description": "site_totals.avg_savings_eur_per_day over every ledger day.",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 3, "color": { "mode": "fixed", "fixedColor": "green" }, "noValue": "no data" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "value", "orientation": "auto" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select avg_savings_eur_per_day from site_totals where site_id = '${site_id}'" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Energy through the battery (net)",
+      "description": "Lifetime net charged / discharged kWh (jupiter-derived days only — zeus_daily rows carry no kWh).",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "kwatth", "decimals": 0, "color": { "mode": "palette-classic" }, "noValue": "no data" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "charged" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byName", "options": "discharged" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+        ] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "orientation": "horizontal" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select energy_charged_kwh as charged, energy_discharged_kwh as discharged from site_totals where site_id = '${site_id}'" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Cumulative savings",
+      "description": "cumulative_savings.cumulative_eur — the running total, day by day, over the dashboard time range.",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "green" },
+        "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 12, "lineInterpolation": "stepAfter", "spanNulls": true, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "time_series", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select day::timestamptz as time, cumulative_eur as \"cumulative\" from cumulative_savings where site_id = '${site_id}' and $__timeFilter(day::timestamptz) order by day" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "By month",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Savings per month",
+      "description": "monthly_savings.savings_eur (green ≥ 0, red < 0). A month is only final once every one of its days is frozen.",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 19 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 2, "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0 } ] },
+        "custom": { "fillOpacity": 80, "lineWidth": 1, "axisPlacement": "auto" } }, "overrides": [] },
+      "options": { "orientation": "vertical", "xTickLabelRotation": -45, "showValue": "auto", "stacking": "none", "barWidth": 0.8, "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" }, "xField": "month" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select to_char(month, 'YYYY-MM') as month, savings_eur as \"savings\" from monthly_savings where site_id = '${site_id}' and $__timeFilter(month::timestamptz) order by month" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Capacity peak per month",
+      "description": "monthly_peaks.peak_kw — the greatest running peak the lar reported in the month (the Belgian capacity tariff base, ADR-0012).",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 19 },
+      "fieldConfig": { "defaults": { "unit": "kwatt", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "orange" },
+        "custom": { "fillOpacity": 80, "lineWidth": 1, "axisPlacement": "auto" }, "min": 0 }, "overrides": [] },
+      "options": { "orientation": "vertical", "xTickLabelRotation": -45, "showValue": "auto", "stacking": "none", "barWidth": 0.8, "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" }, "xField": "month" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select to_char(month, 'YYYY-MM') as month, peak_kw as \"peak\" from monthly_peaks where site_id = '${site_id}' and $__timeFilter(month::timestamptz) order by month" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Monthly report",
+      "description": "monthly_savings joined with the month's peak. `final` = every day of the month is frozen.",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 28 },
+      "fieldConfig": { "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "filterable": false }, "decimals": 2 },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/eur/" }, "properties": [ { "id": "unit", "value": "currencyEUR" } ] },
+          { "matcher": { "id": "byRegexp", "options": "/kwh/" }, "properties": [ { "id": "unit", "value": "kwatth" }, { "id": "decimals", "value": 1 } ] },
+          { "matcher": { "id": "byName", "options": "peak_kw" }, "properties": [ { "id": "unit", "value": "kwatt" } ] },
+          { "matcher": { "id": "byName", "options": "savings_eur" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "color", "value": { "mode": "thresholds" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0 } ] } } ] }
+        ] },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "month", "desc": true } ], "cellHeight": "sm", "footer": { "show": false } },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select to_char(month, 'YYYY-MM') as month, days, savings_eur, baseline_cost_eur, actual_cost_eur, energy_charged_kwh, energy_discharged_kwh, avg_savings_eur_per_day, peak_kw, final from monthly_savings where site_id = '${site_id}' order by month desc" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "By year and by day",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Yearly",
+      "description": "yearly_savings.",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 7, "w": 10, "x": 0, "y": 39 },
+      "fieldConfig": { "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } }, "decimals": 2 },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/eur/" }, "properties": [ { "id": "unit", "value": "currencyEUR" } ] },
+          { "matcher": { "id": "byRegexp", "options": "/kwh/" }, "properties": [ { "id": "unit", "value": "kwatth" }, { "id": "decimals", "value": 1 } ] }
+        ] },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "year", "desc": true } ], "cellHeight": "sm", "footer": { "show": false } },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select year, days, savings_eur, baseline_cost_eur, actual_cost_eur, energy_charged_kwh, energy_discharged_kwh, avg_savings_eur_per_day, final from yearly_savings where site_id = '${site_id}' order by year desc" }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "barchart",
+      "title": "Savings per day",
+      "description": "daily_savings.savings_eur over the dashboard time range, colored by source (independent = live derivation, backfill = replayed derivation, zeus_daily = imported EUR).",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" },
+      "gridPos": { "h": 7, "w": 14, "x": 10, "y": 39 },
+      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 2, "color": { "mode": "palette-classic" },
+        "custom": { "fillOpacity": 80, "lineWidth": 0, "axisPlacement": "auto" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "independent" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "backfill" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+          { "matcher": { "id": "byName", "options": "zeus_daily" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } } ] }
+        ] },
+      "options": { "orientation": "vertical", "xTickLabelRotation": -45, "xTickLabelMaxLength": 10, "showValue": "never", "stacking": "normal", "barWidth": 0.9, "groupWidth": 0.9,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" }, "xField": "day" },
+      "targets": [
+        { "datasource": { "type": "grafana-postgresql-datasource", "uid": "jupiter-ledger" }, "refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "select to_char(day, 'YYYY-MM-DD') as day, case when source = 'independent' then savings_eur end as independent, case when source = 'backfill' then savings_eur end as backfill, case when source = 'zeus_daily' then savings_eur end as zeus_daily from daily_savings where site_id = '${site_id}' and $__timeFilter(day::timestamptz) order by day" }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": ["jupiter", "reporting", "savings", "ledger"],
+  "time": { "from": "now-1y", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Jupiter — Savings long-term",
+  "uid": "jupiter-savings-long-term",
+  "version": 1
+}

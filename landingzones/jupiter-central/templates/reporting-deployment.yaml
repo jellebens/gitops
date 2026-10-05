@@ -81,6 +81,25 @@ spec:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.tracing.endpoint | quote }}
             {{- end }}
+            {{- if .Values.reporting.postgres.enabled }}
+            # The long-term ledger (card #308): the CloudNativePG app secret
+            # `<cluster>-app` mapped to the PG* env the reporting-service reads
+            # (jupiter_reporting.ledger.LedgerSettings). optional: true on every
+            # key so the pod starts before the operator has minted the secret —
+            # the ledger is then simply unconfigured (best-effort off) until the
+            # next roll; a restart is not needed for the InfluxDB path, which is
+            # unaffected either way.
+            - name: PGHOST
+              valueFrom: { secretKeyRef: { name: {{ .Values.reporting.postgres.name }}-app, key: host, optional: true } }
+            - name: PGPORT
+              valueFrom: { secretKeyRef: { name: {{ .Values.reporting.postgres.name }}-app, key: port, optional: true } }
+            - name: PGDATABASE
+              valueFrom: { secretKeyRef: { name: {{ .Values.reporting.postgres.name }}-app, key: dbname, optional: true } }
+            - name: PGUSER
+              valueFrom: { secretKeyRef: { name: {{ .Values.reporting.postgres.name }}-app, key: username, optional: true } }
+            - name: PGPASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.reporting.postgres.name }}-app, key: password, optional: true } }
+            {{- end }}
           # Config comes from THREE sources, all envFrom + optional:true so the
           # chart deploys before either seal exists (a missing token/creds just
           # degrades reporting — never a crash):
