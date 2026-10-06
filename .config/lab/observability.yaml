@@ -260,4 +260,7 @@ prometheusOperator:
 # optional) and only the "Jupiter ledger (PostgreSQL)" datasource fails to connect.
 jupiterPostgres:
   sealedSecret:
-    encryptedData: {} # { JUPITER_PG_PASSWORD: "Ag..." }
+    # Sealed by the owner 2026-10-06 (kubeseal --raw, ns observability /
+    # name grafana-jupiter-postgres): the grafana role password, second copy.
+    encryptedData:
+      JUPITER_PG_PASSWORD: "AgBp3wft6JjNz+SW+PVBfh82aTZZjY///mZYMj1KvzZUHJvz3tEET/bwxgjARiNxtKKG36+YTBby8nYK1cd4Z4dJI04ea8eHT+LtUf1Xp9yKtkg7eJ/IT1iBpOS8At6Wcm9CA6SVd9ErT7Nvzsz2LsQfJQlzVBYSrgqeHKSfYCKebhC1fUH4tjECzsCf6aFw2JcdA0oxCVHeUTZ20oLXNdCQPDKE1jnT8ZFtK+ri+elfQo4xS3AJgagxl3mM1xb9KfORbV6vh80lFvVuxezDoFi55iS0aj8z0wuQ/Ib6BsxzlS+z6ODDigSGgHMF5s7FvoEi1rE9xS7PMSRCwUeYzRPM5KdXEnxWl3hYCnXkSxjr7IwLaE3YUFtm7mZK6KD+OMhTU0qovDTBay5ws1tLxe6dTyw7sgaiWxffmCnN/yqrg9pDCQNimZqpntuZ8bjo/o7lny39RSJhvloIh+PX5jqDsQvci9UvtYbb4vsuCqPCPPOOT5jBpk882zhLF+aOV87JrrdXFiuiEtO38JF1Y1s7JrOk58d40N9mDPZIAJvXp+lulpX2QSodZSK+MrlK6mkD6uMkjGOebplBgvlqK8vEZ0AlKuzhbdFVTzTdC4/5lYh01kj/k3MBgR248cl7A/K0NkyY5jwuaBIzDfeayj4BPCGz8I0U7S/Xz3N/tkNcywkmWRy4UED/DifIYx8vvzE="
