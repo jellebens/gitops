@@ -9,7 +9,9 @@
 #     the LAN) — to subscribe jupiter/<site>/plan + /heartbeat;
 #   - the in-cluster InfluxDB (influxdb-influxdb2.influxdb, Service port 80 ->
 #     targetPort 8086) — to read zeus_state/zeus_savings and write
-#     jupiter_state/jupiter_daily_savings.
+#     jupiter_state/jupiter_daily_savings.;
+#   - (card #308) the CloudNativePG jupiter-pg pods in this namespace, :5432 —
+#     the long-term ledger (daily_savings / monthly_peaks).
 # A broad egress default-deny that missed either would sever reporting, so it is
 # left as a deliberate, human-reviewed OPT-IN (networkPolicy.egress.enabled,
 # default false) — never shipped on by an agent. Reporting actuates NOTHING (a
@@ -74,6 +76,20 @@ spec:
         - ports:
             - port: {{ .Values.reporting.networkPolicy.egress.mqttPort | quote }}
               protocol: TCP
+    {{- if .Values.reporting.postgres.enabled }}
+    # The long-term ledger (card #308): the CloudNativePG jupiter-pg pods in
+    # THIS namespace, port 5432. The reporting-service writes daily_savings /
+    # monthly_peaks there after every refresh; losing it only stalls the
+    # long-term views (best-effort), but a lockdown must still declare it.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: jupiter-central
+            k8s:cnpg.io/cluster: {{ .Values.reporting.postgres.name | quote }}
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    {{- end }}
     {{- if .Values.tracing.enabled }}
     # OTLP span export to the in-cluster Jaeger collector (card #179). Only
     # rendered while tracing is enabled; losing it would only drop spans

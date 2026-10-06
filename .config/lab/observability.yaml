@@ -57,6 +57,12 @@ grafana:
   envFromSecrets:
     - name: grafana-ceres-postgres
       optional: true
+    # Jupiter #308: the Grafana PostgreSQL datasource on jupiter-pg (the long-term
+    # reporting ledger) reads its password from JUPITER_PG_PASSWORD (secret
+    # grafana-jupiter-postgres, sealed for ns observability — the same value as
+    # jupiter-pg-grafana in ns jupiter-central). optional: same story.
+    - name: grafana-jupiter-postgres
+      optional: true
 
   # The InfluxDB datasource is provisioned via a statically mounted file (the
   # grafana-influxdb-datasource ConfigMap from observability-config), NOT via the
@@ -85,6 +91,12 @@ grafana:
       mountPath: /etc/grafana/provisioning/datasources/ceres-postgres.yaml
       subPath: ceres-postgres.yaml
       configMap: grafana-ceres-postgres-datasource
+      readOnly: true
+    # Jupiter ledger (PostgreSQL) — jupiter card #308, same static-mount pattern.
+    - name: jupiter-postgres-datasource
+      mountPath: /etc/grafana/provisioning/datasources/jupiter-postgres.yaml
+      subPath: jupiter-postgres.yaml
+      configMap: grafana-jupiter-postgres-datasource
       readOnly: true
 
   persistence:
@@ -234,3 +246,18 @@ defaultRules:
 
 prometheusOperator:
   enabled: true
+
+# --- the Grafana password for the jupiter ledger datasource (jupiter #308) -----
+# Read by platform/observability-config (grafana-jupiter-postgres-sealed-secret
+# .yaml); the kube-prometheus-stack chart ignores this key. OWNER: seal the
+# `grafana` role's password (the one sealed as `password` in jupiter-pg-grafana,
+# ns jupiter-central — see .config/lab/jupiter-central.yaml) a second time for
+# ns observability / secret grafana-jupiter-postgres and paste it here:
+#   printf '%s' "$PG_GRAFANA_PASSWORD" | kubeseal --raw \
+#     --namespace observability --name grafana-jupiter-postgres \
+#     --controller-name sealed-secrets --controller-namespace argocd
+# Until then the SealedSecret is not rendered, Grafana boots (envFromSecrets is
+# optional) and only the "Jupiter ledger (PostgreSQL)" datasource fails to connect.
+jupiterPostgres:
+  sealedSecret:
+    encryptedData: {} # { JUPITER_PG_PASSWORD: "Ag..." }

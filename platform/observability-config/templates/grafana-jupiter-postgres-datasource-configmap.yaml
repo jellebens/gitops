@@ -1,0 +1,34 @@
+# PostgreSQL datasource for Grafana on jupiter-pg, the jupiter long-term
+# reporting ledger (jupiter ADR-0030, card #308): daily_savings / monthly_peaks
+# and the monthly_savings / yearly_savings / cumulative_savings / site_totals
+# views. Same STATIC file mount as the InfluxDB + Annona datasources (the sidecar
+# path loses the boot race and 403s on reload — see grafana-influxdb-datasource-
+# configmap.yaml). The password comes from env JUPITER_PG_PASSWORD
+# (grafana.envFromSecrets -> secret grafana-jupiter-postgres, sealed per env);
+# the role `grafana` is read-only, managed by CloudNativePG
+# (landingzones/jupiter-central reporting.postgres.grafanaRole).
+# NOTE: deliberately NO grafana_datasource label (the sidecar must not pick it up).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-jupiter-postgres-datasource
+  namespace: observability
+data:
+  jupiter-postgres.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Jupiter ledger (PostgreSQL)
+        uid: jupiter-ledger
+        type: postgres
+        access: proxy
+        url: jupiter-pg-rw.jupiter-central:5432
+        user: grafana
+        isDefault: false
+        editable: false
+        jsonData:
+          database: jupiter
+          sslmode: require
+          postgresVersion: 1600
+          timescaledb: false
+        secureJsonData:
+          password: $JUPITER_PG_PASSWORD

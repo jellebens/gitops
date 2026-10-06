@@ -13,3 +13,13 @@ tlsCertificate:
   issuerRef:
     name: lab-ca-issuer
     kind: ClusterIssuer
+
+# Jupiter long-term ledger (card #308): the Grafana datasource "Jupiter ledger
+# (PostgreSQL)" on jupiter-pg reads its password from env JUPITER_PG_PASSWORD
+# (secret grafana-jupiter-postgres, ns observability). The blob is sealed per
+# environment in .config/<env>/observability.yaml under this same key — the
+# SealedSecret renders only when it is non-empty (Grafana's envFromSecrets entry
+# is optional, so nothing blocks without it).
+jupiterPostgres:
+  sealedSecret:
+    encryptedData: {} # { JUPITER_PG_PASSWORD: "Ag..." }

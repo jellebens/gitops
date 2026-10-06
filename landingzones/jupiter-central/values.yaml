@@ -179,7 +179,10 @@ forecast:
     # reformat and the pulp<4 pin.
     # ORDERING: images < 0.21.0 reject the shadow_variants key and the trainer
     # exits 2 — the key ships only together with (or after) this tag.
-    tag: "0.21.0"
+    # 0.22.0 (#323, jupiter ADR-0031): the trainer masks placeholder / zero /
+    # flat / carried hours (default on), ac_max_staleness_hours defaults to 48 h,
+    # and exports jupiter_forecast_training_masked_fraction{target}.
+    tag: "0.22.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, same reasoning as the price-service: the artifact PVC
@@ -329,8 +332,10 @@ forecast:
       # PROMOTION RULE, fixed up front: a variant replaces the live model only if,
       # over at least 28 days of shadow data, it beats BOTH persistence_24h and
       # `live` on BOTH targets on MAE, with |bias| no worse than live's. Score with
-      # jupiter services/forecast/scripts/score_shadow.py. Clock started with this
-      # release, 2026-10-05; first eligible read 2026-11-03.
+      # jupiter services/forecast/scripts/score_shadow.py; the Grafana view is the
+      # shadow-mode section of the Forecast Accuracy dashboard (zeus-accuracy, #322:
+      # rolling MAE/bias per variant + variant × lead table, per target). Clock
+      # started with this release, 2026-10-05; first eligible read 2026-11-03.
       #
       # The two 90-day variants are recorded but NOT eligible yet: the history is
       # contaminated by carried-forward and placeholder hours (gitops
@@ -433,7 +438,11 @@ reporting:
     # 0.18.2 (#247): self-heal the MQTT consumer on unreachable-broker-at-startup
     #   (connect_async + backoff reconnect, re-subscribe on reconnect) so a boot-time
     #   broker outage no longer wedges the writer; adds jupiter_reporting_broker_connected.
-    tag: "0.18.2"
+    # 0.22.0 (#323 + #308): bounded LOCF carry in the load-history writer
+    # (ADR-0031) and the PostgreSQL day-ledger writer (ADR-0030; reads PG* from
+    # jupiter-pg-app, best-effort — without the Cluster/secret the refresh still
+    # succeeds and stage=ledger_write failures are counted).
+    tag: "0.22.0"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the
@@ -475,6 +484,56 @@ reporting:
     # scoped; reuse works precisely because reporting shares the namespace and
     # references the same secret name.)
     secretName: jupiter-influx
+
+  # ---------------------------------------------------------------------------
+  # The long-term reporting ledger — jupiter-pg (jupiter ADR-0030, card #308).
+  # A small CloudNativePG Cluster in this namespace (the operator is the
+  # platform app `cnpg`; the Ceres/Annona shape): database `jupiter`, owner
+  # role `jupiter`. The operator writes the app creds to Secret `<name>-app`
+  # (username/password/host/port/dbname/uri); the reporting Deployment maps
+  # them to PG* env (optional: true, so the chart deploys before the Cluster is
+  # Ready — the reporting-service treats an unset/unreachable ledger as
+  # best-effort off and keeps writing InfluxDB). The reporting-service is the
+  # ONLY writer and applies its own SQL migrations on the first connection.
+  # Longhorn = redundancy; the nightly pg_dump below is the recovery path.
+  postgres:
+    enabled: true
+    name: jupiter-pg
+    # CloudNativePG PostgreSQL image (multi-arch, arm64 included). Pin the minor;
+    # keep in step with ceres-pg so one operator/major is in play.
+    image: ghcr.io/cloudnative-pg/postgresql:16.4
+    instances: 2
+    storageClass: longhorn
+    size: 5Gi
+    podMonitor: true
+    # The read-only `grafana` role for the Grafana datasource "Jupiter ledger
+    # (PostgreSQL)" (platform/observability-config): the operator manages it;
+    # the owner seals `username` + `password` into this secret (ns
+    # jupiter-central) and the same password as JUPITER_PG_PASSWORD in
+    # `grafana-jupiter-postgres` (ns observability) — see the owner step in
+    # .config/<env>/jupiter-central.yaml. The SealedSecret renders only when
+    # the blobs are present.
+    grafanaRole:
+      enabled: true
+      secret: jupiter-pg-grafana
+      sealedSecret:
+        encryptedData: {} # { username: "Ag...", password: "Ag..." }
+    # Nightly pg_dump -Fc of the ledger to the NAS (smb StorageClass), the
+    # Annona / InfluxDB backup pattern; restore with
+    # `pg_restore --clean --if-exists -d "$uri" <file>` (README).
+    backup:
+      enabled: true
+      schedule: "50 3 * * *"   # 03:50 daily, after InfluxDB (03:30) and Annona (03:45)
+      retentionDays: 30
+      storageClass: smb
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
 
   # MQTT consumer connection (consumer.py). Host/port/keepalive/client-id are
   # non-secret; MQTT_USER/MQTT_PASS come from the SealedSecret below.

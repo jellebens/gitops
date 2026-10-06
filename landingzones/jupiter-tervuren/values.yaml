@@ -71,7 +71,11 @@ image:
   # 6, write_window_seconds 900) are optional and NOT set here — the defaults
   # apply. If they are ever added, images < 0.21.0 reject them.
   # jupiter_lar_target_charge_kw / _discharge_kw carry the NET from this tag on.
-  tag: "0.21.0"
+  # 0.22.0 (#324, jupiter ADR-0032): the dispatch LP pays the peak-discharge
+  # incentive on NET discharge, so it no longer plans a charge+discharge wash
+  # (side effect accepted by the owner 2026-10-06: grid charging on a flagged
+  # slot is priced at price + incentive). Lives in this image (packages/dispatch).
+  tag: "0.22.0"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -235,8 +239,13 @@ siteConfig:
     # recently — both ways the integration gets values are a full fetch. `observe`
     # computes both verdicts, counts disagreements
     # (jupiter_lar_battery_freshness_disagreement_total) and acts on the OLD rule.
-    # Flip to `enforce` only after observe data across a charge start/stop.
-    battery_freshness_mode: observe
+    # ENFORCE since 2026-10-06 (owner): observe mode from 2026-10-04 to 10-06 saw
+    # ~1,000 disagreements, every one "REST says stale, feed is alive" (the
+    # spike_sample consumer on a constant 0 W grid reading) and none in the
+    # dangerous direction; the REST rule never held the controller in that
+    # window. Enforce = the push-aware verdict is authoritative. Back to `observe`
+    # is a one-line rollback.
+    battery_freshness_mode: enforce
     battery_report_ages_entity: sensor.bluetti_report_ages
   # HA entity ids — value-for-value from the LIVE zeus config
   # (landingzones/zeus/values.yaml `entities:`). Consumed by the lar's live HA

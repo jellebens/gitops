@@ -1,0 +1,76 @@
+{{- if and .Values.reporting.postgres.enabled .Values.reporting.postgres.backup.enabled }}
+# Nightly `pg_dump` of the long-term reporting ledger (card #308) to the NAS
+# through the smb StorageClass — the same shape as the Annona backup
+# (landingzones/ceres) and the InfluxDB backup (platform/influxdb-config).
+# CloudNativePG's own WAL archiving needs object storage the house does not
+# run; a custom-format dump of a database this size (one row per site-day)
+# restores in seconds: `pg_restore --clean --if-exists -d "$uri" <dump>`
+# (the reporting-service re-applies nothing — the schema is in the dump — and
+# `jupiter-reporting backfill-ledger` can re-derive any gap from InfluxDB).
+# Credentials: the operator's app secret (`<cluster>-app`), key `uri`.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupiter-ledger-backups
+  namespace: jupiter-central
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.reporting.postgres.backup.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.reporting.postgres.backup.size | quote }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jupiter-ledger-backup
+  namespace: jupiter-central
+  labels:
+    app.kubernetes.io/name: jupiter-postgres
+    app.kubernetes.io/part-of: jupiter
+spec:
+  schedule: {{ .Values.reporting.postgres.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 26
+            runAsGroup: 26
+            fsGroup: 26
+          containers:
+            - name: pg-dump
+              image: {{ .Values.reporting.postgres.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  ts=$(date +%Y%m%d-%H%M%S)
+                  f="/backup/jupiter-ledger-$ts.dump"
+                  echo "pg_dump -> $f"
+                  pg_dump "$PG_URI" -Fc -f "$f"
+                  echo "pruning dumps older than {{ .Values.reporting.postgres.backup.retentionDays }} days"
+                  find /backup -maxdepth 1 -name 'jupiter-ledger-*.dump' -type f \
+                    -mtime +{{ .Values.reporting.postgres.backup.retentionDays }} -delete || true
+                  echo "done; recent dumps:"; ls -1t /backup | head -5
+              env:
+                - name: PG_URI
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.reporting.postgres.name }}-app
+                      key: uri
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: jupiter-ledger-backups
+{{- end }}

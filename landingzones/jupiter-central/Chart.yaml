@@ -1,9 +1,10 @@
 apiVersion: v2
 name: jupiter-central
-version: 0.2.1
+version: 0.3.0
 type: application
 appVersion: "0.1.0"
 description: >-
   Jupiter central services landing zone (price-service, forecast-service + its
-  training CronJob, and the reporting-service fleet-reporting/savings consumer).
-  One instance serves the whole fleet — central-only, touches nothing zeus does.
+  training CronJob, the reporting-service fleet-reporting/savings consumer and
+  its long-term PostgreSQL ledger jupiter-pg). One instance serves the whole
+  fleet — central-only, touches nothing zeus does.

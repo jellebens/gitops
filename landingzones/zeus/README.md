@@ -208,6 +208,21 @@ metrics); durable savings/forecast "reports" use **InfluxDB** (uid `influxdb`).
 - **`zeus-forecast-influx`** ("Zeus — Savings Forecast") — predicted
   **next-36 h** savings/baseline/optimized stat cards, savings evolution, and the
   **real future-dated** look-ahead cumulative-savings + per-slot-load curves.
+- **`zeus-accuracy`** ("Forecast Accuracy", folder Jupiter, `forecast-accuracy.json`)
+  — peak-detector score, frozen-forecast-vs-realized and rolling MAE/bias
+  (1d/7d/30d) for the critical load from InfluxDB (unlimited retention), model
+  health, and — since #322 — the **forecaster shadow-mode section** at the bottom:
+  rolling MAE and bias (7d solid / 28d dashed) per `jupiter_forecast_shadow`
+  variant against `persistence_24h` and `live`, one panel per target
+  (critical_load / whole_home), plus a variant × lead-bucket MAE table per
+  target over the selected range. The promotion rule (beat BOTH
+  `persistence_24h` and `live` on BOTH targets over ≥ 28 d on MAE, |bias| no
+  worse than live; 90-day variants not eligible before 2026-11-24 whole_home /
+  2026-12-29 critical_load) is printed in the MAE panels' descriptions.
+  **Units gotcha (#317):** the retired `zeus_forecast*` series are per-15-min-slot
+  kWh and are ×4 to hourly; `jupiter_forecast*` and `jupiter_forecast_shadow`
+  carry `load_kwh` per HOUR and must never be scaled — the scaling is keyed on
+  `_measurement` before `group()`.
 
 > **Why the live dashboards aren't on InfluxDB:** they read Prometheus-only metrics
 > (`zeus_next_charge/discharge_in_seconds`, `zeus_last_cycle_timestamp_seconds`,
