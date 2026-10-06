@@ -1,8 +1,8 @@
 apiVersion: v2
 name: jupiter-tervuren
-version: 0.3.0
+version: 0.4.0
 type: application
-appVersion: "0.21.0"
+appVersion: "0.22.0"
 description: >-
   Jupiter per-site LAR (renamed from "cell", card #154) landing zone for the
   tervuren site (jupiter P3.4, card #139). The lar computes a full dispatch
