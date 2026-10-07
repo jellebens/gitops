@@ -126,7 +126,21 @@ self-heal's 30-min escalation push reached the phone is unverified).
    unit's settings mode — hold AC power + ECO ~2 s → ECO steps through the
    pages → **P07 = WiFi** (P06 = Bluetooth) → AC power toggles the value off,
    then on → hold both again to save/exit; idling 1 min exits **without**
-   saving. Recorded on #319; the AC output is not interrupted.
+   saving. Recorded on #319; the AC output is not interrupted *while in
+   settings mode*.
+   **WARNING (added 2026-10-07 after the repeat incident): on the front panel
+   never press AC power alone — a single press toggles the AC output and cuts
+   the rack and vesta** (that is exactly what happened on 10-07 at ~14:15Z,
+   see `2026-10-07-bluetti-wifi-drop-and-ac-power-cut.md`). Wake the LCD with
+   ECO first ("press any button to activate the LCD", manual p. 12 — use
+   ECO, not AC power). Settings mode is signalled by the **frequency icon
+   flashing**; there is no separate settings screen (manual p. 17: hold AC
+   power + ECO ~2 s, frequency icon flashes, ECO navigates, AC power adjusts,
+   hold both to exit, 1 min idle exits without saving). If the combo does
+   nothing, check **child lock P08** (disables all buttons; can be set from
+   the app) — and prefer the app's **Bluetooth → "Reset WiFi"** path over
+   the front panel altogether. Source: Bluetti Apex 300 user manual,
+   manualslib.com/manual/3980279/Bluetti-Apex-300.html, pages 12 and 17.
 3. **lar v0.21.0 (#228, ADR-0029; jupiter PR #139, release #140/#141, tag
    00205e9; gitops #448 alerts, #449 values, release #451 → master f33616e;
    changelog #143):** (A) slot 0 netted to one direction before actuation
@@ -200,7 +214,7 @@ the pod could not.
 - [x] #228 part 1 (critical-load overlap soak) — gitops #447
 - [ ] #228 part 4: re-judge after ≥3 clean days including one wide-spread day; the 16:30–17:00Z fix has only been replayed (clio / owner)
 - [ ] #324: stop the LP planning the wash (pay the #84 incentive on net discharge); #323: trainer/writer guard
-- [ ] Runbook: the WiFi-only restart procedure + "a unit restart power-cycles the rack and vesta" into `home-assitant/bluetti-selfheal.md` or the jupiter ops notes (hestia / owner)
+- [ ] Runbook: the WiFi-only restart procedure + "a unit restart power-cycles the rack and vesta" into `home-assitant/bluetti-selfheal.md` or the jupiter ops notes (hestia / owner). **The runbook MUST carry the front-panel warning: never press AC power alone — a single press toggles the AC output and cuts the rack and vesta (10-07 repeat incident).** Wake the LCD with ECO; settings mode = the frequency icon flashing (no separate screen); if the combo does nothing, check child lock P08 (app-settable) and prefer the app's Bluetooth → "Reset WiFi" path. Manual: manualslib.com/manual/3980279/Bluetti-Apex-300.html p. 17 (hold AC power + ECO ~2 s, frequency icon flashes, ECO navigates, AC power adjusts, hold both to exit, 1 min idle exits without saving), p. 12 ("press any button to activate the LCD"), child lock P08 disables all buttons. Rehearse once with the rack on bypass before relying on it.
 - [ ] Power topology: keep the rack and vesta on the Apex 300's AC output, or move them to a UPS/bypass (owner decision; uncarded)
 - [ ] Verify whether the self-heal 1.1.0 escalation push reached the phone during the 16:40 → 18:46Z episode (hestia)
 - [ ] `battery_freshness_mode` observe → enforce after observe data across a charge start/stop (#320 follow-up, owner-gated)
@@ -253,5 +267,7 @@ jupiter PRs #139 (lar mode-write discipline), #140/#141 (release v0.21.0),
 #448 (alert rules), #449 (lar + forecast 0.21.0), #451 (release) · cards #228
 #319 #320 #306 #267 #324 #323 #217 #309 #250 #84 · ADR-0028, ADR-0029 ·
 soak `docs/soaks/2026-10-05-critical-load-overlap-soak.md` · related:
+`2026-10-07-bluetti-wifi-drop-and-ac-power-cut.md` (the repeat, two days
+later — the front-panel warning above comes from it),
 `2026-09-12-bluetti-all-zero-freeze-and-reload-only-values.md`,
 `2026-08-31-bluetti-staleness-deadlock.md`
