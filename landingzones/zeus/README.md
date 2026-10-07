@@ -223,6 +223,13 @@ metrics); durable savings/forecast "reports" use **InfluxDB** (uid `influxdb`).
   kWh and are ×4 to hourly; `jupiter_forecast*` and `jupiter_forecast_shadow`
   carry `load_kwh` per HOUR and must never be scaled — the scaling is keyed on
   `_measurement` before `group()`.
+  **Per-target gotcha (#326):** `jupiter_forecast` / `jupiter_forecast_frozen`
+  carry one series per `target` tag (`critical_load` / `whole_home`), while
+  `jupiter_load_history` is critical load only, so the frozen / MAE / bias
+  panels filter the jupiter series to `target == "critical_load"` before
+  `group()`. Until #326 both targets were averaged into one line, which read as
+  a 30 d MAE ~0.28 / bias ~+0.16 kWh/h — per target it is ~0.19 / ~+0.02. The
+  retired `zeus_forecast*` series predate the tag and need no filter.
 
 > **Why the live dashboards aren't on InfluxDB:** they read Prometheus-only metrics
 > (`zeus_next_charge/discharge_in_seconds`, `zeus_last_cycle_timestamp_seconds`,
