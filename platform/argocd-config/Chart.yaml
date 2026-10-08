@@ -17,7 +17,9 @@ type: application
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
 # 0.1.1 = argocd-cm: system-level ignoreDifferences hiding the controller-owned
 #         pre-/post-delete finalizers on child Applications (bootstrap OutOfSync).
-version: 0.2.0
+# 0.3.0 = harbor-repo: OCI repo-creds for harbor.lab.local; upstream goharbor
+#         chart repo renamed to harbor-runtime-repo (#338).
+version: 0.3.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
