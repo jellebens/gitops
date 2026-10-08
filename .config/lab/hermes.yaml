@@ -27,6 +27,11 @@ tlsCertificate:
 persistence:
   claimName: hermes-cortana-state
   storageClassName: longhorn
+  # Nightly Longhorn backup to the NAS (group nas-daily, platform/longhorn
+  # README "Backups"); hermes-backup keeps its own file-level NAS copy.
+  labels:
+    recurring-job.longhorn.io/source: enabled
+    recurring-job-group.longhorn.io/nas-daily: enabled
 
 # Cortana's Discord bot. The sealed blob below was sealed for the secret name
 # `hermes-cortana-discord-token` in namespace hermes, so keep that name.

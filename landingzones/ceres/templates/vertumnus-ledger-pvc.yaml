@@ -17,6 +17,9 @@ metadata:
     app.kubernetes.io/instance: ceres-vertumnus-{{ $id }}
     app.kubernetes.io/part-of: ceres
     ceres.jellebens.dev/unit: {{ $id | quote }}
+    {{- with $.Values.ledger.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   annotations:
     helm.sh/resource-policy: keep
 spec:

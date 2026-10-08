@@ -1,9 +1,11 @@
 # longhorn-config (platform/longhorn) — lab values.
 
 # Nightly backup of the volumes in group nas-daily to the backup target
-# (CIFS share longhorn-backup on nas001, .config/lab/longhorn.yaml). Members,
-# labelled by hand on the PVC (see platform/longhorn/README.md "Backups"):
-#   harbor/harbor-registry   Harbor's image layers (its DB is pg_dump'ed at 04:00)
+# (CIFS share longhorn-backup on nas001, .config/lab/longhorn.yaml). Members
+# (full table, with where each label is set: platform/longhorn/README.md "Backups"):
+#   by hand:  harbor/harbor-registry, influxdb/influxdb-influxdb2
+#   in git:   hermes-cortana-state, kube-prometheus-stack-grafana, ceres-pg-*,
+#             ceres-vertumnus-*-ledger, jupiter-pg-*
 # 04:30 runs after every pg_dump/influx backup (03:30–04:00). concurrency 1 keeps
 # the 1 GbE LAN, which the battery controller also rides on, calm.
 recurringJobs:

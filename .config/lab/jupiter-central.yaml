@@ -125,6 +125,11 @@ reporting:
   # UNTIL the blobs are filled: the role stays absent, the datasource cannot
   # connect, and NOTHING else is affected (the ledger is written by the app role).
   postgres:
+    # Nightly Longhorn backup of both instance volumes to the NAS (group
+    # nas-daily, platform/longhorn README "Backups"), on top of the 03:50 pg_dump.
+    inheritedLabels:
+      recurring-job.longhorn.io/source: enabled
+      recurring-job-group.longhorn.io/nas-daily: enabled
     grafanaRole:
       sealedSecret:
         # Sealed by the owner 2026-10-06 (kubeseal --raw, ns jupiter-central /
