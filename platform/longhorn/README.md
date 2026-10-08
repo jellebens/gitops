@@ -138,7 +138,25 @@ are not worth the NAS space.
 
 | RecurringJob | Task | Schedule | Retain | Concurrency | Members |
 |---|---|---|---|---|---|
-| `nas-daily` | backup (snapshot + incremental block backup) | 04:30 daily | 14 | 1 | `harbor/harbor-registry` |
+| `nas-daily` | backup (snapshot + incremental block backup) | 04:30 daily | 14 | 1 | see members below |
+
+Members of `nas-daily`, and where the label is set:
+
+| Volume (PVC) | Label set by | Why it is backed up |
+|---|---|---|
+| `harbor/harbor-registry` | **by hand** (Harbor chart cannot label its PVC) | image layers; the DB is pg_dump'ed at 04:00 |
+| `influxdb/influxdb-influxdb2` | **by hand** (influxdb2 chart cannot label its PVC) | point-in-time copy of the TSDB on top of the nightly + hourly `influx backup` |
+| `hermes/hermes-cortana-state` | git: `.config/lab/hermes.yaml` `persistence.labels` | Cortana's irreplaceable state (#175); `hermes-backup` keeps a file-level copy |
+| `observability/kube-prometheus-stack-grafana` | git: `.config/lab/observability.yaml` `grafana.persistence.extraPvcLabels` | plugin state and UI-made changes are not in git |
+| `ceres/ceres-pg-1`, `-2` | git: `.config/lab/ceres.yaml` `postgres.inheritedLabels` (CNPG `inheritedMetadata`, also future instances) | Annona's config DB, on top of the 03:45 pg_dump |
+| `ceres/ceres-vertumnus-<unit>-ledger` | git: `.config/lab/ceres.yaml` `ledger.labels` (every unit) | what each unit has learned (ADR-0019) |
+| `jupiter-central/jupiter-pg-1`, `-2` | git: `.config/lab/jupiter-central.yaml` `reporting.postgres.inheritedLabels` | the savings ledger, on top of the 03:50 pg_dump |
+
+Deliberately **not** backed up: Prometheus (30G of churn, retention-bound) and
+Jaeger (traces), plus Alertmanager silences. Also left out are the rebuildable
+caches and artifacts: Harbor's valkey, trivy and jobservice logs,
+`price-service-cache`, and `forecast-artifacts` (the trainer rebuilds them).
+The `harbor-pg` volume is covered by its dump.
 
 04:30 is after every database dump (InfluxDB 03:30, Annona 03:45, jupiter
 ledger 03:50, Harbor 04:00), so the Harbor dump is always older than the layer
@@ -153,7 +171,7 @@ kubectl -n <ns> label pvc <pvc> recurring-job.longhorn.io/source=enabled \
   recurring-job-group.longhorn.io/nas-daily=enabled
 ```
 
-Add it to the table above and to the comment in `.config/lab/longhorn-config.yaml`.
+Add it to the members table above and to the comment in `.config/lab/longhorn-config.yaml`.
 The labels live only on the cluster object: Argo's server-side apply leaves
 labels it does not own alone, but a **recreated PVC loses them**. Re-check after
 any PVC recreation with

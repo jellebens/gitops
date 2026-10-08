@@ -17,6 +17,13 @@ metadata:
     app.kubernetes.io/part-of: ceres
 spec:
   instances: {{ .Values.postgres.instances }}
+  {{- with .Values.postgres.inheritedLabels }}
+  # Copied by the operator onto every object of the Cluster, including each
+  # instance's PVC, also the ones it creates later (Longhorn backup group).
+  inheritedMetadata:
+    labels:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
   imageName: {{ .Values.postgres.image | quote }}
   primaryUpdateStrategy: unsupervised
   bootstrap:

@@ -155,6 +155,22 @@ Before a nightly digest bump (a possible DB migration), take a fresh dump by han
 kubectl -n harbor create job --from=cronjob/harbor-db-backup harbor-db-backup-manual-$(date +%s)
 ```
 
+### Restore tests
+
+| Date | Database (`pg_dump`) | Image layers (Longhorn) |
+|---|---|---|
+| 2026-10-08 | Dump `harbor-registry-20261008-170758.dump` restored into a scratch Postgres (`pg_restore --exit-on-error`, no errors). All 49 tables and 75 rows equal live `harbor-pg`. | Backup `backup-df5e91aaaa5e472b` restored into a 1-replica scratch volume in 23 s, mounted read-only. All 6 blobs hash to their digest, and the digest+size set equals the live registry. |
+
+Harbor was nearly empty at the time (3 projects, 2 users, no images), so this
+proves the mechanics, not restore time at scale. Repeat the test after Harbor
+holds real images. To repeat it without touching live state:
+- **Database:** restore the newest dump into a throwaway pod that runs its own
+  `initdb`/`pg_ctl` against an `emptyDir`.
+- **Layers:** create a Longhorn `Volume` with `spec.fromBackup: <backup url>` and
+  `numberOfReplicas: 1`, then add a static PV/PVC (`longhorn-static`) in a scratch
+  namespace. Check every `blobs/sha256/*/*/data` with `sha256sum` against its
+  directory name. Delete the volume afterwards.
+
 ### Restore the database
 
 1. Scale Harbor down so nothing writes:

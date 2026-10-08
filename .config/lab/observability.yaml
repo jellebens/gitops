@@ -110,6 +110,11 @@ grafana:
     # Retain'd as rollback anchor). Immutable on a bound PVC — changing this
     # needs the scale-down/PVC-swap dance (see docs/storage.md).
     storageClassName: longhorn
+    # Nightly Longhorn backup to the NAS (group nas-daily, platform/longhorn
+    # README "Backups"): plugin state and UI-made changes are not in git.
+    extraPvcLabels:
+      recurring-job.longhorn.io/source: enabled
+      recurring-job-group.longhorn.io/nas-daily: enabled
 
   service:
     type: ClusterIP
