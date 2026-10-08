@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: harbor-config
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Sealed chart secrets, the gateway cert and the harbor-pg CNPG Cluster —
+    # after the cnpg operator (wave 14), before the harbor chart (wave 18)
+    # consumes them via its existingSecret values.
+    argocd.argoproj.io/sync-wave: "17"
+    # CNPG Cluster: Argo's local diff drops schema defaults (AGENTS.md
+    # "Known Pitfalls"); diff via a server-side dry-run like ceres.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: platform-services
+  sources:
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      path: platform/harbor-config
+      helm:
+        releaseName: harbor-config
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/harbor-config.yaml
+    - repoURL: https://github.com/jellebens/gitops.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: harbor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
