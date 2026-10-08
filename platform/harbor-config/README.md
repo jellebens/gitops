@@ -189,9 +189,16 @@ password into `HARBOR_ADMIN_PASSWORD` (see Secrets).
 Each is a random 40-character value (Harbor requires 8-128 chars with an upper, a
 lower and a digit), sealed as SealedSecret `harbor-ci-robot` or
 `harbor-actions-robot` (key `secret`) in `.config/lab/harbor-config.yaml`. The
-job creates each robot with its secret, and
-on every run it checks it by logging in at `/v2/` (200 = valid, 401 = wrong). Only
-on a 401 does it set the secret again (`PATCH /api/v2.0/robots/{id}`). The API
+job creates each robot, and on every run it checks the secret by logging in at
+`/v2/` (200 = valid, 401 = wrong). On a 401 it sets the secret
+(`PATCH /api/v2.0/robots/{id}`). Harbor ignores a `secret` in the create call
+and generates its own (seen live 2026-10-08), so a new robot only gets the sealed
+secret through that PATCH, on the same run it is created or on the next one.
+
+Project robots are looked up per project (`GET /api/v2.0/robots?q=Level=project,ProjectID=<id>`):
+a plain `GET /api/v2.0/robots` returns system-level robots only. The first live
+run on 2026-10-08 missed that and failed with `409 already exists` on every retry.
+The API
 endpoints and `/service/token` fall back to anonymous on bad credentials, so they
 cannot be used for that check. To rotate the secret, re-seal a new value under the
 same name; the next run applies it. Read it back with

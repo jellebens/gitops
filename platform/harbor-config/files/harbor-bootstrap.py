@@ -288,13 +288,29 @@ class Reconciler:
             self.log(f"WARN robot {full_name}: /v2/ login check returned {status}")
         return status == 200
 
+    def find_project_robot(self, project, short):
+        """(lookup_ok, robot or None) for robot$<project>+<short>.
+
+        Harbor's GET /robots only returns project robots when queried with
+        Level=project and the project's id; a plain list returns system robots only.
+        """
+        status, proj, _ = self.h.get(f"/api/v2.0/projects/{self.q(project)}")
+        if status == 404 and self.h.dry_run:
+            return True, None          # project would be created first
+        if status != 200:
+            self.fail(f"robot {project}+{short}: get project -> {status} {proj}")
+            return False, None
+        query = self.q(f"Level=project,ProjectID={proj['project_id']}")
+        status, robots, _ = self.h.get(f"/api/v2.0/robots?page_size=100&q={query}")
+        if status != 200:
+            self.fail(f"robot {project}+{short}: list robots -> {status} {robots}")
+            return False, None
+        full = f"robot${project}+{short}"
+        return True, next((r for r in robots or [] if r.get("name") == full), None)
+
     def robots(self):
         wanted = self.cfg.get("robots", [])
         if not wanted:
-            return
-        status, existing, _ = self.h.get("/api/v2.0/robots?page_size=100")
-        if status != 200:
-            self.fail(f"list robots -> {status} {existing}")
             return
         for want in wanted:
             project, short = want["project"], want["name"]
@@ -306,20 +322,17 @@ class Reconciler:
             access = sorted({(a["resource"], a["action"]) for a in want["access"]})
             perms = [{"kind": "project", "namespace": project,
                       "access": [{"resource": r, "action": a, "effect": "allow"} for r, a in access]}]
-            have = next((r for r in existing or []
-                         if r.get("level") == "project" and r.get("name", "").endswith(f"{project}+{short}")),
-                        None)
+            found, have = self.find_project_robot(project, short)
+            if not found:
+                continue
             if have is None:
                 body = {"name": short, "description": want.get("description", ""), "level": "project",
                         "duration": -1, "disable": False, "secret": secret, "permissions": perms}
                 ok, _ = self.change(f"robot {full}: create", "POST", "/api/v2.0/robots", body)
                 if not ok or self.h.dry_run:
                     continue
-                status, again, _ = self.h.get("/api/v2.0/robots?page_size=100")
-                have = next((r for r in again or []
-                             if r.get("level") == "project"
-                             and r.get("name", "").endswith(f"{project}+{short}")), None)
-                if have is None:
+                found, have = self.find_project_robot(project, short)
+                if not found or have is None:
                     self.fail(f"robot {full}: not found after create")
                     continue
             else:
@@ -357,7 +370,14 @@ class Reconciler:
         if not sched or sched.get("type") in (None, "", "None"):
             self.change("gc schedule: create", "POST", "/api/v2.0/system/gc/schedule", body)
             return
-        params = (cur.get("parameters") or {})
+        # GET returns the parameters as a JSON string in job_parameters, not as
+        # the `parameters` object that POST/PUT take.
+        params = cur.get("parameters")
+        if not isinstance(params, dict):
+            try:
+                params = json.loads(cur.get("job_parameters") or "{}")
+            except ValueError:
+                params = {}
         if (sched.get("type") == "Custom" and sched.get("cron") == want["cron"]
                 and bool(params.get("delete_untagged")) == body["parameters"]["delete_untagged"]
                 and int(params.get("workers", 1)) == body["parameters"]["workers"]):
