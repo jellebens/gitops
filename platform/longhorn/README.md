@@ -118,30 +118,69 @@ Manual equivalents, if ever needed without ansible:
 - `preUpgradeChecker.jobEnabled: false` — upstream-documented requirement
   for Argo CD installs (helm-hook Job is incompatible).
 
-## Backup target (decision pending — nothing configured at deploy)
+## Backups (backup target: CIFS on nas001, since 2026-10-08)
 
-Target device: DS918 NAS `nas001.lab.local` (192.168.50.144). Repo evidence:
-the NAS already serves **SMB** shares consumed in-cluster via csi-driver-smb
-(`smb` → influxdb-backups/zeus-reports, `smb-cortana` → hermes-backup); no
-NFS or S3 usage exists in the repo today. Longhorn supports `nfs://`,
-`cifs://` and `s3://` backup targets. Options, preferred first:
+**Target:** `cifs://nas001.lab.local/longhorn-backup` (`defaultBackupStore` in
+`.config/lab/longhorn.yaml`). The share and NAS user are **dedicated**: share
+`longhorn-backup`, its own DSM user with read/write on that share only. This is
+the same separation as `cortana-backup`, with no overlap with `zeus-data`.
+Credentials are the SealedSecret `longhorn-backup-credentials`
+(`CIFS_USERNAME`/`CIFS_PASSWORD`), sealed into `.config/lab/longhorn-config.yaml`
+by `.scripts/seal-longhorn-cifs.sh`. The script prompts without echo, and
+re-running it rotates the credentials. NFS was the earlier preference; the owner
+chose CIFS on 2026-10-08 because NFS is off on the NAS and SMB is already on.
+All 6 nodes have `cifs-utils` and `nfs-common`.
 
-1. **NFS (recommended)** — most battle-tested Longhorn target, no
-   credentials to seal. Owner enables NFS on DSM + creates a `longhorn-backup`
-   shared folder → set `defaultSettings.backupTarget:
-   nfs://nas001.lab.local:/volume1/longhorn-backup`.
-2. **CIFS** — no new NAS service (SMB already on), but needs sealed
-   credentials (`CIFS_USERNAME`/`CIFS_PASSWORD` in the
-   `longhorn-backup-credentials` SealedSecret placeholder in this chart) and
-   is the less-proven path in Longhorn.
-3. **S3/MinIO** — would mean running MinIO on the DS918 or in-cluster; more
-   moving parts than this backup need justifies. Rejected for now.
+**What is backed up:** only volumes that opt in to a recurring-job group.
+Nothing uses Longhorn's built-in `default` group, so a new volume is never backed
+up by accident. That matters because Prometheus and Jaeger churn about 35G and
+are not worth the NAS space.
 
-The commented-out `backupTarget` lines in `.config/lab/longhorn.yaml` are the
-only wiring needed once the owner enables the share. Do **not** invent NAS
-credentials; seal real ones with kubeseal (controller `sealed-secrets`, ns
-`argocd`) when CIFS/S3 is chosen. After the target works, add a
-`RecurringJob` (snapshot + backup schedule) — part of the phase-3 card.
+| RecurringJob | Task | Schedule | Retain | Concurrency | Members |
+|---|---|---|---|---|---|
+| `nas-daily` | backup (snapshot + incremental block backup) | 04:30 daily | 14 | 1 | `harbor/harbor-registry` |
+
+04:30 is after every database dump (InfluxDB 03:30, Annona 03:45, jupiter
+ledger 03:50, Harbor 04:00), so the Harbor dump is always older than the layer
+backup. Concurrency 1 keeps the 1 GbE LAN calm; the battery controller rides on
+it too. Backups are incremental: after the first full copy, only changed 2 MiB
+blocks travel.
+
+**Adding a volume** (labels on its PVC; Longhorn syncs them to the volume):
+
+```sh
+kubectl -n <ns> label pvc <pvc> recurring-job.longhorn.io/source=enabled \
+  recurring-job-group.longhorn.io/nas-daily=enabled
+```
+
+Add it to the table above and to the comment in `.config/lab/longhorn-config.yaml`.
+The labels live only on the cluster object: Argo's server-side apply leaves
+labels it does not own alone, but a **recreated PVC loses them**. Re-check after
+any PVC recreation with
+`kubectl get volumes.longhorn.io -n longhorn-system -L recurring-job-group.longhorn.io/nas-daily`.
+Charts that let you set PVC labels (CNPG `inheritedMetadata`, most upstream
+charts) should carry them in git instead. The Harbor chart cannot, which is why
+`harbor-registry` is labelled by hand.
+
+**Checks:**
+
+```sh
+kubectl -n longhorn-system get backuptarget default        # AVAILABLE must be true
+kubectl -n longhorn-system get backupvolumes,backups       # what exists on the NAS
+kubectl -n longhorn-system get recurringjobs
+```
+
+**Restore a volume:** in the Longhorn UI choose Backup → the volume → Restore
+Latest Backup, into a new volume. Then create a PV/PVC for it under the
+original name, while the workload is scaled to 0 and its Argo auto-sync is
+paused. That is the same scale-down and PVC-recreate dance as the #235 InfluxDB
+migration runbook. For Harbor, restore the database dump first
+(platform/harbor-config/README.md "Backups").
+
+**Disaster recovery note:** the backups are useless without the sealed-secrets
+controller key (to unseal the credentials) or the NAS user's password. Longhorn
+can also read the share from a freshly installed cluster once the target and
+credentials are set again.
 
 ## UI — HTTPS-only gateway route, INTERIM until SSO (#233; was port-forward-only per #193)
 

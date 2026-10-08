@@ -48,3 +48,14 @@ secret:
   name: longhorn-backup-credentials
   sealedSecret:
     encryptedData: {}
+
+# Longhorn RecurringJobs (templates/recurringjob.yaml). A volume opts in through
+# group labels; nothing joins the built-in `default` group, so volumes are never
+# backed up by accident (Prometheus/Jaeger churn, about 35G, is not worth it).
+#   - name: nas-daily
+#     task: backup          # snapshot + incremental backup to the backup target
+#     cron: "30 4 * * *"
+#     retain: 14
+#     concurrency: 1
+#     groups: [nas-daily]
+recurringJobs: []
