@@ -30,6 +30,11 @@ prometheusRule:
   # kube-prometheus-stack Prometheus ruleSelector label.
   releaseLabel: kube-prometheus-stack
 
+# LonghornBackupStale threshold: no new completed backup for this long. 26h =
+# the nightly nas-daily run plus slack.
+backupAlerts:
+  maxAge: 26h
+
 # Upstream Longhorn dashboard (grafana.com id 13032) provisioned as a
 # ConfigMap for the kube-prometheus-stack Grafana sidecar.
 dashboard:

@@ -79,4 +79,42 @@ spec:
           annotations:
             summary: Longhorn node storage above 70%
             description: 'Longhorn storage on node {{ "{{ $labels.node }}" }} is over 70% used for 15m. Below 25% free Longhorn stops scheduling new replicas there — clean up snapshots/volumes or grow the fleet.'
+
+    # Backups to the NAS target (README "Backups"). longhorn_backup_state, one
+    # series per Backup object (labels backup, volume, recurring_job):
+    # 0=New 1=Pending 2=InProgress 3=Completed 4=Error 5=Unknown. Names verified
+    # against the live scrape on 2026-10-08 (first nas-daily backup = 3).
+    - name: longhorn-backups
+      rules:
+        - alert: LonghornBackupFailed
+          # An Error/Unknown Backup object stays until it is deleted, so this
+          # keeps firing until someone looks: fix the cause, then delete the
+          # failed backup (UI → Backup, or kubectl delete backups.longhorn.io).
+          expr: max by (volume, backup, recurring_job) (longhorn_backup_state) >= 4
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn backup failed
+            description: 'Backup {{ "{{ $labels.backup }}" }} of volume {{ "{{ $labels.volume }}" }} (job {{ "{{ $labels.recurring_job }}" }}) is in state Error/Unknown. Check `kubectl -n longhorn-system get backups.longhorn.io {{ "{{ $labels.backup }}" }} -o jsonpath={.status.error}` and the backup target (`kubectl -n longhorn-system get backuptarget default`: NAS share reachable, CIFS credentials valid). Delete the failed backup once fixed.'
+        - alert: LonghornBackupStale
+          # A volume that HAS completed backups, but none of them is newer than
+          # maxAge. Expressed as: no Completed backup series exists now that did
+          # not exist maxAge ago. Catches a stopped nas-daily CronJob, an
+          # unavailable target, or a volume whose group label got lost with its
+          # recurring job still "succeeding" for the other volumes.
+          expr: >-
+            count by (volume) (longhorn_backup_state == 3)
+              unless on (volume)
+            count by (volume) (
+              (longhorn_backup_state == 3)
+                unless on (backup)
+              (longhorn_backup_state offset {{ .Values.backupAlerts.maxAge }})
+            )
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn volume has no recent backup
+            description: 'Volume {{ "{{ $labels.volume }}" }} has had no new completed backup for {{ .Values.backupAlerts.maxAge }}. Check that the nas-daily CronJob runs (`kubectl -n longhorn-system get cronjob nas-daily`), that the backup target is available, and that the volume still carries recurring-job-group.longhorn.io/nas-daily=enabled (a recreated PVC loses it).'
 {{- end }}
