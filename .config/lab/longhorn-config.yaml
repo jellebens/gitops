@@ -1,0 +1,23 @@
+# longhorn-config (platform/longhorn) — lab values.
+
+# Nightly backup of the volumes in group nas-daily to the backup target
+# (CIFS share longhorn-backup on nas001, .config/lab/longhorn.yaml). Members,
+# labelled by hand on the PVC (see platform/longhorn/README.md "Backups"):
+#   harbor/harbor-registry   Harbor's image layers (its DB is pg_dump'ed at 04:00)
+# 04:30 runs after every pg_dump/influx backup (03:30–04:00). concurrency 1 keeps
+# the 1 GbE LAN, which the battery controller also rides on, calm.
+recurringJobs:
+  - name: nas-daily
+    task: backup
+    cron: "30 4 * * *"
+    retain: 14
+    concurrency: 1
+    groups:
+      - nas-daily
+# --- sealed backup credentials ---
+# Sealed for longhorn-system/longhorn-backup-credentials by .scripts/seal-longhorn-cifs.sh.
+secret:
+  sealedSecret:
+    encryptedData:
+      CIFS_USERNAME: "AgB1r7/eJ+KAyad+ez+7LMJnKWX+n85x5hLgtJ3i9lIRPRj3MeRQ87VCMrf3aYW+cDpbFlL1fjoUXYhlNtYwksm8lsbA2kpYo5s9TYtWPcp59OcmAOy1/LRwhAxHFonbxWG1D/mXERCcCzXtMLNRLZUNqQNjENcG9q4YUU1VF6QT3EATQ9iDs0o7K3iZtZHlA4lGvq9hbHu97h11siIQvYb5vSWyt+mKHh3hBRj54FzdeuBR7y699Oky/8RGNSzgeWSyFyfJO4gUcckHqilzkH/Pp2lO5jtACqvz3QSsyz6sommMMYYOYc0Rr5LZBAnqKxpQcAUKpK7StI74zxjaBYccvVbJ+VruZEtc9rfSWkRSrzINLlDSwtrchcJcCFpisxdV0jiMjS0jCyDepeyDekglaFHH66HDv2pyQq586jHzNwwXrKg2SDWkwkW2+54U/16xS54V08eplwwjz/Sq5JPAUJJKfkIRAaXN96+p/oFzN9MiwSado18J4u6j1u7dvHEAAoMXVMzZ4lcy/OKq0zoKsITsLIyQ0uU/6i91XpwRo0sQzopIYg9WmwuWT8drLwXTIr6f2dtKeSa28MT4zwOjEjjCwkjA6XTbF1G9ni82R9MWri9OE2ZqJdCgJlutQEgyH4SLQSJIwQRRemLCRreIJphiHw0QsXvY7D1J+v+pAXsMlT57Tflg9hdRKArGMEXhSj1OrPY+bg=="
+      CIFS_PASSWORD: "AgBHJmk2IOyvInCLUEWta4rKBt7xddSPqepte2f0DEF4vPlOs+C/CHnRpm9Ths4lUrPu7au/HBYc7adDgXRggvpfhgI6Ry8RZxnnbMbjGySdWY3WErUwG3ZyP8roGAhvQrUNdHuUxfV+DxwZc3Hf3IPleDWGskAeS51mLMPcJHxhZInwppVY8ro9BoHNdx6c5QS14p26ICMTL6K8S/OcjCaTj2vcqRztuzLU5H3j6hf2705peP5HwIl6L45oEUfPrNoy67/FPrU5pnHKjwriH0Cud+Kjk1Ns49ICIYr8XoqUfXF7TFDFx8N8a7M/QIfiHifglC5AXYCkTQvpTC6o0PVuumj8zbCWu8Z11MEdZDCMnpxpdjxRCPZ6Y+uKBm0FvOMiO3PCI4UHOIYukGT1Av7c3pJ9+qB6/tAODhONfMOc9SyW8L3Cs8AcsEb4YEiIGtwmazTWBqrEgrQK6rh5nFNeQN1Sp+DBZmArOtMmpG+V0Pnl22hD1BsDk6GhOW18o4jN9IPZ34pc/5ujL3mLk8QmBEdU3oFBO/FeFPuFQdMsQyDIGeLSlT9zZjprewEeQtr3fA12SVK/3rv1cu9hW2Kij+SBUXmevfRrABLPTZXruz9YDzQ6s5d5lRUG1eaxw9P2hKOx6+kbZrOrRDNqEytu+HrbvMfUo7OlYpeqrsaMp9y2Y0RjbfZKIPaJVVK0uWq4yaQyCUJqT+PNdDUA6K/0+MXBKQ=="
