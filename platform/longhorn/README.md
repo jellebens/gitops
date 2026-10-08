@@ -170,6 +170,19 @@ kubectl -n longhorn-system get backupvolumes,backups       # what exists on the 
 kubectl -n longhorn-system get recurringjobs
 ```
 
+**Alerts** (`templates/prometheusrule.yaml`, group `longhorn-backups`; cerberus
+turns a firing alert into a Trello card):
+
+- `LonghornBackupFailed`: a Backup object is in Error/Unknown for 10m. It keeps
+  firing until the failed backup is deleted. Fix the cause, then delete it.
+- `LonghornBackupStale`: a volume with backups has had no new completed backup
+  for `backupAlerts.maxAge` (26h). This catches a stopped `nas-daily`
+  CronJob, an unavailable target, or a lost group label.
+
+A volume that was labelled but has **never** completed a backup is not covered
+by the stale alert. Check `kubectl -n longhorn-system get backupvolumes` after
+adding one.
+
 **Restore a volume:** in the Longhorn UI choose Backup → the volume → Restore
 Latest Backup, into a new volume. Then create a PV/PVC for it under the
 original name, while the workload is scaled to 0 and its Argo auto-sync is

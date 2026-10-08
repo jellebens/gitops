@@ -1,0 +1,52 @@
+{{- if .Values.backupAlerts.enabled }}
+# Freshness alerts for EVERY nightly backup CronJob named `*-backup` (the NAS
+# pg_dump / influx backups: influxdb, ceres-annona, jupiter-ledger, harbor-db,
+# and whatever comes next). This generalises the hermes pattern from #175: alert
+# on "no successful run recently", not on "a job failed". A wedged or deleted
+# CronJob is caught too, and an old failed Job in the history does not keep the
+# alert stuck. hermes-backup keeps its own HermesBackupNotRun rule
+# (landingzones/hermes) and is excluded here so it does not page twice.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backup-freshness
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: backup-freshness
+    app.kubernetes.io/part-of: platform
+    # Picked up by the kube-prometheus-stack Prometheus ruleSelector.
+    release: {{ .Values.backupAlerts.releaseLabel | quote }}
+spec:
+  groups:
+    - name: backup-freshness
+      rules:
+        - alert: BackupNotSucceeded
+          # Last success older than maxAgeSeconds (default 26 h: a nightly run
+          # plus slack), or never succeeded although the CronJob is older than
+          # that. Suspended CronJobs are deliberate and excluded.
+          expr: >-
+            (
+              (time() - max by (namespace, cronjob) (kube_cronjob_status_last_successful_time{ {{- .Values.backupAlerts.selector -}} }))
+                > {{ .Values.backupAlerts.maxAgeSeconds }}
+              or
+              (
+                max by (namespace, cronjob) (kube_cronjob_info{ {{- .Values.backupAlerts.selector -}} })
+                  unless on (namespace, cronjob) kube_cronjob_status_last_successful_time
+              )
+              and on (namespace, cronjob)
+              (time() - max by (namespace, cronjob) (kube_cronjob_created) > {{ .Values.backupAlerts.maxAgeSeconds }})
+            )
+            unless on (namespace, cronjob) (max by (namespace, cronjob) (kube_cronjob_spec_suspend) == 1)
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Backup {{ "{{ $labels.namespace }}/{{ $labels.cronjob }}" }} has not succeeded recently'
+            description: >-
+              CronJob {{ "{{ $labels.namespace }}/{{ $labels.cronjob }}" }} has no successful
+              run in the last {{ .Values.backupAlerts.maxAgeSeconds }}s, so its NAS backup
+              is going stale. Check `kubectl -n {{ "{{ $labels.namespace }}" }} get jobs`
+              and the last job's log (smb mount, credentials, DB reachability). To take
+              a backup by hand: `kubectl -n {{ "{{ $labels.namespace }}" }} create job
+              --from=cronjob/{{ "{{ $labels.cronjob }}" }} {{ "{{ $labels.cronjob }}" }}-manual-$(date +%s)`.
+{{- end }}
