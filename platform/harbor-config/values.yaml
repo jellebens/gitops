@@ -33,6 +33,13 @@ ciRobot:
   name: harbor-ci-robot
   encryptedData: {}
 
+# Push credential of the `actions` project robot (robot$actions+push), key
+# `secret`: what .scripts/arc-mirror/mirror.sh (#338) pushes the ARC charts and
+# images with. Same generation/sealing rules as ciRobot.
+actionsRobot:
+  name: harbor-actions-robot
+  encryptedData: {}
+
 # Declarative Harbor state (card #337): proxy-cache endpoints, projects, quotas,
 # tag retention, robots and the GC schedule. A CronJob reconciles it through
 # the Harbor API (templates/bootstrap.yaml, script files/harbor-bootstrap.py).
@@ -114,6 +121,16 @@ bootstrap:
       secretEnv: CI_ROBOT_SECRET
       secretRef:
         name: harbor-ci-robot
+        key: secret
+      access:
+        - {resource: repository, action: push}
+        - {resource: repository, action: pull}
+    - project: actions
+      name: push
+      description: ARC mirror pushes charts and images (#338 .scripts/arc-mirror)
+      secretEnv: ACTIONS_ROBOT_SECRET
+      secretRef:
+        name: harbor-actions-robot
         key: secret
       access:
         - {resource: repository, action: push}
