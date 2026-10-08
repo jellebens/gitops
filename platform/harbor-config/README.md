@@ -132,7 +132,38 @@ All volumes are on Longhorn, which keeps 3 replicas: registry 50Gi, trivy 5Gi,
 jobservice logs 1Gi, valkey 1Gi, and `harbor-pg` 5Gi. Raise the registry size in
 place (Longhorn allows expansion). `updateStrategy: Recreate` is set because the
 RWO volumes cannot attach to two pods during a rolling update. Longhorn gives
-redundancy, not backup. There is no NAS backup of the registry or `harbor-pg` yet.
+redundancy, not backup. The backups are below.
+
+## Backups
+
+| What | How | When | Kept | Where |
+|---|---|---|---|---|
+| Database (`harbor-pg`: projects, users, robots, tags, scans, settings) | CronJob `harbor-db-backup`: `pg_dump -Fc` (`templates/postgres-backup.yaml`) | 04:00 daily | 30 days | NAS `smb` StorageClass, PVC `harbor-db-backups`, files `harbor-registry-<ts>.dump` |
+| Image layers (PVC `harbor-registry`) | Longhorn backup, group `nas-daily` (platform/longhorn) | 04:30 daily, after the dump | see platform/longhorn | Longhorn backup target on the NAS |
+
+The database is dumped **before** the layers are backed up. A restored database
+therefore never points at layers the volume backup lacks. Extra layers are
+harmless: Harbor's garbage collection removes them.
+
+Before a nightly digest bump (a possible DB migration), take a fresh dump by hand:
+
+```sh
+kubectl -n harbor create job --from=cronjob/harbor-db-backup harbor-db-backup-manual-$(date +%s)
+```
+
+### Restore the database
+
+1. Scale Harbor down so nothing writes:
+   `kubectl -n harbor scale deploy harbor-core harbor-jobservice harbor-exporter --replicas=0`.
+   Argo self-heals the replica count back, so pause auto-sync on the `harbor` app
+   first: `argocd app set harbor --core --sync-policy none`.
+2. Find the dump. Its directory on the NAS share is `harbor-harbor-db-backups-<pv>`,
+   or mount the PVC in a debug pod.
+3. Restore it into the live cluster from a pod that mounts `harbor-db-backups` and
+   has `PG_URI` from `harbor-pg-app`:
+   `pg_restore --clean --if-exists --no-owner -d "$PG_URI" /backup/harbor-registry-<ts>.dump`.
+4. Turn auto-sync back on (`argocd app set harbor --core --sync-policy automated --auto-prune --self-heal`)
+   and let Argo bring the deployments back.
 
 ## Monitoring
 

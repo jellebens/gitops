@@ -53,6 +53,13 @@ postgres:
   storageClass: longhorn
   size: 5Gi
   podMonitor: true
+  # Nightly custom-format pg_dump to the NAS (templates/postgres-backup.yaml).
+  backup:
+    enabled: true
+    schedule: "0 4 * * *"   # 04:00, after InfluxDB 03:30 / Annona 03:45 / jupiter ledger 03:50
+    retentionDays: 30
+    storageClass: smb
+    size: 2Gi
   resources:
     requests:
       cpu: 50m

@@ -2,5 +2,5 @@ apiVersion: v2
 name: harbor-config
 description: Harbor prerequisites — lab-CA gateway cert, sealed chart secrets, CNPG database
 type: application
-version: 0.1.3
+version: 0.2.0
 appVersion: "dev-arm64"
