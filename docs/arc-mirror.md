@@ -181,52 +181,45 @@ This checks that each pinned tag in Harbor resolves to the pinned digest. If
 The runner image needs regular bumps. GitHub stops accepting runner versions
 some time after a newer one is released, and ARC runners do not self-update.
 
-## Can Argo CD pull the charts from Harbor? (finding for #339)
+## Can Argo CD pull the charts from Harbor?
 
-**Not yet. Today, Argo CD has no repository config that lets it pull these
-charts.** Checked read-only on 2026-10-08 against Argo CD v3.5.3:
+**The repository config is in place. The lab CA still has to be trusted.**
 
-1. **`platform/argocd-config/templates/repos/harbor-repo.yaml` is not about our
-   Harbor.** It registers the upstream goharbor Helm repo `https://helm.goharbor.io`
-   (`repos.harbor.url` in `.config/shared/values.yaml`), which the `harbor` app
-   installs from. There is no repository secret for `harbor.lab.local`, and none
-   of the 9 repository secrets has `enableOCI`.
-2. **The lab CA is not trusted.** `argocd-tls-certs-cm` is empty, although the
+- **`harbor-repo`** (`platform/argocd-config/templates/repos/harbor-repo.yaml`)
+  is a credential template (`argocd.argoproj.io/secret-type: repo-creds`) for
+  `harbor.lab.local` (`repos.harborRegistry.url` in `.config/shared/values.yaml`),
+  with `type: helm` and `enableOCI: "true"`. Argo matches it by URL prefix, so it
+  covers every chart path under the host. It carries no credentials, because the
+  project Argo pulls from (`actions`) is public (#337). If one becomes private,
+  add a sealed pull robot to this secret.
+- **`harbor-runtime-repo`** is the old `harbor-repo`, renamed on 2026-10-08. It
+  is the upstream goharbor chart repo `https://helm.goharbor.io`
+  (`repos.harbor.url`), which the `harbor` app installs Harbor itself from. Argo
+  matches repositories by URL, not by secret name, so the rename does not affect
+  the `harbor` app.
+
+Still open (checked read-only on 2026-10-08 against Argo CD v3.5.3):
+
+1. **The lab CA is not trusted.** `argocd-tls-certs-cm` is empty, although the
    repo-server already mounts it at `tls-certs`. Without the CA, Helm in the
-   repo-server rejects `https://harbor.lab.local`.
-3. **Credentials.** Harbor's anonymous API shows only `library` as public. If #337
-   makes `actions` private, Argo needs a pull robot (sealed).
-4. **Name resolution, likely fine but unverified.** The repo-server is
+   repo-server rejects `https://harbor.lab.local`. The ConfigMap belongs to the
+   out-of-band `argocd` Helm release (chart argo-cd 10.9.1), so add the CA through
+   that release's values, not through a chart in this repo, or Helm and Argo will
+   fight over the ConfigMap:
+   ```yaml
+   configs:
+     tls:
+       certificates:
+         harbor.lab.local: |
+           -----BEGIN CERTIFICATE-----
+           …lab CA (lab-ca-issuer, platform/cert-manager-config)…
+   ```
+2. **Name resolution, likely fine but unverified.** The repo-server is
    `dnsPolicy: ClusterFirst` with no `hostAliases`. Cluster CoreDNS forwards
    `lab.local` (platform/coredns-config). The `*.local` Go-resolver pitfall bit
    containerd on the nodes, not pods. Confirm it on the first sync in #339. If it
    fails, add a `hostAliases` pin `192.168.50.200 harbor.lab.local` to the
    repo-server tuning patch, the same pin the nodes have.
-
-What #339 needs to add, in `platform/argocd-config`. This was not done here
-because the robot and the project do not exist yet (#337), and the
-`argocd-tls-certs-cm` from the stock install is outside the chart today, so
-taking it over needs care:
-
-```yaml
-# repository secret (sealed if it carries credentials)
-metadata:
-  labels: { argocd.argoproj.io/secret-type: repository }
-stringData:
-  name: harbor-lab-arc
-  project: platform-services
-  type: helm
-  enableOCI: "true"
-  url: harbor.lab.local/actions/actions-runner-controller-charts   # no scheme for OCI
-  username: robot$actions+argocd                                   # only if `actions` is private
-  password: <sealed>
----
-# argocd-tls-certs-cm: key = hostname, value = lab CA PEM
-data:
-  harbor.lab.local: |
-    -----BEGIN CERTIFICATE-----
-    …lab-root-ca.crt…
-```
 
 The Application source is then `repoURL: harbor.lab.local/actions/actions-runner-controller-charts`,
 `chart: gha-runner-scale-set-controller` (or `gha-runner-scale-set`),

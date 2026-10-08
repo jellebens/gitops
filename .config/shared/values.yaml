@@ -37,6 +37,11 @@ repos:
     url: https://helm.goharbor.io
     targetRevision: 1.19.2
 
+  # Our own Harbor as an OCI Helm registry (Argo repo-creds ).
+  # No scheme: Argo OCI repo URLs are host/path.
+  harborRegistry:
+    url: harbor.lab.local
+
   config:
     url: https://github.com/jellebens/gitops.git
     targetRevision: HEAD
