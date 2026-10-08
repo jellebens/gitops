@@ -1,0 +1,82 @@
+{{- if and .Values.postgres.enabled .Values.postgres.backup.enabled }}
+# Nightly `pg_dump` of Harbor's database to the NAS through the smb
+# StorageClass, the same shape as jupiter-ledger-backup (landingzones/
+# jupiter-central) and the Annona backup (landingzones/ceres). It runs BEFORE
+# the Longhorn backup of the registry volume (.config/lab/longhorn.yaml
+# recurringJobs), so a restored database never references image layers the
+# volume backup lacks. Restore runbook: platform/harbor-config/README.md.
+# Credentials: the operator's app secret (`<cluster>-app`), key `uri`.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: harbor-db-backups
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.postgres.backup.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.postgres.backup.size | quote }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: harbor-db-backup
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: harbor-postgres
+    app.kubernetes.io/part-of: harbor
+spec:
+  schedule: {{ .Values.postgres.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 26
+            runAsGroup: 26
+            fsGroup: 26
+          containers:
+            - name: pg-dump
+              image: {{ .Values.postgres.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  ts=$(date +%Y%m%d-%H%M%S)
+                  f="/backup/harbor-registry-$ts.dump"
+                  echo "pg_dump -> $f"
+                  pg_dump "$PG_URI" -Fc -f "$f.part"
+                  mv "$f.part" "$f"
+                  echo "pruning dumps older than {{ .Values.postgres.backup.retentionDays }} days"
+                  find /backup -maxdepth 1 -name 'harbor-registry-*.dump' -type f \
+                    -mtime +{{ .Values.postgres.backup.retentionDays }} -delete || true
+                  find /backup -maxdepth 1 -name '*.part' -type f -mmin +60 -delete || true
+                  echo "done; recent dumps:"; ls -1t /backup | head -5
+              env:
+                - name: PG_URI
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.postgres.name }}-app
+                      key: uri
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: harbor-db-backups
+{{- end }}
