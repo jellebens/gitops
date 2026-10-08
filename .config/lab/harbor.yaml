@@ -73,6 +73,10 @@ core:
     tag: dev-arm64@sha256:0c0c0b346ac14ebfa09df16806d88ab15e3bc51efc32b37aaa4f7b0a3c6e76ba
   existingSecret: harbor-secrets
   secretName: harbor-core-token
+  # core reads the token key only at start. Bump this whenever harbor-core-token
+  # is re-sealed so the change rolls core. 2: the key was re-sealed as PKCS#1.
+  podAnnotations:
+    harbor.lab.local/core-token-rev: "2"
   existingXsrfSecret: harbor-secrets
   existingXsrfSecretKey: CSRF_KEY
 

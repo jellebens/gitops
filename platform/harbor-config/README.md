@@ -78,6 +78,15 @@ in the UI. Re-sealing the key does not change an existing admin password.
 replication endpoints and robot secrets. Rotating `harbor-core-token` invalidates
 outstanding tokens and is otherwise safe.
 
+The token key **must be PKCS#1** (`-----BEGIN RSA PRIVATE KEY-----`). OpenSSL 3
+writes PKCS#8 (`BEGIN PRIVATE KEY`) by default, and Harbor core rejects that at
+token time with `unable to get PrivateKey from PEM type: PRIVATE KEY`. Every
+`docker login`, push and pull then fails with a 500, although the UI, health and
+API logins look fine. That happened on the first deploy. Convert with
+`openssl rsa -in key.pem -traditional`. After re-sealing `harbor-core-token`, bump
+`core.podAnnotations` `harbor.lab.local/core-token-rev` in `.config/lab/harbor.yaml`,
+because core only reads the key at start.
+
 To re-seal one value:
 
 ```sh
