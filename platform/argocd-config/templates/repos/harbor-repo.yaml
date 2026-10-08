@@ -1,3 +1,9 @@
+# Our own Harbor (harbor.lab.local) as an OCI Helm registry. A credential
+# template (repo-creds), so it covers every chart path under the host by
+# prefix, e.g. repoURL harbor.lab.local/actions/actions-runner-controller-charts.
+# No username/password: the projects Argo pulls from are public (#337).
+# TLS: the lab CA must be trusted via argocd-tls-certs-cm (docs/arc-mirror.md).
+# Not to be confused with harbor-runtime-repo, the upstream goharbor chart repo.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -6,9 +12,9 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-400"
   labels:
-    argocd.argoproj.io/secret-type: repository
+    argocd.argoproj.io/secret-type: repo-creds
 stringData:
   name: harbor-repo
-  project: platform-services
-  url: {{ .Values.repos.harbor.url | quote }}
+  url: {{ .Values.repos.harborRegistry.url | quote }}
   type: helm
+  enableOCI: "true"
