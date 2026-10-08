@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: harbor
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Container registry. After its secrets + database (harbor-config, wave 17).
+    argocd.argoproj.io/sync-wave: "18"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: harbor
+  sources:
+    - repoURL: {{ .Values.repos.harbor.url | quote }}
+      chart: harbor
+      targetRevision: {{ .Values.repos.harbor.targetRevision | quote }}
+      helm:
+        releaseName: harbor
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/harbor.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

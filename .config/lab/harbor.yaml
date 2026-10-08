@@ -1,0 +1,140 @@
+# Harbor container registry (goharbor/harbor chart) — lab values.
+#
+# IMAGES: NIGHTLY dev-arm64 BUILDS (owner decision 2026-10-08). Harbor's release
+# images (v2.14.x, v2.15.x) are amd64-only and this cluster is all arm64; the only
+# official arm64 builds are the nightly `dev-arm64` tags from the main branch.
+# The tag moves every night, so each image is pinned by DIGEST (the tag in front
+# of the @ is just a label): Argo never pulls a different build unannounced, and
+# an upgrade is a deliberate digest bump. All digests come from one nightly
+# (pushed 2026-10-08 ~09:34Z) so the components match each other. To bump:
+# re-resolve every digest from the SAME nightly (README "Upgrading"), never just one.
+# When goharbor ships multi-arch release images, switch to `vX.Y.Z` tags.
+#
+# The chart-generated secrets (admin password, secretKey, core/jobservice/
+# registry secrets, XSRF key, registry htpasswd, token cert) are pinned in the
+# harbor-config app's SealedSecrets: Argo renders without `lookup`, so leaving
+# them to the chart would rotate them on every sync.
+
+# TLS ends on the shared Cilium gateway (harbor-https listener, lab-CA cert from
+# harbor-config); Harbor's own nginx serves plain HTTP behind it.
+expose:
+  type: clusterIP
+  tls:
+    enabled: false
+  clusterIP:
+    name: harbor
+externalURL: https://harbor.lab.local
+
+# The nginx proxy listens on [::] when this is on; the cluster is IPv4-only.
+ipFamily:
+  ipv6:
+    enabled: false
+
+# The registry and jobservice volumes are Longhorn RWO: a rolling update would
+# start the new pod while the old one still holds the volume (Multi-Attach).
+updateStrategy:
+  type: Recreate
+
+persistence:
+  enabled: true
+  resourcePolicy: keep
+  persistentVolumeClaim:
+    registry:
+      storageClass: longhorn
+      size: 50Gi
+    jobservice:
+      jobLog:
+        storageClass: longhorn
+        size: 1Gi
+    redis:
+      storageClass: longhorn
+      size: 1Gi
+    trivy:
+      storageClass: longhorn
+      size: 5Gi
+
+existingSecretAdminPassword: harbor-secrets
+existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+existingSecretSecretKey: harbor-secrets
+
+nginx:
+  image:
+    repository: docker.io/goharbor/nginx-photon
+    tag: dev-arm64@sha256:f4df0bf53ab270b354d5c75701b9c474504af76def89707958ba7de72c77d1c3
+
+portal:
+  image:
+    repository: docker.io/goharbor/harbor-portal
+    tag: dev-arm64@sha256:fab37eb110d619e70f9f5b51b0cf72d0e20edadedbe4461fdfbb5c9f5609d565
+
+core:
+  image:
+    repository: docker.io/goharbor/harbor-core
+    tag: dev-arm64@sha256:0c0c0b346ac14ebfa09df16806d88ab15e3bc51efc32b37aaa4f7b0a3c6e76ba
+  existingSecret: harbor-secrets
+  secretName: harbor-core-token
+  existingXsrfSecret: harbor-secrets
+  existingXsrfSecretKey: CSRF_KEY
+
+jobservice:
+  image:
+    repository: docker.io/goharbor/harbor-jobservice
+    tag: dev-arm64@sha256:154f45ac8b72b8291475073f67e6dbfedcd5b526387deb9946cd0cbe58ce384e
+  existingSecret: harbor-secrets
+  existingSecretKey: JOBSERVICE_SECRET
+
+registry:
+  registry:
+    image:
+      repository: docker.io/goharbor/registry-photon
+      tag: dev-arm64@sha256:12542a459dcaf420ff509e6ab206d665982ee8a6c48f798922325a12efb4e0f8
+  controller:
+    image:
+      repository: docker.io/goharbor/harbor-registryctl
+      tag: dev-arm64@sha256:d6f1ddb45a7b0db4046ec3bd7003e566aa95184b6dc6152822f135294652e1db
+  existingSecret: harbor-secrets
+  existingSecretKey: REGISTRY_HTTP_SECRET
+  credentials:
+    username: harbor_registry_user
+    existingSecret: harbor-secrets
+
+trivy:
+  enabled: true
+  image:
+    repository: docker.io/goharbor/trivy-adapter-photon
+    tag: dev-arm64@sha256:50e02262884fcf452a481580722758a0c8c0bffa9d602ee90f2fbc0cfc81ee37
+
+# External database = the harbor-pg CNPG Cluster (harbor-config). CNPG serves
+# TLS with its own CA, so `require` (encrypt, no verify) rather than verify-full.
+database:
+  type: external
+  external:
+    host: harbor-pg-rw
+    port: "5432"
+    username: harbor
+    coreDatabase: registry
+    existingSecret: harbor-pg-app
+    sslmode: require
+  # Chart defaults (900 open / 100 idle per pod) dwarf the CNPG max_connections.
+  maxOpenConns: 50
+  maxIdleConns: 10
+
+redis:
+  type: internal
+  internal:
+    image:
+      repository: docker.io/goharbor/valkey-photon
+      tag: dev-arm64@sha256:bd694e4b7192b34575b584f7b3849e16b23cfe3a64055fee3bce0e6e55495ab4
+
+exporter:
+  image:
+    repository: docker.io/goharbor/harbor-exporter
+    tag: dev-arm64@sha256:1557144ff1ec29d5c548b3f9407493b3090f4ce17fa97293b6c12ce0e05c1e3b
+
+# ServiceMonitor labeled for kube-prometheus-stack (repo convention).
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack

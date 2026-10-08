@@ -31,6 +31,12 @@ repos:
     url: https://kyverno.github.io/kyverno
     targetRevision: 3.8.2
 
+  # Harbor registry. Chart 1.19.2 = Harbor v2.15.2, but the images are pinned
+  # nightly dev-arm64 digests (no arm64 release images) — see .config/lab/harbor.yaml.
+  harbor:
+    url: https://helm.goharbor.io
+    targetRevision: 1.19.2
+
   config:
     url: https://github.com/jellebens/gitops.git
     targetRevision: HEAD

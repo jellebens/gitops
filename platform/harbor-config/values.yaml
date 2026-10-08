@@ -1,0 +1,62 @@
+namespace: harbor
+
+# The secrets the upstream harbor chart would otherwise generate with
+# randAlphaNum/genCA on EVERY render. Argo CD renders with `helm template`
+# (no `lookup`), so leaving them to the chart would rotate them on each sync
+# and break sessions, tokens and the registry<->core handshake. They are
+# generated once and sealed per environment in .config/<env>/harbor-config.yaml.
+#
+# harbor-secrets keys (each consumed by one existingSecret in .config/<env>/harbor.yaml):
+#   HARBOR_ADMIN_PASSWORD  existingSecretAdminPassword
+#   secretKey              existingSecretSecretKey (16 chars)
+#   secret                 core.existingSecret (16 chars)
+#   CSRF_KEY               core.existingXsrfSecret (32 chars)
+#   JOBSERVICE_SECRET      jobservice.existingSecret (16 chars)
+#   REGISTRY_HTTP_SECRET   registry.existingSecret (16 chars)
+#   REGISTRY_PASSWD        registry.credentials.existingSecret
+#   REGISTRY_HTPASSWD      registry.credentials.existingSecret (bcrypt, user harbor_registry_user)
+secrets:
+  name: harbor-secrets
+  encryptedData: {}
+
+# RSA key + self-signed cert harbor-core signs registry bearer tokens with
+# (core.secretName). Keys: tls.key, tls.crt.
+coreToken:
+  name: harbor-core-token
+  encryptedData: {}
+
+# TLS cert (lab CA) for the harbor-https listener on the shared gateway.
+tlsCertificate:
+  enabled: true
+  secretName: harbor-server-tls
+  commonName: harbor.lab.local
+  dnsNames:
+    - harbor.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
+
+# Harbor's metadata database: a CloudNativePG Cluster (operator = platform app
+# `cnpg`) instead of the chart's internal harbor-db, whose password can only be
+# given in plain values. Bootstrap creates database `registry` owned by role
+# `harbor`; the operator writes Secret `<name>-app` (key `password`) which
+# harbor reads via database.external.existingSecret.
+postgres:
+  enabled: true
+  name: harbor-pg
+  image: ghcr.io/cloudnative-pg/postgresql:16.4
+  instances: 1
+  database: registry
+  owner: harbor
+  storageClass: longhorn
+  size: 5Gi
+  podMonitor: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
