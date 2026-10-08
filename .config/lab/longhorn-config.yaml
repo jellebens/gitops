@@ -1,0 +1,16 @@
+# longhorn-config (platform/longhorn) — lab values.
+
+# Nightly backup of the volumes in group nas-daily to the backup target
+# (CIFS share longhorn-backup on nas001, .config/lab/longhorn.yaml). Members,
+# labelled by hand on the PVC (see platform/longhorn/README.md "Backups"):
+#   harbor/harbor-registry   Harbor's image layers (its DB is pg_dump'ed at 04:00)
+# 04:30 runs after every pg_dump/influx backup (03:30–04:00). concurrency 1 keeps
+# the 1 GbE LAN, which the battery controller also rides on, calm.
+recurringJobs:
+  - name: nas-daily
+    task: backup
+    cron: "30 4 * * *"
+    retain: 14
+    concurrency: 1
+    groups:
+      - nas-daily

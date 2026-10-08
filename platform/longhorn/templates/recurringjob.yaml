@@ -1,0 +1,23 @@
+{{- range .Values.recurringJobs }}
+---
+# A volume joins this job by carrying the label
+# recurring-job-group.longhorn.io/<group>: enabled (on the Longhorn Volume, or
+# on its PVC together with recurring-job.longhorn.io/source: enabled).
+# See README "Backups".
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: {{ .name }}
+  namespace: longhorn-system
+spec:
+  task: {{ .task | default "backup" }}
+  cron: {{ .cron | quote }}
+  retain: {{ .retain }}
+  concurrency: {{ .concurrency | default 1 }}
+  groups:
+    {{- toYaml .groups | nindent 4 }}
+  {{- with .labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

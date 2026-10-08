@@ -67,12 +67,17 @@ defaultSettings:
   # The point of this card is surviving a node failure: let Longhorn delete
   # pods stuck on a down node so their volumes reattach elsewhere.
   nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod
-  # Backup target intentionally UNSET at deploy time. Decision + options
-  # (NFS vs CIFS vs S3/MinIO on the DS918) in platform/longhorn/README.md;
-  # wiring it is a follow-up once the owner enables the share. Do not invent
-  # credentials here.
-  # backupTarget: "nfs://nas001.lab.local:/volume1/longhorn-backup"
-  # backupTargetCredentialSecret: "longhorn-backup-credentials"
+
+# Backup target (owner decision 2026-10-08: CIFS on a DEDICATED share + NAS user,
+# the cortana pattern; NFS stays off on the NAS). The chart writes this into the
+# longhorn-default-resource ConfigMap, which Longhorn applies to the `default`
+# BackupTarget. The credentials are the SealedSecret longhorn-backup-credentials
+# (CIFS_USERNAME / CIFS_PASSWORD), sealed in .config/lab/longhorn-config.yaml.
+# Which volumes get backed up is decided by recurring-job groups in
+# .config/lab/longhorn-config.yaml; see platform/longhorn/README.md "Backups".
+defaultBackupStore:
+  backupTarget: "cifs://nas001.lab.local/longhorn-backup"
+  backupTargetCredentialSecret: "longhorn-backup-credentials"
 
 # Stateless dashboard; one replica is enough on the arm64 nodes. Exposed via
 # the gateway's HTTPS-only longhorn-https listener as an INTERIM until SSO
