@@ -29,8 +29,13 @@ to on 2026-10-08. What that means:
   could carry one. Any bump might.
 - The chart version (1.19.2) controls templates and values only. The app code is
   whatever the digests point at.
-- `goharbor/redis-photon` has no arm64 build. The chart already defaults to
-  `valkey-photon`, which does.
+- **Redis is not a Harbor image.** `goharbor/redis-photon` has no arm64 build.
+  `goharbor/valkey-photon` has one, but its jemalloc aborts on the Pi 5 kernel's
+  16K pages (`Unsupported system page size`, first deploy 2026-10-08). We run the
+  Docker official `valkey/valkey:8.1-alpine` instead, also pinned by digest. It
+  writes to `/data` rather than the chart's PVC mount, so the cache and job queue
+  are lost on a pod restart, which is harmless for Harbor. The upgrade loop below
+  covers only the 8 goharbor images.
 
 When goharbor ships multi-arch release images, switch every `tag:` to the
 `vX.Y.Z` release that matches the chart's `appVersion`, and drop this section.
@@ -39,13 +44,13 @@ When goharbor ships multi-arch release images, switch every `tag:` to the
 
 ```sh
 for i in nginx-photon harbor-portal harbor-core harbor-jobservice registry-photon \
-         harbor-registryctl trivy-adapter-photon valkey-photon harbor-exporter; do
+         harbor-registryctl trivy-adapter-photon harbor-exporter; do
   curl -s "https://hub.docker.com/v2/repositories/goharbor/$i/tags/dev-arm64" \
     | jq -r --arg i "$i" '$i + " " + .digest + " " + .last_updated'
 done
 ```
 
-Check that every `last_updated` is from the same night. Then replace all nine
+Check that every `last_updated` is from the same night. Then replace all eight
 digests in `.config/lab/harbor.yaml` in a single commit and release it.
 
 ## Secrets
