@@ -145,6 +145,10 @@ The database is dumped **before** the layers are backed up. A restored database
 therefore never points at layers the volume backup lacks. Extra layers are
 harmless: Harbor's garbage collection removes them.
 
+Alerts: `BackupNotSucceeded` (platform/observability-config) fires when
+`harbor-db-backup` has not succeeded for 26h. `LonghornBackupFailed` and
+`LonghornBackupStale` (platform/longhorn) cover the layer backup.
+
 Before a nightly digest bump (a possible DB migration), take a fresh dump by hand:
 
 ```sh

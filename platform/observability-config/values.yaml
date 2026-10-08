@@ -23,3 +23,13 @@ tlsCertificate:
 jupiterPostgres:
   sealedSecret:
     encryptedData: {} # { JUPITER_PG_PASSWORD: "Ag..." }
+
+# Backup freshness alerts (templates/backup-prometheusrule.yaml): one rule for
+# every `*-backup` CronJob in the cluster. maxAgeSeconds 93600 = 26 h (nightly
+# plus slack). The hourly influxdb-incremental-backup is covered as well, but
+# only at this nightly sensitivity; its nightly full sibling is the one that matters.
+backupAlerts:
+  enabled: true
+  releaseLabel: kube-prometheus-stack
+  selector: 'cronjob=~".+-backup", cronjob!="hermes-backup"'
+  maxAgeSeconds: 93600
