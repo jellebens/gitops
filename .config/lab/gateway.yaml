@@ -84,6 +84,19 @@ gateway:
             kind: Secret
             name: ceres-janus-server-tls
             namespace: ceres
+    # Harbor registry + UI. The cert is emitted by platform/harbor-config
+    # (lab-ca-issuer). HTTPS-only: docker/containerd refuse a plain-http
+    # registry unless marked insecure, so `http` only redirects (httpRedirects).
+    - name: harbor-https
+      port: 443
+      hostname: harbor.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: harbor-server-tls
+            namespace: harbor
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
@@ -190,6 +203,23 @@ routes:
       name: longhorn-frontend
       port: 80
 
+  # Harbor (platform/harbor-config + the harbor app): UI, API and the OCI
+  # registry (/v2) all through Harbor's own nginx (`harbor` ClusterIP svc).
+  # Unauthenticated reads only for projects marked public; everything else is
+  # Harbor's own login. The request timeout is OFF: a layer upload is one long
+  # PATCH/PUT, and Envoy's default 15 s route timeout would cut big pushes.
+  - name: harbor
+    namespace: harbor
+    listeners:
+      - harbor-https
+    hostnames:
+      - harbor.lab.local
+    timeouts:
+      request: 0s
+    backend:
+      name: harbor
+      port: 80
+
 # HTTP -> HTTPS 302 redirects (redirect-only routes on the shared `http`
 # listener; the RequestRedirect is answered by the gateway Envoy itself, no
 # backend involved — same pattern as hermes' hermes-http-to-https).
@@ -198,3 +228,7 @@ httpRedirects:
     namespace: longhorn-system
     hostnames:
       - longhorn.lab.local
+  - name: harbor
+    namespace: harbor
+    hostnames:
+      - harbor.lab.local

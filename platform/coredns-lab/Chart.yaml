@@ -2,5 +2,5 @@ apiVersion: v2
 name: coredns-lab
 description: In-cluster CoreDNS authoritative primary for the lab.local zone (zone-in-git) + catch-all resolver
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "1.11.3"
