@@ -25,6 +25,104 @@ coreToken:
   name: harbor-core-token
   encryptedData: {}
 
+# Push credential of the `ci` project robot (robot$ci+push), key `secret`.
+# Generated once (Harbor complexity: 8-128 chars, upper + lower + digit),
+# sealed per environment; the bootstrap CronJob sets it on the robot. ARC
+# (#339) seals its own copy into the runner namespace.
+ciRobot:
+  name: harbor-ci-robot
+  encryptedData: {}
+
+# Declarative Harbor state (card #337): proxy-cache endpoints, projects, quotas,
+# tag retention, robots and the GC schedule. A CronJob reconciles it through
+# the Harbor API (templates/bootstrap.yaml, script files/harbor-bootstrap.py).
+# It creates or updates, never deletes, and ignores anything not listed here.
+bootstrap:
+  enabled: true
+  schedule: "*/30 * * * *"
+  # "true": the job only GETs and logs what it would change.
+  dryRun: false
+  # Stdlib-only python, multi-arch index (arm64/v8 included), pinned by digest.
+  image: docker.io/library/python:3.13.16-alpine3.24@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+  # Harbor's nginx Service (plain HTTP in-cluster; TLS ends on the gateway).
+  url: http://harbor.harbor.svc
+  # Harbor has no API credential that can create projects, registries and
+  # robots short of a system admin, so this is the admin login. The password
+  # must still match Harbor's: it only seeds the first boot (README).
+  admin:
+    user: admin
+    secretName: harbor-secrets
+    passwordKey: HARBOR_ADMIN_PASSWORD
+  # Upstreams for the proxy-cache projects. Anonymous (no credential): Docker
+  # Hub rate-limits anonymous pulls per source IP (README).
+  registries:
+    - name: docker-hub
+      type: docker-hub
+      url: https://hub.docker.com
+      description: Docker Hub upstream for the dockerhub proxy cache (#337)
+    - name: ghcr
+      type: github-ghcr
+      url: https://ghcr.io
+      description: GitHub Container Registry upstream for the ghcr proxy cache (#337)
+  # Harbor evaluates retention/GC crons with 6 fields (seconds first). Both run
+  # around midnight so they never overlap the 04:00 DB dump / 04:30 Longhorn
+  # layer backup window (README "Backups"); retention first, so GC frees what
+  # it removed. Retention keeps what a rule matches and deletes the rest.
+  # Quotas add up to 44Gi, under the 50Gi registry PVC.
+  projects:
+    - name: dockerhub
+      public: true
+      proxyCache: docker-hub
+      storageLimitGi: 14
+      retention:
+        cron: "0 0 23 * * *"
+        rules:
+          - template: nDaysSinceLastPull
+            value: 14
+    - name: ghcr
+      public: true
+      proxyCache: ghcr
+      storageLimitGi: 10
+      retention:
+        cron: "0 0 23 * * *"
+        rules:
+          - template: nDaysSinceLastPull
+            value: 14
+    # ARC controller/runner images and the ARC Helm charts (OCI).
+    - name: actions
+      public: true
+      storageLimitGi: 8
+      retention:
+        cron: "0 0 23 * * *"
+        rules:
+          - template: latestPushedK
+            value: 5
+    # Images built by the runners. Private: pulls need a robot credential.
+    - name: ci
+      public: false
+      storageLimitGi: 12
+      retention:
+        cron: "0 0 23 * * *"
+        rules:
+          - template: latestPushedK
+            value: 10
+  robots:
+    - project: ci
+      name: push
+      description: CI runners push built images (#337; ARC #339/#340)
+      # The job gets the secret as env `secretEnv` from this Secret (ciRobot above).
+      secretEnv: CI_ROBOT_SECRET
+      secretRef:
+        name: harbor-ci-robot
+        key: secret
+      access:
+        - {resource: repository, action: push}
+        - {resource: repository, action: pull}
+  gc:
+    cron: "0 0 0 * * *"
+    deleteUntagged: true
+    workers: 1
+
 # TLS cert (lab CA) for the harbor-https listener on the shared gateway.
 tlsCertificate:
   enabled: true

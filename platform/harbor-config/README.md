@@ -5,7 +5,7 @@ registry (`/v2`) on that one host. It is installed by two Argo CD apps:
 
 | App | Wave | Source | What it holds |
 |---|---|---|---|
-| `harbor-config` | 17 | this chart | the lab-CA cert `harbor-server-tls`, SealedSecrets `harbor-secrets` and `harbor-core-token`, the CNPG Cluster `harbor-pg` |
+| `harbor-config` | 17 | this chart | the lab-CA cert `harbor-server-tls`, SealedSecrets `harbor-secrets`, `harbor-core-token` and `harbor-ci-robot`, the CNPG Cluster `harbor-pg`, the `harbor-bootstrap` CronJob (projects, robots, retention, GC) |
 | `harbor` | 18 | `goharbor/harbor` chart 1.19.2 (`.config/shared/values.yaml` `repos.harbor`) | core, portal, jobservice, registry, trivy, valkey, exporter, nginx |
 
 Lab values: [`.config/lab/harbor.yaml`](../../.config/lab/harbor.yaml) (the chart) and
@@ -123,8 +123,95 @@ clients must trust that CA:
   moves, update `k3s_private_registries` in homelab and rerun**, or every node loses
   Harbor. A pod can use `image: harbor.lab.local/<project>/<repo>:<tag>`. Public
   projects such as `library` need no pull secret.
-- **Pull secrets:** create a robot account per project in the UI and seal its
-  `dockerconfigjson` into the namespace that pulls.
+- **Pull secrets:** declare a robot account per project in `bootstrap.robots`
+  (below), and seal its `dockerconfigjson` into the namespace that pulls.
+
+## Projects, robots and retention (declarative, card #337)
+
+Projects, registry endpoints, robots, retention policies and the GC schedule live
+in Harbor's database. The Harbor API is the only way to write them, and before
+#337 they were made by hand in the UI. At an airgapped site that state could not
+be rebuilt from git. The **`harbor-bootstrap` CronJob** now reconciles them from
+`bootstrap` in [`values.yaml`](values.yaml). The script is
+[`files/harbor-bootstrap.py`](files/harbor-bootstrap.py) (stdlib Python, shipped in a
+ConfigMap) and the manifest is [`templates/bootstrap.yaml`](templates/bootstrap.yaml).
+
+| Project | Kind | Public | Quota | Retention (runs 23:00) | Purpose |
+|---|---|---|---|---|---|
+| `dockerhub` | proxy cache of registry `docker-hub` (`https://hub.docker.com`) | yes | 14Gi | keep what was pulled in the last 14 days | `harbor.lab.local/dockerhub/library/alpine:3.20` = `docker.io/library/alpine:3.20` |
+| `ghcr` | proxy cache of registry `ghcr` (`https://ghcr.io`) | yes | 10Gi | keep what was pulled in the last 14 days | `harbor.lab.local/ghcr/actions/actions-runner:<tag>` |
+| `actions` | normal | yes | 8Gi | keep the 5 most recently pushed per repository | ARC controller/runner images and the ARC Helm charts (OCI) |
+| `ci` | normal | no | 12Gi | keep the 10 most recently pushed per repository | images built by the runners |
+
+Robot **`robot$ci+push`** (project robot on `ci`: `repository` push + pull, never
+expires). GC runs daily at 00:00 with `delete_untagged`, one worker.
+
+**How it behaves**
+- Every 30 minutes (`bootstrap.schedule`), each declared object is read first. It
+  is created when missing, and updated when it differs from git. Changes made in
+  the UI to declared objects are reverted on the next run. The job **never
+  deletes** anything and ignores undeclared objects (the hand-made `library`,
+  `jupiter` and `ceres` projects are left alone).
+- A **CronJob, not an Argo sync hook**, for the same reason as `influxdb-buckets`:
+  this chart syncs at wave 17, before the harbor chart (wave 18) exists on a fresh
+  cluster. A hook would fail there and hold the bootstrap. If Harbor does not
+  answer `/api/v2.0/ping` after about 5 minutes of retries, the run logs that and
+  exits 0, and the next run tries again. Any other error (a 4xx/5xx from the API, a
+  wrong admin password) fails the job.
+- Apply a change right away instead of waiting for the next run:
+  `kubectl -n harbor create job --from=cronjob/harbor-bootstrap harbor-bootstrap-now`,
+  then `kubectl -n harbor logs -f job/harbor-bootstrap-now`.
+- **Preview first:** set `bootstrap.dryRun: true` (or run the script locally with
+  `DRY_RUN=true`). In dry-run the script only issues GETs; a guard in the HTTP
+  layer refuses every other method. It logs `DRY-RUN would …` for each change.
+- Things Harbor cannot change in place are reported, not forced: a registry
+  endpoint's `type`, and the upstream of a proxy-cache project. Fix those by
+  deleting the object in the UI; the next run recreates it.
+
+**Admin credential.** Creating projects, registries and robots needs a system
+admin, and Harbor has no narrower API credential that can do all of it (a robot
+cannot create robots with more rights than it has). So the job logs in as
+`admin` with `harbor-secrets` / `HARBOR_ADMIN_PASSWORD`. That key only seeds the
+first boot. **If the admin password is changed in the UI, the job fails** with
+`admin login failed (401)`. Then either change it back, or re-seal the new
+password into `HARBOR_ADMIN_PASSWORD` (see Secrets).
+
+**The robot secret** is generated by us, not by Harbor, so it can live in git. A
+random 40-character value (Harbor requires 8-128 chars with an upper, a lower and
+a digit) is sealed as SealedSecret `harbor-ci-robot` (key `secret`) in
+`.config/lab/harbor-config.yaml`. The job creates the robot with that secret, and
+on every run it checks it by logging in at `/v2/` (200 = valid, 401 = wrong). Only
+on a 401 does it set the secret again (`PATCH /api/v2.0/robots/{id}`). The API
+endpoints and `/service/token` fall back to anonymous on bad credentials, so they
+cannot be used for that check. To rotate the secret, re-seal a new value under the
+same name; the next run applies it. Read it back with
+`kubectl -n harbor get secret harbor-ci-robot -o jsonpath='{.data.secret}' | base64 -d`.
+ARC (#339) needs this credential in its runner namespace: seal a **separate copy**
+for that namespace (a SealedSecret only decrypts in the namespace it was sealed
+for), as `dockerconfigjson` for `harbor.lab.local` with user `robot$ci+push`.
+
+**Storage budget.** The registry PVC is 50Gi on Longhorn. The quotas add up to
+44Gi, so a full proxy cache gets push/pull errors on its own project instead of
+filling the volume for everyone. Retention runs at 23:00 and GC at 00:00 (Harbor
+crons have six fields, seconds first). Both stay clear of the 04:00 DB dump and
+the 04:30 Longhorn layer backup, whether Harbor reads the cron as UTC or local
+time. GC must never run between those two backups, or the dump would point at
+layers that the volume backup no longer has. Retention marks artifacts deleted;
+only GC frees their blobs. Raise a quota or shorten a retention when the PVC gets
+tight. Usage per project is under Projects > Summary in the UI, or `GET /api/v2.0/quotas`.
+
+**Proxy cache notes**
+- **Docker Hub rate limits anonymous pulls** per source IP (the whole LAN shares
+  one public IP). The `docker-hub` endpoint has no credential for now. If pulls
+  start failing with `429 Too Many Requests`, add a Docker Hub account as the
+  endpoint credential. Seal it, and extend the script to send `credential`.
+- Docker Hub official images live under `library/`: pull
+  `harbor.lab.local/dockerhub/library/<image>`, not `dockerhub/<image>`.
+- Harbor runs **nightly `dev-arm64` builds**. If proxy caching or replication
+  misbehaves, suspect Harbor first, before ARC.
+- Valkey has no persistence (see above). A Harbor restart loses in-flight
+  jobservice jobs (replication, retention, GC, scans). Re-run them from the UI, or
+  wait for the next schedule.
 
 ## Storage
 
