@@ -1,0 +1,33 @@
+# ARC (actions-runner-controller, gha-runner-scale-set mode) artifacts mirrored
+# into Harbor. Card #338. Read by .scripts/arc-mirror/mirror.sh. Runbook:
+# docs/arc-mirror.md.
+#
+# This file is the single source of truth for WHAT is mirrored and at WHICH
+# digest. #339 (the ARC install) must reference exactly these refs:
+#   chart:  oci://<registry>/<project>/<target>  --version <tag>
+#   image:  <registry>/<project>/<target>:<tag>@<digest>
+#
+# The digest is the upstream manifest digest of <source>:<tag>. For images it
+# is the multi-arch INDEX digest (linux/arm64 + linux/amd64 + attestations).
+# The mirror copies the whole index byte-for-byte, so the digest in Harbor is
+# identical to upstream. The copy always pulls <source>@<digest>, never the
+# tag, so a re-pushed upstream tag cannot sneak in.
+#
+# Pinned 2026-10-08: ARC 0.15.0 (released 2026-10-01), runner 2.338.0
+# (released 2026-10-06), docker 29.8.2-dind (optional, dind mode only).
+#
+# Columns (whitespace separated, one artifact per line):
+#   kind      chart | image
+#   name      short id (also the OCI-layout dir name on export)
+#   source    upstream repository (no tag)
+#   tag       upstream tag, reused as the tag in Harbor
+#   digest    sha256 of the upstream manifest/index for that tag
+#   target    repository path inside the Harbor project
+#   need      required | optional  (optional = only with --include-optional)
+#
+# kind  name              source                                                                          tag          digest                                                                    target                                                          need
+chart   chart-controller  ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller   0.15.0       sha256:20a369215b8c2ed981c4c0c75e56e6009564d51fffcbbd314d5da0ef82de253a   actions-runner-controller-charts/gha-runner-scale-set-controller  required
+chart   chart-runner-set  ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set              0.15.0       sha256:bdfdad17cf8e45ae064c73ed6764f0c75d4bf71a6e2912e6363a43d6dfc787de   actions-runner-controller-charts/gha-runner-scale-set             required
+image   controller        ghcr.io/actions/gha-runner-scale-set-controller                                    0.15.0       sha256:162dfb5bfbda9e7e49fbed67d428994c9ced55b41a37a18b75b46dab0aa98d37   gha-runner-scale-set-controller                                   required
+image   runner            ghcr.io/actions/actions-runner                                                     2.338.0      sha256:4ffadc0002b2581327e06101fc8c06cd189232baf79fe561fac9caeb76f5e807   actions-runner                                                    required
+image   dind              docker.io/library/docker                                                           29.8.2-dind  sha256:1e08cdb63405ca788aea94ef35b792d1e299607c667d33d7bcbcae1fd2611ced   docker                                                            optional

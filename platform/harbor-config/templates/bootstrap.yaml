@@ -1,0 +1,118 @@
+{{- if .Values.bootstrap.enabled }}
+{{- $b := .Values.bootstrap }}
+# Declarative Harbor state reconciler (card #337, ARC POC step 1/5).
+#
+# Projects, proxy-cache endpoints, robots, retention and the GC schedule are
+# database state that only the Harbor API can write. This CronJob makes
+# `.Values.bootstrap` their source of truth: every run reads each object and
+# creates or updates it only when it is missing or differs. Idempotent; it
+# never deletes and never touches an object that is not declared.
+#
+# A CronJob rather than an Argo sync hook, like influxdb-buckets: this chart
+# syncs at wave 17, BEFORE the harbor chart (wave 18) exists on a fresh
+# cluster. A hook Job would fail there and hold the bootstrap. When Harbor is
+# not reachable the run logs it and exits 0; the next run retries. It also
+# heals drift (a project or policy changed in the UI is put back).
+# To apply a change immediately:
+#   kubectl -n harbor create job --from=cronjob/harbor-bootstrap harbor-bootstrap-now
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harbor-bootstrap
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: harbor-bootstrap
+    app.kubernetes.io/part-of: harbor
+data:
+  harbor-bootstrap.py: |
+{{ .Files.Get "files/harbor-bootstrap.py" | indent 4 }}
+  config.json: |
+{{ dict "registries" $b.registries "projects" $b.projects "robots" $b.robots "gc" $b.gc | toPrettyJson | indent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: harbor-bootstrap
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: harbor-bootstrap
+    app.kubernetes.io/part-of: harbor
+spec:
+  schedule: {{ $b.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: harbor-bootstrap
+            app.kubernetes.io/part-of: harbor
+          annotations:
+            # Not needed for correctness (the job reads the ConfigMap at start);
+            # it makes the change visible on the CronJob in an Argo diff.
+            checksum/config: {{ printf "%s%s" (.Files.Get "files/harbor-bootstrap.py") (toJson $b) | sha256sum }}
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: bootstrap
+              image: {{ $b.image | quote }}
+              command: ["python3", "/config/harbor-bootstrap.py"]
+              env:
+                - name: CONFIG
+                  value: /config/config.json
+                - name: HARBOR_URL
+                  value: {{ $b.url | quote }}
+                - name: HARBOR_USER
+                  value: {{ $b.admin.user | quote }}
+                - name: HARBOR_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $b.admin.secretName }}
+                      key: {{ $b.admin.passwordKey }}
+                - name: DRY_RUN
+                  value: {{ $b.dryRun | toString | quote }}
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: PYTHONUNBUFFERED
+                  value: "1"
+                {{- range $b.robots }}
+                - name: {{ .secretEnv }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .secretRef.name }}
+                      key: {{ .secretRef.key }}
+                      optional: true
+                {{- end }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: harbor-bootstrap
+{{- end }}
