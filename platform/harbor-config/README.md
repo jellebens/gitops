@@ -114,11 +114,15 @@ clients must trust that CA:
 - **Docker on a workstation:** put the CA at
   `/etc/docker/certs.d/harbor.lab.local/ca.crt`, then run `docker login harbor.lab.local`.
   Images for this cluster are still built with `--platform linux/arm64 --provenance=false`.
-- **k3s nodes (pulling from Harbor):** this is **not done yet**, and it is a homelab
-  (Ansible) concern, not gitops. containerd needs `/etc/rancher/k3s/registries.yaml`
-  with a `configs."harbor.lab.local".tls.ca_file` that points at the lab CA, on every
-  node, followed by a k3s restart. The nodes resolve `lab.local` names (AGENTS.md
-  CNI/DNS pitfall). Until then, pods cannot pull from Harbor.
+- **k3s nodes (pulling from Harbor):** done since 2026-10-08 by homelab
+  `roles/k3s` (`--tags registries`, jellebens/homelab#4; see that role's README).
+  Every node has the lab CA at `/etc/rancher/k3s/lab-root-ca.crt`, a
+  `registries.yaml` that trusts it for `harbor.lab.local`, and an `/etc/hosts` pin
+  `192.168.50.200 harbor.lab.local`. The pin is required: containerd's Go resolver
+  never sends `*.local` names to DNS (AGENTS.md pitfall). **If the gateway VIP ever
+  moves, update `k3s_private_registries` in homelab and rerun**, or every node loses
+  Harbor. A pod can use `image: harbor.lab.local/<project>/<repo>:<tag>`. Public
+  projects such as `library` need no pull secret.
 - **Pull secrets:** create a robot account per project in the UI and seal its
   `dockerconfigjson` into the namespace that pulls.
 
