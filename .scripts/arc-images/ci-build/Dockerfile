@@ -53,8 +53,10 @@ RUN groupadd --gid 123 ci \
  && useradd --uid 1001 --gid 123 --create-home --home-dir /home/runner --shell /bin/bash runner \
  && git config --system --add safe.directory '*'
 
+# No apostrophes inside LABEL values: kaniko's word parser rejects them
+# ("unexpected end of statement while looking for matching single-quote").
 LABEL org.opencontainers.image.title="ci-build" \
-      org.opencontainers.image.description="ARC kubernetes-mode job container (git, curl, jq; glibc for the runner's node)" \
+      org.opencontainers.image.description="ARC kubernetes-mode job container (git, curl, jq; glibc for the runner node)" \
       org.opencontainers.image.source="https://github.com/jellebens/gitops/tree/master/.scripts/arc-images/ci-build" \
       org.opencontainers.image.version="${VERSION}"
 
