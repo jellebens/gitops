@@ -93,12 +93,26 @@ image layouts, which gives us the airgap export/import for free.
   Override with `HARBOR_RESOLVE_IP`, or set it empty to use DNS. **If the gateway
   VIP moves, update the default in `mirror.sh` as well.**
 - **The Harbor project `actions` must exist** (created declaratively by #337),
-  plus an account that may push to it. Use a project robot account for `actions`
-  with push + pull. Do not use `admin`.
-- Credentials come only from the environment, never from a file in git:
-  `HARBOR_USERNAME` + `HARBOR_PASSWORD` (written to a 0600 temp auth file that is
-  deleted on exit, never on the command line), or `HARBOR_REGISTRY_CONFIG`
-  pointing at an existing docker/oras auth file.
+  plus an account that may push to it: the project robot `robot$actions+push`
+  (push + pull on `actions` only). Do not use `admin`.
+- **Credentials, in order of precedence.** None of them ever come from a file in git:
+  1. `HARBOR_REGISTRY_CONFIG`: an existing docker/oras auth file.
+  2. `HARBOR_USERNAME` + `HARBOR_PASSWORD` from the environment.
+  3. **Default for `copy`/`import`:** neither is set, so the script reads the
+     robot's secret from the cluster with `kubectl`. The secret is
+     `harbor/harbor-actions-robot` (key `secret`), the SealedSecret that
+     platform/harbor-config sets on the robot. The user is `robot$actions+push`.
+     This needs a kubectl context with `get` on secrets in namespace `harbor`.
+     Override with `HARBOR_ROBOT_SECRET`, `HARBOR_ROBOT_NAMESPACE` and
+     `HARBOR_ROBOT_USER`.
+
+  The credential is written only to a 0600 temp auth file, which is deleted on
+  exit. It never appears on a command line. `check`, `export` and `verify` never
+  need credentials or kubectl.
+- **Lab CA.** `HARBOR_CA_FILE` must point at the lab root CA. Its default,
+  `lab-root-ca.crt` at the repo root, is not in this repo. Take it from homelab, where
+  the nodes trust it:
+  `git -C ~/repos/homelab show origin/main:roles/k3s/files/lab-root-ca.crt > ~/lab-root-ca.crt`.
 
 ## Run it
 
@@ -107,7 +121,7 @@ All commands run from the repo root in WSL.
 ### 1. Check (read-only, run this first)
 
 ```sh
-HARBOR_CA_FILE=~/repos/gitops/lab-root-ca.crt .scripts/arc-mirror/mirror.sh check --include-optional
+.scripts/arc-mirror/mirror.sh check --include-optional
 ```
 
 It resolves every upstream tag, confirms the pinned digest exists, confirms that
@@ -118,12 +132,14 @@ or lacks arm64.
 ### 2a. Lab path: copy straight into Harbor (needs internet)
 
 ```sh
-export HARBOR_CA_FILE=~/repos/gitops/lab-root-ca.crt
-export HARBOR_USERNAME='robot$actions+mirror'      # the actions push robot
-read -rs HARBOR_PASSWORD && export HARBOR_PASSWORD  # paste, never in history
-.scripts/arc-mirror/mirror.sh copy                  # add --include-optional for dind
-unset HARBOR_PASSWORD
+export HARBOR_CA_FILE=~/lab-root-ca.crt
+.scripts/arc-mirror/mirror.sh copy      # robot$actions+push, secret read via kubectl
+                                        # add --include-optional for dind
 ```
+
+Without cluster access, pass the credential yourself:
+`export HARBOR_USERNAME='robot$actions+push'; read -rs HARBOR_PASSWORD && export HARBOR_PASSWORD`,
+and `unset HARBOR_PASSWORD` afterwards.
 
 After each artifact, the script reads the tag back from Harbor and fails if the
 digest differs from the lock.
@@ -148,11 +164,13 @@ Inside the airgap:
 
 ```sh
 tar -xf arc-bundle.tar
-export HARBOR_CA_FILE=/path/to/lab-root-ca.crt HARBOR_USERNAME='robot$actions+mirror'
-read -rs HARBOR_PASSWORD && export HARBOR_PASSWORD
+export HARBOR_CA_FILE=/path/to/lab-root-ca.crt
 arc-bundle/mirror.sh import arc-bundle --lock arc-bundle/artifacts.lock
-unset HARBOR_PASSWORD
 ```
+
+With a kubectl context for the target cluster, the credential comes from
+`harbor/harbor-actions-robot` as in 2a. Otherwise set `HARBOR_USERNAME` and
+`HARBOR_PASSWORD` yourself.
 
 Before it pushes anything, `import` checks each layout's digest against the lock,
 so a wrong or tampered bundle is refused.
@@ -160,7 +178,7 @@ so a wrong or tampered bundle is refused.
 ### 3. Verify (read-only)
 
 ```sh
-HARBOR_CA_FILE=~/repos/gitops/lab-root-ca.crt .scripts/arc-mirror/mirror.sh verify
+HARBOR_CA_FILE=~/lab-root-ca.crt .scripts/arc-mirror/mirror.sh verify
 ```
 
 This checks that each pinned tag in Harbor resolves to the pinned digest. If
@@ -183,7 +201,7 @@ some time after a newer one is released, and ARC runners do not self-update.
 
 ## Can Argo CD pull the charts from Harbor?
 
-**The repository config is in place. The lab CA still has to be trusted.**
+**Yes, once the charts are mirrored: the repository config and the lab CA trust are both in place.**
 
 - **`harbor-repo`** (`platform/argocd-config/templates/repos/harbor-repo.yaml`)
   is a credential template (`argocd.argoproj.io/secret-type: repo-creds`) for
@@ -198,23 +216,17 @@ some time after a newer one is released, and ARC runners do not self-update.
   matches repositories by URL, not by secret name, so the rename does not affect
   the `harbor` app.
 
-Still open (checked read-only on 2026-10-08 against Argo CD v3.5.3):
+- **Lab CA trusted since 2026-10-09.** `argocd-tls-certs-cm` has the lab root CA
+  under `harbor.lab.local`. The ConfigMap belongs to the out-of-band `argocd` Helm
+  release, so the CA is set in that release's values (`configs.tls.certificates`),
+  owned by the homelab `argocd` role (`argocd_lab_ca_hosts`, jellebens/homelab#5),
+  not by a chart in this repo. Otherwise Helm and Argo would fight over the
+  ConfigMap. It was applied live as release revision 7, with the chart pinned at
+  10.9.1 and only that ConfigMap changed.
 
-1. **The lab CA is not trusted.** `argocd-tls-certs-cm` is empty, although the
-   repo-server already mounts it at `tls-certs`. Without the CA, Helm in the
-   repo-server rejects `https://harbor.lab.local`. The ConfigMap belongs to the
-   out-of-band `argocd` Helm release (chart argo-cd 10.9.1), so add the CA through
-   that release's values, not through a chart in this repo, or Helm and Argo will
-   fight over the ConfigMap:
-   ```yaml
-   configs:
-     tls:
-       certificates:
-         harbor.lab.local: |
-           -----BEGIN CERTIFICATE-----
-           …lab CA (lab-ca-issuer, platform/cert-manager-config)…
-   ```
-2. **Name resolution, likely fine but unverified.** The repo-server is
+Still open:
+
+- **Name resolution, likely fine but unverified.** The repo-server is
    `dnsPolicy: ClusterFirst` with no `hostAliases`. Cluster CoreDNS forwards
    `lab.local` (platform/coredns-config). The `*.local` Go-resolver pitfall bit
    containerd on the nodes, not pods. Confirm it on the first sync in #339. If it

@@ -31,13 +31,21 @@
 #   HARBOR_USERNAME / HARBOR_PASSWORD
 #                         push credentials (a robot with push on the project).
 #                         Written only to a 0600 temp auth file, never to argv.
+#                         If both are unset, copy/import read the robot's sealed
+#                         secret from the cluster with kubectl (needs `get` on
+#                         secrets in HARBOR_ROBOT_NAMESPACE):
+#   HARBOR_ROBOT_SECRET   default harbor-<project>-robot (key `secret`), the
+#                         SealedSecret platform/harbor-config keeps for the robot
+#   HARBOR_ROBOT_NAMESPACE  default harbor
+#   HARBOR_ROBOT_USER     default robot$<project>+push
 #   HARBOR_REGISTRY_CONFIG
 #                         alternative: an existing docker/oras auth file
 #                         (e.g. ~/.docker/config.json after `oras login`).
 #   ORAS                  oras binary to use. If unset and `oras` is not on PATH,
 #                         the pinned oras container image is run with docker.
 #
-# Requirements: bash, jq, and either oras >= 1.2 or docker.
+# Requirements: bash, jq, and either oras >= 1.2 or docker. kubectl only when
+# copy/import fetch the robot secret from the cluster.
 
 set -euo pipefail
 
@@ -56,8 +64,11 @@ HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.lab.local}"
 HARBOR_PROJECT="${HARBOR_PROJECT:-actions}"
 HARBOR_RESOLVE_IP="${HARBOR_RESOLVE_IP-192.168.50.200}"
 HARBOR_CA_FILE="${HARBOR_CA_FILE:-$REPO_ROOT/lab-root-ca.crt}"
+HARBOR_ROBOT_SECRET="${HARBOR_ROBOT_SECRET:-harbor-${HARBOR_PROJECT}-robot}"
+HARBOR_ROBOT_NAMESPACE="${HARBOR_ROBOT_NAMESPACE:-harbor}"
+HARBOR_ROBOT_USER="${HARBOR_ROBOT_USER:-robot\$${HARBOR_PROJECT}+push}"
 
-usage() { sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 log() { printf '%s\n' "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 
@@ -120,6 +131,21 @@ harbor_flags() {
   printf '%s\n' "${out[@]}"
 }
 
+# Push credentials from the robot's secret in the cluster (platform/harbor-config
+# keeps one SealedSecret per robot; the bootstrap job sets it on the robot).
+fetch_robot_secret() {
+  command -v kubectl >/dev/null \
+    || die "no HARBOR_USERNAME/HARBOR_PASSWORD and no kubectl to read secret $HARBOR_ROBOT_NAMESPACE/$HARBOR_ROBOT_SECRET"
+  local b64
+  b64="$(kubectl -n "$HARBOR_ROBOT_NAMESPACE" get secret "$HARBOR_ROBOT_SECRET" \
+           -o jsonpath='{.data.secret}')" \
+    || die "cannot read secret $HARBOR_ROBOT_NAMESPACE/$HARBOR_ROBOT_SECRET (kubectl context and RBAC: get secrets)"
+  [ -n "$b64" ] || die "secret $HARBOR_ROBOT_NAMESPACE/$HARBOR_ROBOT_SECRET has no key 'secret'"
+  HARBOR_PASSWORD="$(printf '%s' "$b64" | base64 -d)"
+  HARBOR_USERNAME="$HARBOR_ROBOT_USER"
+  log "credentials: $HARBOR_USERNAME from secret $HARBOR_ROBOT_NAMESPACE/$HARBOR_ROBOT_SECRET"
+}
+
 setup_harbor_access() {   # $1 = need push credentials (1/0)
   if [ -f "$HARBOR_CA_FILE" ]; then
     HARBOR_CA_FILE="$(cd "$(dirname "$HARBOR_CA_FILE")" && pwd)/$(basename "$HARBOR_CA_FILE")"
@@ -128,6 +154,10 @@ setup_harbor_access() {   # $1 = need push credentials (1/0)
     log "WARN: CA file $HARBOR_CA_FILE not found; relying on the system trust store"
   fi
   AUTH_FILE=""
+  if [ "$1" = 1 ] && [ -z "${HARBOR_REGISTRY_CONFIG:-}" ] \
+     && [ -z "${HARBOR_USERNAME:-}" ] && [ -z "${HARBOR_PASSWORD:-}" ]; then
+    fetch_robot_secret
+  fi
   if [ -n "${HARBOR_REGISTRY_CONFIG:-}" ]; then
     [ -f "$HARBOR_REGISTRY_CONFIG" ] || die "HARBOR_REGISTRY_CONFIG not found"
     AUTH_FILE="$HARBOR_REGISTRY_CONFIG"
@@ -136,10 +166,10 @@ setup_harbor_access() {   # $1 = need push credentials (1/0)
   elif [ -n "${HARBOR_USERNAME:-}" ]; then
     [ -n "${HARBOR_PASSWORD:-}" ] || die "HARBOR_USERNAME set but HARBOR_PASSWORD empty"
     AUTH_FILE="$TMP/auth.json"
+    # The credential reaches jq through the environment, not argv (ps shows argv).
     ( umask 077
-      jq -n --arg r "$HARBOR_REGISTRY" \
-            --arg a "$(printf '%s:%s' "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')" \
-            '{auths: {($r): {auth: $a}}}' > "$AUTH_FILE" )
+      HARBOR_AUTH="$(printf '%s:%s' "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')" \
+        jq -n --arg r "$HARBOR_REGISTRY" '{auths: {($r): {auth: env.HARBOR_AUTH}}}' > "$AUTH_FILE" )
   elif [ "$1" = 1 ]; then
     die "push needs HARBOR_USERNAME/HARBOR_PASSWORD or HARBOR_REGISTRY_CONFIG"
   fi
