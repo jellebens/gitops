@@ -141,13 +141,26 @@ ConfigMap) and the manifest is [`templates/bootstrap.yaml`](templates/bootstrap.
 | `dockerhub` | proxy cache of registry `docker-hub` (`https://hub.docker.com`) | yes | 14Gi | keep what was pulled in the last 14 days | `harbor.lab.local/dockerhub/library/alpine:3.20` = `docker.io/library/alpine:3.20` |
 | `ghcr` | proxy cache of registry `ghcr` (`https://ghcr.io`) | yes | 10Gi | keep what was pulled in the last 14 days | `harbor.lab.local/ghcr/actions/actions-runner:<tag>` |
 | `actions` | normal | yes | 8Gi | keep the 5 most recently pushed per repository | ARC controller/runner images and the ARC Helm charts (OCI) |
-| `ci` | normal | no | 12Gi | keep the 10 most recently pushed per repository | images built by the runners |
+| `ci` | normal, **scan on push** | no | 12Gi | keep the 10 most recently pushed per repository | images built by the runners |
+
+**Vulnerability scanning (#340).** Harbor runs Trivy (`trivy-adapter`, enabled in
+`.config/lab/harbor.yaml`). The project `ci` has `autoScan: true`, which the
+bootstrap applies as project metadata `auto_scan` ("Automatically scan images on
+push"): every artifact pushed to `ci` is scanned right after the push, with no
+API call and no extra robot permission. The ARC smoke workflow then reads the
+summary with `GET /api/v2.0/projects/ci/repositories/<repo>/artifacts/<digest>?with_scan_overview=true`
+(robot `artifact` read). The bootstrap only touches `auto_scan` on projects that
+declare `autoScan`. Scan-on-push was picked over an explicit scan call because it
+needs no `scan create` right on the CI robot and covers every image pushed to
+`ci`, not only the ones a workflow remembers to scan. Trivy downloads its
+vulnerability DB from the internet; at an airgapped site that DB must be mirrored
+too (not done yet).
 
 Robots (project robots, `repository` push + pull, never expire):
 
 | Robot | Project | SealedSecret (key `secret`) | Used by |
 |---|---|---|---|
-| `robot$ci+push` | `ci` | `harbor-ci-robot` | CI runners pushing built images (ARC, #339/#340) |
+| `robot$ci+push` | `ci` | `harbor-ci-robot` | CI runners pushing built images (ARC, #339/#340); also `artifact` read, for the scan summary |
 | `robot$actions+push` | `actions` | `harbor-actions-robot` | the ARC mirror, `.scripts/arc-mirror/mirror.sh` (#338): `HARBOR_USERNAME='robot$actions+push'` |
 
 Get the mirror's password with

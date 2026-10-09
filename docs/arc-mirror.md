@@ -25,6 +25,15 @@ ARC **0.15.0** (released 2026-10-01) and runner **2.338.0** (released 2026-10-06
 | controller image (also runs the listener pods) | `ghcr.io/actions/gha-runner-scale-set-controller:0.15.0` | `harbor.lab.local/actions/gha-runner-scale-set-controller:0.15.0` | `sha256:162dfb5b…8d37` |
 | runner image | `ghcr.io/actions/actions-runner:2.338.0` | `harbor.lab.local/actions/actions-runner:2.338.0` | `sha256:4ffadc00…e807` |
 | dind image (**optional**) | `docker.io/library/docker:29.8.2-dind` | `harbor.lab.local/actions/docker:29.8.2-dind` | `sha256:1e08cdb6…1ced` |
+| kaniko image (#340: image builds in the job pods) | `ghcr.io/osscontainertools/kaniko:v1.28.5` | `harbor.lab.local/actions/kaniko:v1.28.5` | `sha256:738807f0…8675` |
+
+kaniko (added 2026-10-09, #340) comes from
+[osscontainertools/kaniko](https://github.com/osscontainertools/kaniko), the
+maintained community fork; GoogleContainerTools/kaniko is archived. Its index
+has linux/amd64, arm64, s390x, riscv64 and ppc64le (about 109 MiB for all).
+Why kaniko, and how workflows use it: [landingzones/arc-runners/README.md](../landingzones/arc-runners/README.md)
+"Building images". The job image `ci-build` is not in the lock: it is built
+here, not mirrored (`.scripts/arc-images/build.sh`).
 
 Full digests are in the lock file. All three images are multi-arch indexes that
 contain `linux/arm64` (checked by `mirror.sh check`). The controller and runner
