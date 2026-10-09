@@ -8,4 +8,4 @@
 # Procedure: landingzones/arc-runners/README.md "Enable the scale set".
 arc:
   runners:
-    enabled: false
+    enabled: true
