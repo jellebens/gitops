@@ -1,7 +1,33 @@
-# arc-runners landing-zone chart (landingzones/arc-runners, #339) — lab values.
-# Sealed secrets only (encrypted for the sealed-secrets controller in ns argocd,
-# scope strict: namespace arc-runners + the secret name). See
-# landingzones/arc-runners/README.md.
+# arc-runners landing-zone chart (landingzones/arc-runners, #339, #340) — lab values.
+# Sealed secrets (encrypted for the sealed-secrets controller in ns argocd,
+# scope strict: namespace arc-runners + the secret name) plus the PUBLIC lab
+# root CA certificate. See landingzones/arc-runners/README.md.
+
+# Lab root CA (public cert, not a secret) for the job pods (#340): ConfigMap
+# arc-runners/lab-root-ca, key ca.crt. Source: homelab
+# roles/k3s/files/lab-root-ca.crt (origin/main 50d623e; CN=lab-root-ca, valid
+# to 2036-05-31, SHA-256 0E:24:2E:25:…:55:49:22:65), the same CA the nodes
+# trust and that issued harbor.lab.local's certificate. Update both together.
+labCA:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIC+DCCAeCgAwIBAgIQX/P0p24aeQK03MkrMzj90TANBgkqhkiG9w0BAQsFADAW
+    MRQwEgYDVQQDEwtsYWItcm9vdC1jYTAeFw0yNjA2MDMxODAxMjVaFw0zNjA1MzEx
+    ODAxMjVaMBYxFDASBgNVBAMTC2xhYi1yb290LWNhMIIBIjANBgkqhkiG9w0BAQEF
+    AAOCAQ8AMIIBCgKCAQEAucvQDLCDSCItQtvDTjKOiVe8jpu+3m787WOBSmIOEdF4
+    Ihk2qjOOqR8Dwg/VVWeOdFQVNml7sN+bjkyH5MGvHwI2KKOQys7Ny7p7vqGyG4uN
+    E2wKMCOIiIWy+7Y/l/POXLIFycRq9BpEp4IJuCLntzbu6MI9hxwKbS10F3pAd1Li
+    p5lVQmE7ZdcObfIdGkehQXNoHbKvvY6h2YPMhk1lggLyvVz4dL//xV5IxYGhQavi
+    99D0WDKJIAbuNhcZAb6sc5NBjz4KLU200Qvhuv47jyMrHuQmH2HlV0zadTUR6c7l
+    ANKuDTS9C2QLdn8Xgqmby+3RzhxkzAWpX7O7f7U+AQIDAQABo0IwQDAOBgNVHQ8B
+    Af8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUibdpxZ3wD0dLpLu2
+    Bb7GrDU++qgwDQYJKoZIhvcNAQELBQADggEBACrksL3qewkV1EG20fHfHm465dUj
+    Wvf8WfCd38d0O5RxytSItInoA4BmWAw/OfVS9DspCD699y8M/jertaq4dzU5dcm3
+    sx2diFaGLTumMMuCjBbPuu7koMZbBt/aMi5wJjQivVtxaDJSYSR/NAkK97NXCmz9
+    9Luv5U1z6gvTbkmh0rMfVGYOZrrGi/LIrOiFVbct7rnKVvc+rGzAAoAu8tz1qAKZ
+    1rCo8X6dDwUeuYboul0GaN21u6U50M4updX2fcGd8AiWZu3dB+9QZKNA8uAGy9uR
+    z49WS6y/eoIDgu6hfQU+m/Nvc6QC4DKmS0e5lGvB5J9+p63aQXIy55DKT80=
+    -----END CERTIFICATE-----
 
 # Docker config for robot$ci+push on harbor.lab.local (push + pull on the Harbor
 # project `ci`), for #340's image builds. A copy of harbor/harbor-ci-robot (key
