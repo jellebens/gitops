@@ -11,6 +11,12 @@ metadata:
     # (30): the central price API must exist before any consumer that might be
     # flipped onto it (card #107).
     argocd.argoproj.io/sync-wave: "20"
+    # Diff via a server-side dry-run: the CNPG Cluster jupiter-pg was forever
+    # OutOfSync under Argo's local structured-merge diff (schema defaults inside
+    # atomic lists), with a no-op self-heal apply every 5 min. Same fix as
+    # ceres and kyverno; see AGENTS.md "Known Pitfalls". Verified 2026-10-09:
+    # `argocd app diff jupiter-central --core --server-side-generate` is empty.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: landing-zones
   destination:
