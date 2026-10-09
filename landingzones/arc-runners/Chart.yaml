@@ -1,0 +1,6 @@
+apiVersion: v2
+name: arc-runners
+description: ARC runner landing zone (#339) — sealed GitHub App credential and Harbor push credential for the arc-ceres scale set
+type: application
+version: 0.1.0
+appVersion: "0.15.0"

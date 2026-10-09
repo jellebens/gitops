@@ -1,0 +1,19 @@
+# arc-config (#339): cluster-scoped prerequisites for the ARC runner set.
+
+# StorageClass for the per-job work volume of the kubernetes-mode runners
+# (containerMode.kubernetesModeWorkVolumeClaim in .config/lab/arc-runners.yaml).
+# The runner pod and the job pods the container hook starts mount the SAME
+# volume, possibly on different nodes, so it must be ReadWriteMany: a Longhorn
+# RWX volume (share-manager pod exporting NFSv4, nfs-common on every node).
+#
+# Why not the default `longhorn` class: it is reclaimPolicy Retain, so every
+# finished job would leave a Released PV + a Longhorn volume behind. Work dirs
+# are scratch, hence Delete, and one replica (no rebuild traffic on the 1 GbE
+# LAN the battery controller shares; a lost node only fails the running job).
+workStorageClass:
+  name: longhorn-arc-work
+  numberOfReplicas: "1"
+  # Keep the single replica on the node that runs the share-manager when it can.
+  dataLocality: best-effort
+  staleReplicaTimeout: "30"
+  fsType: ext4

@@ -1,0 +1,54 @@
+# ARC controller (gha-runner-scale-set-controller 0.15.0, #339) — lab values.
+# Chart: oci://harbor.lab.local/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+# Docs: landingzones/arc-runners/README.md.
+
+# Airgap rule: nothing from ghcr.io. The ref is the pinned one from
+# .scripts/arc-mirror/artifacts.lock (tag + index digest, identical in Harbor).
+# The chart renders "<repository>:<tag>" into BOTH the manager container and
+# CONTROLLER_MANAGER_CONTAINER_IMAGE, which is the image the controller gives
+# the LISTENER pods, so this one override covers the listener too. The digest
+# rides in the tag field because the chart has no separate digest value.
+image:
+  repository: harbor.lab.local/actions/gha-runner-scale-set-controller
+  tag: "0.15.0@sha256:162dfb5bfbda9e7e49fbed67d428994c9ced55b41a37a18b75b46dab0aa98d37"
+  pullPolicy: IfNotPresent
+# `actions` is a public Harbor project: no imagePullSecrets.
+
+replicaCount: 1
+
+flags:
+  # Upstream default is debug; info keeps Loki quiet.
+  logLevel: info
+  logFormat: json
+  # One runner set: no need for extra workers.
+  ephemeralRunnerMaxConcurrentReconciles: 2
+  # Do not copy Argo's tracking label onto the objects ARC generates
+  # (listeners, ephemeral runners, pods), or Argo would show them as
+  # orphaned/extraneous members of the arc / arc-runners apps.
+  excludeLabelPropagationPrefixes:
+    - "argocd.argoproj.io/instance"
+  healthProbeBindAddress: ":8081"
+
+# CI must never starve the live workloads (jupiter controls a real battery,
+# ceres runs hydroponics) — small and capped.
+resources:
+  requests:
+    cpu: 25m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 384Mi
+
+# The image is distroless :nonroot (uid 65532). The chart mounts /tmp as an
+# emptyDir, so a read-only root filesystem works.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]

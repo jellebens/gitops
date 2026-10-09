@@ -62,6 +62,11 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
   optimizer (LIVE, controlling the battery). See its README for wiring, metrics,
   the Grafana dashboard, MQTT, secrets, and the arm64 image build.
 - `landingzones/hermes` — see the directory.
+- [`landingzones/arc-runners`](landingzones/arc-runners/README.md) — GitHub
+  Actions runners (ARC, kubernetes mode) for the private `ceres` repo, charts and
+  images from Harbor only (#339). Controller app `arc` is live-able now; the
+  scale set app `arc-runners` is gated by `arc.runners.enabled` in
+  `.config/lab/apps.yaml` until the GitHub App is sealed.
 - [`landingzones/ceres`](landingzones/ceres/README.md) — Ceres's per-unit
   Vertumnus instances (one `ceres-vertumnus-<unit_id>` Deployment per hydroponic unit, card
   #291) plus Annona, Robigus, Carmenta, the `ceres` Telegraf archive and `ceres-pg`. The

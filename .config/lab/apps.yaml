@@ -1,0 +1,11 @@
+# Values for the app-of-apps chart (applications/), lab only. Read by the
+# bootstrap Application after .config/shared/values.yaml and .config/lab/values.yaml.
+
+# ARC (#339). The controller (arc) and its StorageClass (arc-config) always
+# deploy. The runner scale set (arc-runners) registers with GitHub, so its
+# Application is only rendered once the GitHub App credential is sealed into
+# .config/lab/arc-runners-config.yaml. Flip to true in the same PR as the seal.
+# Procedure: landingzones/arc-runners/README.md "Enable the scale set".
+arc:
+  runners:
+    enabled: false

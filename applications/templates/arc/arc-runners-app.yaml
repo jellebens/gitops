@@ -1,0 +1,60 @@
+{{- /*
+  ARC runner scale set (#339). GATED: this Application only exists when
+  .Values.arc.runners.enabled is true (.config/lab/apps.yaml). The scale set
+  registers with GitHub as soon as it syncs, so it stays off until the owner
+  has created the GitHub App and sealed its credential into
+  .config/lab/arc-runners-config.yaml. See landingzones/arc-runners/README.md.
+*/ -}}
+{{- if and .Values.arc .Values.arc.runners .Values.arc.runners.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc-runners
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Landing-zone wave, after the ARC controller (20) whose CRDs it uses and
+    # after arc-config (19), which owns the work-volume StorageClass.
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  project: landing-zones
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-runners
+  sources:
+    # The upstream scale-set chart, from Harbor (#338).
+    - repoURL: {{ .Values.repos.arc.url | quote }}
+      chart: gha-runner-scale-set
+      targetRevision: {{ .Values.repos.arc.targetRevision | quote }}
+      helm:
+        # Release name = scale-set name unless runnerScaleSetName overrides it
+        # (it does, in .config/lab/arc-runners.yaml).
+        releaseName: arc-runners
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/arc-runners.yaml
+    # Our landing-zone chart: the SealedSecrets the scale set consumes.
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      path: landingzones/arc-runners
+      helm:
+        releaseName: arc-runners-config
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/arc-runners-config.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+{{- end }}

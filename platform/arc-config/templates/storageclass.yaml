@@ -1,0 +1,20 @@
+{{- with .Values.workStorageClass }}
+# Longhorn RWX class for ARC kubernetes-mode work volumes. See values.yaml and
+# landingzones/arc-runners/README.md "Work volume (RWX)".
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .name }}
+  labels:
+    app.kubernetes.io/name: arc-config
+    app.kubernetes.io/part-of: arc
+provisioner: driver.longhorn.io
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: {{ .numberOfReplicas | quote }}
+  dataLocality: {{ .dataLocality | quote }}
+  staleReplicaTimeout: {{ .staleReplicaTimeout | quote }}
+  fsType: {{ .fsType | quote }}
+{{- end }}
