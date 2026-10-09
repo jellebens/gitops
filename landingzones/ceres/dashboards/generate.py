@@ -288,6 +288,7 @@ def u(labels=""):
 
 
 L_PH, L_EC = u('metric="ph"'), u('metric="ec"')
+L_TANK_L, L_TANK_PCT, L_TANK_MM = u('metric="volume_l"'), u('metric="level_pct"'), u('metric="level_distance_mm"')
 L_PHD = u('reagent="ph_down"')
 L_PH_LO, L_PH_HI = u('metric="ph", bound="low"'), u('metric="ph", bound="high"')
 L_EC_LO, L_EC_HI = u('metric="ec_ms_cm", bound="low"'), u('metric="ec_ms_cm", bound="high"')
@@ -378,6 +379,17 @@ def unit_board():
     P.append(timeseries("Air", [tele("humidity_pct", "air", "humidity %"), tele("pressure_hpa", "air", "pressure hPa", ref="B")],
                         g.place(8, 8), "Relative humidity and barometric pressure.", decimals=1, fill=0,
                         overrides=[override("pressure hPa", axis="right", unit="pressurehpa"), override("humidity %", unit="humidity")]))
+    # the tank (pomona 2.4.0's A02YYUW ultrasonic, vertumnus 0.27.0): litres and % once the node is calibrated,
+    # the raw sensor-to-water distance always — the distance grows as the tank empties
+    g.newline()
+    P.append(timeseries("Tank level", [prom(f"ceres_reading{L_TANK_L}", "litres"),
+                                       prom(f"ceres_reading{L_TANK_PCT}", "full %", "B"),
+                                       prom(f"ceres_reading{L_TANK_MM}", "distance mm", "C")],
+                        g.place(24, 8), "Reservoir level from the ultrasonic above the tank: litres and % full once its two distances are "
+                        "calibrated (pomona docs/sensors/level-sonic.md), and the raw distance from the sensor face to the water — larger "
+                        "is emptier. Top up when it turns red (below 30 %).", unit="litre", decimals=1, fill=10, min=0,
+                        overrides=[override("full %", axis="right", unit="percent", color="green", dash=True),
+                                   override("distance mm", axis="right", unit="lengthmm", color="text", dash=True)]))
 
     # mixing evidence and dosing
     g.newline()
