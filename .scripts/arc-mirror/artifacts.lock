@@ -15,6 +15,11 @@
 #
 # Pinned 2026-10-08: ARC 0.15.0 (released 2026-10-01), runner 2.338.0
 # (released 2026-10-06), docker 29.8.2-dind (optional, dind mode only).
+# Pinned 2026-10-09 (#340): kaniko v1.28.5 (released 2026-09-20) from
+# osscontainertools/kaniko, the maintained community fork of the archived
+# GoogleContainerTools/kaniko (same binary and flags; also on Docker Hub as
+# martizih/kaniko). The image builder for the ARC job pods; see
+# landingzones/arc-runners/README.md "Building images".
 #
 # Columns (whitespace separated, one artifact per line):
 #   kind      chart | image
@@ -31,3 +36,4 @@ chart   chart-runner-set  ghcr.io/actions/actions-runner-controller-charts/gha-r
 image   controller        ghcr.io/actions/gha-runner-scale-set-controller                                    0.15.0       sha256:162dfb5bfbda9e7e49fbed67d428994c9ced55b41a37a18b75b46dab0aa98d37   gha-runner-scale-set-controller                                   required
 image   runner            ghcr.io/actions/actions-runner                                                     2.338.0      sha256:4ffadc0002b2581327e06101fc8c06cd189232baf79fe561fac9caeb76f5e807   actions-runner                                                    required
 image   dind              docker.io/library/docker                                                           29.8.2-dind  sha256:1e08cdb63405ca788aea94ef35b792d1e299607c667d33d7bcbcae1fd2611ced   docker                                                            optional
+image   kaniko            ghcr.io/osscontainertools/kaniko                                                   v1.28.5      sha256:738807f0e31daf07743f89260a95956dcc6ee4f62553f4f6344c990cabab8675   kaniko                                                            required

@@ -74,8 +74,8 @@ template:
     # Cheap insurance next to cluster CoreDNS's lab.local forward: Go programs
     # may not resolve *.local names (AGENTS.md pitfall). Gateway VIP — if it
     # moves, update this and the node pins (homelab roles/k3s) together.
-    # NOTE: this covers the RUNNER pod only. Job pods created by the container
-    # hook need ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE for the same pin (#340).
+    # NOTE: this covers the RUNNER pod only. Job pods get the same pin from the
+    # hook template (#340, landingzones/arc-runners values `hookTemplate`).
     hostAliases:
       - ip: 192.168.50.200
         hostnames:
@@ -91,6 +91,43 @@ template:
       fsGroup: 123
       seccompProfile:
         type: RuntimeDefault
+    # #340: make the RWX work volume writable for the runner (uid 1001).
+    # Longhorn's CSI driver has fsGroupPolicy ReadWriteOnceWithFSType, so the
+    # fsGroup above is NOT applied to this RWX (NFS, share-manager) volume and
+    # the fresh ext4 root is root:root 0755. This init container (same image,
+    # uid 0, only CAP_CHOWN, no privilege escalation) hands the volume root to
+    # 1001:123 before the runner starts; the hook's job pods then run as 1001
+    # too (ci-build image). Non-fatal by design: if the export squashes root
+    # the chown fails, it logs a WARN and the runner reports the permission
+    # error itself (README "Work volume"). The chart keeps initContainers and
+    # adds the `work` volume, so the mount name matches.
+    initContainers:
+      - name: work-perms
+        image: harbor.lab.local/actions/actions-runner:2.338.0@sha256:4ffadc0002b2581327e06101fc8c06cd189232baf79fe561fac9caeb76f5e807
+        command:
+          - /bin/sh
+          - -c
+          - >-
+            chown 1001:123 /home/runner/_work && chmod 0775 /home/runner/_work
+            || echo "WARN: cannot chown the work volume (root squashed?)";
+            ls -ldn /home/runner/_work
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+            add: ["CHOWN", "FOWNER"]
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
     containers:
       - name: runner
         # Pinned ref from .scripts/arc-mirror/artifacts.lock (Harbor, not ghcr.io).
@@ -107,3 +144,20 @@ template:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
+        # #340: the hook template (pod-spec fragment for job pods and
+        # container-step pods). The chart appends its own kube-mode env
+        # (ACTIONS_RUNNER_CONTAINER_HOOKS, POD_NAME, REQUIRE_JOB_CONTAINER) and
+        # the `work` mount to these.
+        env:
+          - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+            value: /home/runner/hook-template/template.yaml
+        volumeMounts:
+          - name: hook-template
+            mountPath: /home/runner/hook-template
+            readOnly: true
+    # Non-work volumes are appended after the chart's ephemeral `work` volume.
+    volumes:
+      - name: hook-template
+        configMap:
+          # landingzones/arc-runners (values hookTemplate.name), same Argo app.
+          name: arc-ceres-hook-template

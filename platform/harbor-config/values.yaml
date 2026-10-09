@@ -105,8 +105,13 @@ bootstrap:
           - template: latestPushedK
             value: 5
     # Images built by the runners. Private: pulls need a robot credential.
+    # autoScan (#340): Trivy scans every pushed artifact (Harbor "Automatically
+    # scan images on push"); the ARC smoke workflow reads the result back
+    # through the API with robot$ci+push (artifact read, below). Without the
+    # key the bootstrap leaves a project's scan setting alone.
     - name: ci
       public: false
+      autoScan: true
       storageLimitGi: 12
       retention:
         cron: "0 0 23 * * *"
@@ -125,6 +130,10 @@ bootstrap:
       access:
         - {resource: repository, action: push}
         - {resource: repository, action: pull}
+        # GET /api/v2.0/projects/ci/repositories/<r>/artifacts/<digest>
+        # ?with_scan_overview=true: CI reads its own image's Trivy summary
+        # (#340). Read-only; no scan trigger, no delete.
+        - {resource: artifact, action: read}
     - project: actions
       name: push
       description: ARC mirror pushes charts and images (#338 .scripts/arc-mirror)

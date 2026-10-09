@@ -153,8 +153,15 @@ class Reconciler:
         elif status != 200:
             self.fail(f"project {name}: get -> {status} {have}")
             return None
+        # Scan on push (Trivy): managed only when the project declares autoScan,
+        # so projects without the key keep whatever the UI set (#340).
+        auto_scan = None
+        if want.get("autoScan") is not None:
+            auto_scan = "true" if want.get("autoScan") else "false"
         if have is None:
             body = {"project_name": name, "metadata": {"public": public}}
+            if auto_scan is not None:
+                body["metadata"]["auto_scan"] = auto_scan
             if want.get("storageLimitGi") is not None:
                 body["storage_limit"] = int(want["storageLimitGi"] * GIB)
             if want.get("proxyCache"):
@@ -179,6 +186,9 @@ class Reconciler:
         if meta.get("public", "false") != public:
             self.change(f"project {name}: public -> {public}", "PUT",
                         f"/api/v2.0/projects/{self.q(name)}", {"metadata": {"public": public}})
+        if auto_scan is not None and meta.get("auto_scan", "false") != auto_scan:
+            self.change(f"project {name}: auto_scan -> {auto_scan}", "PUT",
+                        f"/api/v2.0/projects/{self.q(name)}", {"metadata": {"auto_scan": auto_scan}})
         if want.get("proxyCache"):
             reg = self.registry_ids.get(want["proxyCache"])
             if have.get("registry_id") != reg:

@@ -1,0 +1,36 @@
+{{- /*
+  #340: pod-spec fragment the ARC kubernetes-mode container hook merges into
+  every job pod and container-step pod (ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE,
+  wired in .config/lab/arc-runners.yaml). See values.yaml `hookTemplate`.
+*/ -}}
+{{- with .Values.hookTemplate }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: arc
+  annotations:
+    # Before the AutoscalingRunnerSet (wave 0), whose runner pods mount it.
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  template.yaml: |
+    {{- toYaml .template | nindent 4 }}
+{{- end }}
+{{- if .Values.labCA.cert }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.labCA.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: arc
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  ca.crt: |
+    {{- .Values.labCA.cert | trim | nindent 4 }}
+{{- end }}

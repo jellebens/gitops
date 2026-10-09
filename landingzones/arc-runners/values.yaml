@@ -1,5 +1,5 @@
-# arc-runners landing-zone chart (#339). Sealed values live in
-# .config/lab/arc-runners-config.yaml. Each SealedSecret only renders once its
+# arc-runners landing-zone chart (#339, #340). Sealed values and the lab CA live
+# in .config/lab/arc-runners-config.yaml. Each SealedSecret only renders once its
 # encryptedData is filled in. See README.md.
 
 namespace: arc-runners
@@ -18,3 +18,107 @@ githubApp:
 harborPush:
   name: harbor-ci-push
   encryptedData: {}
+
+# Lab root CA (public certificate, PEM) as a ConfigMap, key `ca.crt`. Mounted
+# into the job pods by the hook template below, so kaniko and curl trust
+# harbor.lab.local without baking the CA into every image. Rendered only when
+# `cert` is set (.config/lab/arc-runners-config.yaml).
+labCA:
+  name: lab-root-ca
+  cert: ""
+
+# #340: the runner container hook template (ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE).
+# In kubernetes mode the hook (/home/runner/k8s/index.js in the runner image,
+# actions/runner-container-hooks) creates the job pod and the container-step
+# Job pods itself; the runner pod template does not reach them. The hook merges
+# this fragment into BOTH:
+#   - spec.*            pod-level fields, set on the job pod and on every
+#                       `uses: docker://…` step pod (lists like volumes append,
+#                       everything else replaces)
+#   - containers `$job` merged into the job container AND into the step
+#                       container (both are named `job`): env/volumeMounts
+#                       append, other fields (resources, securityContext)
+#                       replace. Containers without the `$` prefix would be
+#                       ADDED as sidecars, so there are none here.
+# Rendered as ConfigMap `<hookTemplate.name>`, key template.yaml, mounted into
+# the runner at /home/runner/hook-template (.config/lab/arc-runners.yaml).
+# The hook reads the file at every job start, so a change applies to the next
+# job without restarting anything.
+hookTemplate:
+  name: arc-ceres-hook-template
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: arc
+        app.kubernetes.io/component: arc-job
+    spec:
+      # Same pin as the runner pod (.config/lab/arc-runners.yaml): Go tools
+      # (kaniko, crane, oras) may not resolve *.local names through DNS
+      # (AGENTS.md pitfall). Gateway VIP — if it moves, update all three.
+      hostAliases:
+        - ip: 192.168.50.200
+          hostnames:
+            - harbor.lab.local
+      # NOT runAsNonRoot at pod level: the kaniko step pod must run as uid 0
+      # (it unpacks the base image over its own root filesystem). The job
+      # container is non-root through its image (ci-build: USER 1001:123).
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        # robot$ci+push docker config, as config.json for kaniko/crane/docker.
+        - name: harbor-ci-push
+          secret:
+            secretName: harbor-ci-push
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: lab-root-ca
+          configMap:
+            name: lab-root-ca
+      containers:
+        - name: $job
+          env:
+            # kaniko's default, and what the docker CLI/crane/oras read too.
+            - name: DOCKER_CONFIG
+              value: /kaniko/.docker
+            - name: LAB_CA_FILE
+              value: /etc/lab-ca/ca.crt
+          volumeMounts:
+            - name: harbor-ci-push
+              mountPath: /kaniko/.docker
+              readOnly: true
+            - name: lab-root-ca
+              mountPath: /etc/lab-ca
+              readOnly: true
+          # Shared by the job container (idle `tail -f /dev/null` + exec'd
+          # steps) and the kaniko step pod (the heavy one: unpacks and snapshots
+          # the image in its own root fs, hence ephemeral-storage). maxRunners 2
+          # bounds the total; nodes are 4 CPU / 8 GiB arm64.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 10Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Only what kaniko needs as root to unpack layers and run RUN
+            # steps (chown/chmod files it does not own, setuid/setgid in RUN,
+            # chroot for package scripts). No SYS_ADMIN, no privileged. A
+            # non-root job container gets none of these in its effective set.
+            capabilities:
+              drop: ["ALL"]
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - FSETID
+                - KILL
+                - SETGID
+                - SETUID
+                - SETFCAP
+                - SYS_CHROOT
