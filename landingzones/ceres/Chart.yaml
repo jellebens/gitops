@@ -102,7 +102,9 @@ name: ceres
 #          a read-only INFLUX_TOKEN for bucket ceres sealed in ceres-janus-secrets) — it survives a restart.
 # 0.26.1 = ceres janus 0.6.0: runs of identical decisions are one line in the timeline. Image tag only.
 # 0.26.2 = ceres vertumnus 0.26.2 (ADR-0018 §6): the water watch compares EC within one pump state. Image tag only.
-version: 0.26.4
+# 0.27.0 = ceres vertumnus 0.27.0: the tank level from pomona 2.4.0's A02YYUW ultrasonic in ceres_reading
+#          (level_pct, volume_l, level_distance_mm); the unit dashboard gains a "Tank level" panel.
+version: 0.27.0
 type: application
-appVersion: "0.26.1"
+appVersion: "0.27.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
