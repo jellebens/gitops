@@ -42,6 +42,13 @@ repos:
   harborRegistry:
     url: harbor.lab.local
 
+  # ARC (actions-runner-controller) charts, mirrored into Harbor by #338
+  # (.scripts/arc-mirror/artifacts.lock). Both charts (controller + scale set)
+  # live under this path and share the ARC version. Bump together with the lock.
+  arc:
+    url: harbor.lab.local/actions/actions-runner-controller-charts
+    targetRevision: 0.15.0
+
   config:
     url: https://github.com/jellebens/gitops.git
     targetRevision: HEAD
