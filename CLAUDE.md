@@ -41,7 +41,10 @@ install them. Tooling: `argocd`, `helm`, `kubectl`, `kubeseal`, `jq`, `git`.
 
 ## Secrets
 
-SealedSecrets via kubeseal; controller is **`sealed-secrets` in namespace
+SealedSecrets via kubeseal. The controller's private keys must also be held
+off-cluster by the owner, re-exported after each 30-day key rotation:
+[docs/sealed-secrets-key-backup.md](docs/sealed-secrets-key-backup.md). Never
+export them in an agent session. Controller is **`sealed-secrets` in namespace
 `argocd`**:
 ```sh
 kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd \
