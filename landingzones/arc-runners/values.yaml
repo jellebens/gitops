@@ -1,0 +1,20 @@
+# arc-runners landing-zone chart (#339). Sealed values live in
+# .config/lab/arc-runners-config.yaml. Each SealedSecret only renders once its
+# encryptedData is filled in. See README.md.
+
+namespace: arc-runners
+
+# GitHub App credential for the scale set (githubConfigSecret in
+# .config/lab/arc-runners.yaml). Keys: github_app_id,
+# github_app_installation_id, github_app_private_key. Sealed with
+# .scripts/seal-arc-github-app.sh.
+githubApp:
+  name: arc-github-app
+  encryptedData: {}
+
+# Docker config (kubernetes.io/dockerconfigjson) for robot$ci+push on
+# harbor.lab.local — what #340's image builds push with. A copy of the
+# harbor/harbor-ci-robot secret, sealed for this namespace.
+harborPush:
+  name: harbor-ci-push
+  encryptedData: {}

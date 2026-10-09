@@ -11,6 +11,8 @@ chart and image ARC needs is copied into the Harbor project `actions`
 | [`.scripts/arc-mirror/mirror.sh`](../.scripts/arc-mirror/mirror.sh) | The mirror: `check`, `copy`, `export`, `import`, `verify`. |
 
 Harbor itself: [`platform/harbor-config/README.md`](../platform/harbor-config/README.md).
+The ARC install that consumes these pins (#339, kubernetes mode, Argo apps
+`arc-config`, `arc`, `arc-runners`): [`landingzones/arc-runners/README.md`](../landingzones/arc-runners/README.md).
 
 ## What is mirrored (pinned 2026-10-08)
 

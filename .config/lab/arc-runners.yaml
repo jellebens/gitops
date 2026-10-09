@@ -1,0 +1,109 @@
+# ARC runner scale set (gha-runner-scale-set 0.15.0, #339) — lab values.
+# Chart: oci://harbor.lab.local/actions/actions-runner-controller-charts/gha-runner-scale-set
+# Only deployed when arc.runners.enabled is true (.config/lab/apps.yaml).
+# Docs: landingzones/arc-runners/README.md.
+
+# Owner decision: ONE private repo. Never point self-hosted runners at a public
+# repo (fork PRs would run code on the LAN).
+githubConfigUrl: https://github.com/jellebens/ceres
+
+# Pre-defined Secret (GitHub App: github_app_id, github_app_installation_id,
+# github_app_private_key), produced by the SealedSecret in
+# landingzones/arc-runners from .config/lab/arc-runners-config.yaml. A string
+# here means the chart does NOT render its own plaintext Secret.
+githubConfigSecret: arc-github-app
+
+# Workflows use `runs-on: arc-ceres`.
+runnerScaleSetName: arc-ceres
+
+# Scale to zero when idle; at most 2 concurrent jobs so CI cannot starve
+# jupiter (live battery) or ceres (hydroponics).
+minRunners: 0
+maxRunners: 2
+
+# The controller is installed by the `arc` app (release `arc`, ns arc-systems).
+# Explicit, because the chart's fallback is a Helm `lookup`, which renders
+# empty under Argo CD and fails the template.
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-gha-rs-controller
+
+# Owner decision: kubernetes mode. No privileged pods; job containers run as
+# separate pods created by the runner container hooks. The work volume is
+# shared by the runner pod and the job pods (possibly on different nodes), so
+# it must be ReadWriteMany: Longhorn RWX, class from platform/arc-config.
+containerMode:
+  type: kubernetes
+  kubernetesModeWorkVolumeClaim:
+    accessModes: ["ReadWriteMany"]
+    storageClassName: longhorn-arc-work
+    resources:
+      requests:
+        storage: 4Gi
+
+# Listener pod (one per scale set, runs in arc-systems). Its IMAGE is the
+# controller image from .config/lab/arc.yaml (CONTROLLER_MANAGER_CONTAINER_IMAGE),
+# i.e. Harbor; only resources and the securityContext are set here.
+listenerTemplate:
+  spec:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+      - name: listener
+        resources:
+          requests:
+            cpu: 10m
+            memory: 48Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+
+# Runner pod. In kubernetes mode the chart adds the hook env
+# (ACTIONS_RUNNER_CONTAINER_HOOKS=/home/runner/k8s/index.js, POD_NAME,
+# REQUIRE_JOB_CONTAINER=true) and the `work` volume + mount itself.
+template:
+  spec:
+    # Cheap insurance next to cluster CoreDNS's lab.local forward: Go programs
+    # may not resolve *.local names (AGENTS.md pitfall). Gateway VIP — if it
+    # moves, update this and the node pins (homelab roles/k3s) together.
+    # NOTE: this covers the RUNNER pod only. Job pods created by the container
+    # hook need ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE for the same pin (#340).
+    hostAliases:
+      - ip: 192.168.50.200
+        hostnames:
+          - harbor.lab.local
+    securityContext:
+      # The actions-runner image's USER is the NAME `runner`, which the kubelet
+      # cannot check against runAsNonRoot, so pin its uid (1001). The primary
+      # gid then comes from the image's /etc/passwd (1001); docker gid is 123.
+      runAsNonRoot: true
+      runAsUser: 1001
+      # Honoured only for RWO volumes by Longhorn (fsGroupPolicy
+      # ReadWriteOnceWithFSType); harmless for the RWX work volume.
+      fsGroup: 123
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+      - name: runner
+        # Pinned ref from .scripts/arc-mirror/artifacts.lock (Harbor, not ghcr.io).
+        image: harbor.lab.local/actions/actions-runner:2.338.0@sha256:4ffadc0002b2581327e06101fc8c06cd189232baf79fe561fac9caeb76f5e807
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]

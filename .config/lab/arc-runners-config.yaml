@@ -1,0 +1,17 @@
+# arc-runners landing-zone chart (landingzones/arc-runners, #339) — lab values.
+# Sealed secrets only (encrypted for the sealed-secrets controller in ns argocd,
+# scope strict: namespace arc-runners + the secret name). See
+# landingzones/arc-runners/README.md.
+
+# Docker config for robot$ci+push on harbor.lab.local (push + pull on the Harbor
+# project `ci`), for #340's image builds. A copy of harbor/harbor-ci-robot (key
+# `secret`), sealed 2026-10-09 by #339 straight from the cluster secret (never
+# printed). If the robot secret rotates, re-seal this (README "Harbor push credential").
+harborPush:
+  encryptedData:
+    .dockerconfigjson: "AgAIsCNp66YtZ6NypFrFc86q3TtvApg21qGVJV43a4KBDZWPuitNoTruS3aK7bDv+LBXWM+beiM5rqXoxYSnihiLRFhnAl1UEq9jA/WNh7nN1qOiA31jyM39aZBDZx0fE/zQsSQLKJ/xGjzpFPY2He3NIv5XGt21K6SpniEy6ibAhYHz0F7wNToBa4Gx5GbctizGtyI84YeumS7sfGhIeuFq1fUatbzzKZSZvV/jNIeH2CERufwF3tCwDQ9GNtTY4VPIvp8cOGYWRzATZOTEtawYOaZmv3JMu548vc1C47due84GFAG6VT5L6v7/Q0GPEQjpSJ/eyAFOP3PyzTwZ/pThgVD+VHokk8X61sZ3AXWtK7fRj84epSEvVmoE8sueu3gGBJ7aQYYGLZXko5uopuCbkU3h14TBmpp5Pd97xS6e8QeKMSHreotaPESe/DaK9VRTWJH4DDt78xki9cZW72WhOBrBMDI5qHCS2BIlMXfXEgsahidrskBBSqZ5E1Kanr2Es1BhGxvjtHCjjAkaJIPuZggbYrj3nk0/j6sZVXSrWbJftQnkOEgD4xiwhp9+ASNlntkWCr1MUeiW+4GRP4Gj9mvfEZKBl7fnjX66IPop3SVChPRv2p9P4LuwUQPhRxKGEV5ZelJ1b8mHzz6YFpyDdPXnjhlWxXxIk9JUgrIU0Obaahuxsw/dOsP3M6caINrCDJf0GV/jYQgoD7zRul05tXFIS46uZ/6qRojtjgAggIoAY/sbPCzi/trsdLUQKEEsHqTwut0sJyeftVlf0YfIZxV+sheFbphKgtP15P7hUrNxDkCjifrnK59WVHv+2vVEDE7bQpSDfkJQdRg8R4yE88CclypKE56BdiGg8hR2qx1anjKMUdLZn9x5RmIVhRDA+2aQT0lgZKGAvl4wSc7535AhZWIQEYeZnhr1Ec82Beb28k1wlPUOdmRB/9ZI0jvjC0XH"
+
+# --- sealed GitHub App credential ---
+# Not sealed yet: the owner creates the GitHub App, then runs
+#   .scripts/seal-arc-github-app.sh <app-private-key.pem>
+# which replaces this block with githubApp.encryptedData.

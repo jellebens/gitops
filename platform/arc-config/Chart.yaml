@@ -1,0 +1,6 @@
+apiVersion: v2
+name: arc-config
+description: ARC (actions-runner-controller) cluster-scoped prerequisites — the Longhorn RWX StorageClass for kubernetes-mode work volumes (#339)
+type: application
+version: 0.1.0
+appVersion: "0.15.0"

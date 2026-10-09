@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # ARC controller (gha-runner-scale-set-controller, #339): CRDs, cluster RBAC
+    # and the controller Deployment, which also launches the listener pods.
+    # Chart AND image come from Harbor (harbor.lab.local/actions, #338): this is
+    # the first Argo CD chart pull from Harbor (repo-creds harbor-repo + the lab
+    # CA in argocd-tls-certs-cm). The runner set (arc-runners, wave 30) needs
+    # the CRDs, so it comes later.
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  project: platform-services
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-systems
+  sources:
+    # OCI chart: repoURL is host/path without a scheme (docs/arc-mirror.md).
+    - repoURL: {{ .Values.repos.arc.url | quote }}
+      chart: gha-runner-scale-set-controller
+      targetRevision: {{ .Values.repos.arc.targetRevision | quote }}
+      helm:
+        # The controller's ServiceAccount is <release>-gha-rs-controller; the
+        # runner set references it by name (.config/lab/arc-runners.yaml).
+        releaseName: arc
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/arc.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Required: the ARC CRDs are 0.6-1.3 MB each, far past the 256 KiB
+      # last-applied annotation limit of a client-side apply.
+      - ServerSideApply=true
