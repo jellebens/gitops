@@ -379,17 +379,20 @@ def unit_board():
     P.append(timeseries("Air", [tele("humidity_pct", "air", "humidity %"), tele("pressure_hpa", "air", "pressure hPa", ref="B")],
                         g.place(8, 8), "Relative humidity and barometric pressure.", decimals=1, fill=0,
                         overrides=[override("pressure hPa", axis="right", unit="pressurehpa"), override("humidity %", unit="humidity")]))
-    # the tank (pomona 2.4.0's A02YYUW ultrasonic, vertumnus 0.27.0): litres and % once the node is calibrated,
-    # the raw sensor-to-water distance always — the distance grows as the tank empties
+    # the tank (pomona 2.4.x's A02YYUW ultrasonic, vertumnus 0.27.0): litres and % from the node's fill table, the raw
+    # sensor-to-water distance always (it grows as the tank empties). Averaged over 5 min (owner 2026-10-09): one 30 s
+    # reading can be a splash or the return water of a pump run; the litres are an area, every line solid.
     g.newline()
-    P.append(timeseries("Tank level", [prom(f"ceres_reading{L_TANK_L}", "litres"),
-                                       prom(f"ceres_reading{L_TANK_PCT}", "full %", "B"),
-                                       prom(f"ceres_reading{L_TANK_MM}", "distance mm", "C")],
-                        g.place(24, 8), "Reservoir level from the ultrasonic above the tank: litres and % full once its two distances are "
-                        "calibrated (pomona docs/sensors/level-sonic.md), and the raw distance from the sensor face to the water — larger "
-                        "is emptier. Top up when it turns red (below 30 %).", unit="litre", decimals=1, fill=10, min=0,
-                        overrides=[override("full %", axis="right", unit="percent", color="green", dash=True),
-                                   override("distance mm", axis="right", unit="lengthmm", color="text", dash=True)]))
+    P.append(timeseries("Tank level (5 min average)",
+                        [prom(f"avg_over_time(ceres_reading{L_TANK_L}[5m])", "litres"),
+                         prom(f"avg_over_time(ceres_reading{L_TANK_PCT}[5m])", "full %", "B"),
+                         prom(f"avg_over_time(ceres_reading{L_TANK_MM}[5m])", "distance mm", "C")],
+                        g.place(24, 8), "Reservoir level from the ultrasonic above the tank, each series averaged over 5 minutes: litres "
+                        "(area) and % full from the node's measured fill table (pomona docs/sensors/level-sonic.md), and the raw distance "
+                        "from the sensor face to the water — larger is emptier. While the pump runs the sensor reads the tank as full "
+                        "(the return water crosses the beam); trust the level between pump runs.", unit="litre", decimals=1, fill=35,
+                        min=0, overrides=[override("full %", axis="right", unit="percent", color="green", no_fill=True),
+                                          override("distance mm", axis="right", unit="lengthmm", color="text", no_fill=True)]))
 
     # mixing evidence and dosing
     g.newline()
