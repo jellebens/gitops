@@ -106,7 +106,8 @@ name: ceres
 #          (level_pct, volume_l, level_distance_mm); the unit dashboard gains a "Tank level" panel.
 # 0.27.1 = the unit dashboard's Tank level panel: each series a 5 min average (a single reading can be a splash or a
 #          pump run's return water), the litres an area, every line solid. Dashboard only.
-version: 0.27.1
+# 0.27.2 = ceres vertumnus 0.28.0 (ADR-0020): EC is trusted before it feeds; the feed is sized to the gap. Image tag only.
+version: 0.27.2
 type: application
 appVersion: "0.27.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map
