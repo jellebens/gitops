@@ -108,7 +108,9 @@ name: ceres
 #          pump run's return water), the litres an area, every line solid. Dashboard only.
 # 0.27.2 = ceres vertumnus 0.28.0 (ADR-0020): EC is trusted before it feeds; the feed is sized to the gap. Image tag only.
 # 0.27.3 = ceres vertumnus 0.29.0 (ADR-0020 §4): an EC that stays untrusted for 2 h raises ec_untrusted. Image tag only.
-version: 0.27.3
+# 0.27.4 = the unit dashboard's Tank level panel: one series per unit, named by the unit id (max by (unit)), not
+#          one per Vertumnus pod — every rollout had added a set of lines. Dashboard only.
+version: 0.27.4
 type: application
 appVersion: "0.27.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

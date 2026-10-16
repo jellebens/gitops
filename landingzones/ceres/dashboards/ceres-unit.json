@@ -1914,8 +1914,8 @@
       "uid": "prometheus"
      },
      "refId": "A",
-     "expr": "avg_over_time(ceres_reading{unit=\"${unit}\", metric=\"volume_l\"}[5m])",
-     "legendFormat": "litres",
+     "expr": "max by (unit) (avg_over_time(ceres_reading{unit=\"${unit}\", metric=\"volume_l\"}[5m]))",
+     "legendFormat": "{{unit}} litres",
      "range": true,
      "instant": false,
      "editorMode": "code"
@@ -1926,8 +1926,8 @@
       "uid": "prometheus"
      },
      "refId": "B",
-     "expr": "avg_over_time(ceres_reading{unit=\"${unit}\", metric=\"level_pct\"}[5m])",
-     "legendFormat": "full %",
+     "expr": "max by (unit) (avg_over_time(ceres_reading{unit=\"${unit}\", metric=\"level_pct\"}[5m]))",
+     "legendFormat": "{{unit}} full %",
      "range": true,
      "instant": false,
      "editorMode": "code"
@@ -1938,8 +1938,8 @@
       "uid": "prometheus"
      },
      "refId": "C",
-     "expr": "avg_over_time(ceres_reading{unit=\"${unit}\", metric=\"level_distance_mm\"}[5m])",
-     "legendFormat": "distance mm",
+     "expr": "max by (unit) (avg_over_time(ceres_reading{unit=\"${unit}\", metric=\"level_distance_mm\"}[5m]))",
+     "legendFormat": "{{unit}} distance mm",
      "range": true,
      "instant": false,
      "editorMode": "code"
@@ -1967,8 +1967,8 @@
     "overrides": [
      {
       "matcher": {
-       "id": "byName",
-       "options": "full %"
+       "id": "byRegexp",
+       "options": ".* full %$"
       },
       "properties": [
        {
@@ -1994,8 +1994,8 @@
      },
      {
       "matcher": {
-       "id": "byName",
-       "options": "distance mm"
+       "id": "byRegexp",
+       "options": ".* distance mm$"
       },
       "properties": [
        {

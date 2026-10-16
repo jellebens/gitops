@@ -384,15 +384,17 @@ def unit_board():
     # reading can be a splash or the return water of a pump run; the litres are an area, every line solid.
     g.newline()
     P.append(timeseries("Tank level (5 min average)",
-                        [prom(f"avg_over_time(ceres_reading{L_TANK_L}[5m])", "litres"),
-                         prom(f"avg_over_time(ceres_reading{L_TANK_PCT}[5m])", "full %", "B"),
-                         prom(f"avg_over_time(ceres_reading{L_TANK_MM}[5m])", "distance mm", "C")],
+                        # one series per UNIT, named by its id: avg_over_time is not a plain selector, so prom()
+                        # does not fold the pods away — without the by (unit) every rollout added a set of lines
+                        [prom(f"max by (unit) (avg_over_time(ceres_reading{L_TANK_L}[5m]))", "{{unit}} litres"),
+                         prom(f"max by (unit) (avg_over_time(ceres_reading{L_TANK_PCT}[5m]))", "{{unit}} full %", "B"),
+                         prom(f"max by (unit) (avg_over_time(ceres_reading{L_TANK_MM}[5m]))", "{{unit}} distance mm", "C")],
                         g.place(24, 8), "Reservoir level from the ultrasonic above the tank, each series averaged over 5 minutes: litres "
                         "(area) and % full from the node's measured fill table (pomona docs/sensors/level-sonic.md), and the raw distance "
                         "from the sensor face to the water — larger is emptier. While the pump runs the sensor reads the tank as full "
                         "(the return water crosses the beam); trust the level between pump runs.", unit="litre", decimals=1, fill=35,
-                        min=0, overrides=[override("full %", axis="right", unit="percent", color="green", no_fill=True),
-                                          override("distance mm", axis="right", unit="lengthmm", color="text", no_fill=True)]))
+                        min=0, overrides=[override("~.* full %$", axis="right", unit="percent", color="green", no_fill=True),
+                                          override("~.* distance mm$", axis="right", unit="lengthmm", color="text", no_fill=True)]))
 
     # mixing evidence and dosing
     g.newline()
