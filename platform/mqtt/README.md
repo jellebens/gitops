@@ -71,6 +71,7 @@ see "ACL disaster recovery" below):
 | `telegraf-ceres` | the v2 archive (#295): `subscribe ceres/#` only | `deny all #` |
 | `annona`, `robigus` | ceres services (#292/#293), see acl.conf | `deny all #` |
 | `janus`         | the ceres operator console (ADR-0015): `subscribe ceres/#`, publish **only** `ceres/sys/status/janus` — a hand dose goes to the unit's Vertumnus over HTTP, never on the wire, so the console has no publish on any unit's tree. Live in mnesia since 2026-09-17; **its lines are deliberately still missing from `files/acl.conf`** — see the DR gap below. | `deny all #` |
+| `console` | the owner's read-only console (2026-10-19): **`subscribe ceres/#`**, no publish, ever — for `mosquitto_sub` / MQTT Explorer from the LAN. Created live in mnesia through the admin API (the password is only in the owner's `~/.config/ceres/mqtt-console.env`, 0600); like `janus`, **its lines are held out of `files/acl.conf`** so documenting it does not roll the broker — see the DR gap below. | `deny all #` |
 | `telemetry-archive` | **not created yet** — the InfluxDB document archiver (card #290, gitops [ADR-0002](../../docs/adr/0002-all-telemetry-in-influxdb-forever.md), [`platform/influxdb-config`](../influxdb-config/README.md)): **`subscribe jupiter/#`, `subscribe zeus/#`**, no publish, ever. The owner creates it when the archive's MQTT half is switched on; like `janus`, **its lines are held out of `files/acl.conf`** — see below. | `deny all #` |
 
 ### Known DR gap: `janus` is not in the acl.conf mirror yet (2026-09-17)
