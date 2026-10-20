@@ -110,7 +110,9 @@ name: ceres
 # 0.27.3 = ceres vertumnus 0.29.0 (ADR-0020 §4): an EC that stays untrusted for 2 h raises ec_untrusted. Image tag only.
 # 0.27.4 = the unit dashboard's Tank level panel: one series per unit, named by the unit id (max by (unit)), not
 #          one per Vertumnus pod — every rollout had added a set of lines. Dashboard only.
-version: 0.27.4
+# 0.27.5 = ceres annona 0.12.0 (ADR-0022): the reservoir volume follows the tank level — Annona records the
+#          settled pump-off median of tele/water/volume_l as reservoir_l (hourly at most, >= 0.5 L, >= 2 L). Image tag only.
+version: 0.27.5
 type: application
 appVersion: "0.27.0"
 description: Ceres landing zone — one self-learning Vertumnus per hydroponic unit (ceres ADR-0007/0010), rendered from the units map

@@ -165,7 +165,7 @@ annona:
   enabled: true
   image:
     repository: jellebens/ceres-annona
-    tag: "0.11.0"  # annona/v0.11.0: migration 0006, slow_ml_s may be 0; annona/v0.10.0 (ADR-0016, #316): POST /units/<id>/water-changes (migration 0005), fills take a product — both in sys/config only when recorded; 0.9.0 (#315): GET /firmware/{type}/{version} is the image — Annona serves the share itself, no nginx; 0.8.0 (#315): POST /firmware/{type}/{version} — the .ota image through the API; 0.7.0 (ADR-0014): the unit's location + sys/config location; 0.6.0 (#302): publishes as trace events; 0.5.0 (#302): sys/config + sys/units carry the trace; 0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
+    tag: "0.12.0"  # annona/v0.12.0 (ADR-0022): the reservoir volume follows the tank level; annona/v0.11.0: migration 0006, slow_ml_s may be 0; annona/v0.10.0 (ADR-0016, #316): POST /units/<id>/water-changes (migration 0005), fills take a product — both in sys/config only when recorded; 0.9.0 (#315): GET /firmware/{type}/{version} is the image — Annona serves the share itself, no nginx; 0.8.0 (#315): POST /firmware/{type}/{version} — the .ota image through the API; 0.7.0 (ADR-0014): the unit's location + sys/config location; 0.6.0 (#302): publishes as trace events; 0.5.0 (#302): sys/config + sys/units carry the trace; 0.4.1 (#305); 0.4.0 (#304): desired firmware per unit
     pullPolicy: IfNotPresent
   apiPort: 8080
   # Nightly pg_dump of the facts to the NAS (smb StorageClass), the InfluxDB
