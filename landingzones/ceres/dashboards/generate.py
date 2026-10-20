@@ -396,6 +396,25 @@ def unit_board():
                         min=0, overrides=[override("~.* full %$", axis="right", unit="percent", color="green", no_fill=True),
                                           override("~.* distance mm$", axis="right", unit="lengthmm", color="text", no_fill=True)]))
 
+    # water used (ceres ADR-0022): Annona's measured reservoir — the median of the settled pump-off readings, so a
+    # pump run is no drop. The hourly changes of the last 24 h, summed: drinking and evaporation telescope to the
+    # real fall, a rise over 0.5 L in an hour (a top-up, a recalibration) and a fall over 1 L (a drain) are left out.
+    g.newline()
+    M = f"max by (unit) (ceres_annona_reservoir_measured_l{U})"
+    M1 = f"max by (unit) (ceres_annona_reservoir_measured_l{U} offset 1h)"
+    USED = f"sum_over_time((-((({M} - {M1}) < 0.5) > -1))[24h:1h])"
+    WHY = ("From Annona's measured reservoir (ADR-0022): the median of the tank level once the pump has been off 5 min, "
+           "so a pump run does not count as water used. The hourly changes of the last 24 h are summed; an hour that "
+           "rose more than 0.5 L (a top-up, a recalibration) or fell more than 1 L (a drain or water change) is left out. "
+           "Hours with the sensor blind count as nothing used, so a blind spell reads low.")
+    P.append(stat("Water used, last 24 h", [prom(USED, "{{unit}}")], g.place(6, 6), WHY, unit="litre", decimals=2,
+                  color_mode="none"))
+    used = timeseries("Water used per day", [prom(USED, "{{unit}} litres used")], g.place(18, 6),
+                      WHY + " One bar per day (the 24 h up to each midnight UTC), the last 14 days.",
+                      unit="litre", decimals=2, bars=True, fill=60, min=0)
+    used.update({"interval": "1d", "timeFrom": "14d", "hideTimeOverride": False})
+    P.append(used)
+
     # mixing evidence and dosing
     g.newline()
     P.append(row("Mixing and dosing", g.y)); g.y += 1
