@@ -25,7 +25,7 @@ repos:
 
   longhorn:
     url: https://charts.longhorn.io
-    targetRevision: 1.11.3
+    targetRevision: 1.12.1
 
   kyverno:
     url: https://kyverno.github.io/kyverno

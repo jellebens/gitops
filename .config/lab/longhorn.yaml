@@ -44,6 +44,11 @@ preUpgradeChecker:
   jobEnabled: false
 
 defaultSettings:
+  # Live-upgrade every attached healthy V1 volume to the new engine image once the
+  # managers are on the new version (and detached ones on their next attach), one
+  # volume per node at a time. 0 (the default) would leave every volume on the old
+  # engine until someone clicks "Upgrade Engine" in the UI (#350, Longhorn 1.12.1).
+  concurrentAutomaticEngineUpgradePerNodeLimit: 1
   # Only nodes the OWNER labels node.longhorn.io/create-default-disk=true get
   # a disk. This is the wired-only replica gate from phase 1: label a node
   # only after confirming its whole path to the other storage nodes is wired
