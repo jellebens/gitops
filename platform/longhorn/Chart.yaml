@@ -5,5 +5,5 @@ description: >-
   PrometheusRule alerts, Grafana dashboard, sealed backup credentials
   placeholder (card #176)
 type: application
-version: 0.3.1
-appVersion: "1.11.3"
+version: 0.3.2  # 0.3.2 = #350 longhorn 1.12.1
+appVersion: "1.12.1"
