@@ -5,5 +5,5 @@ description: >-
   CiliumNetworkPolicy that keeps the (destructive) chaos-mesh control plane
   and dashboard off the LAN (card #189).
 type: application
-version: 0.1.0
-appVersion: "2.8.2"
+version: 0.1.1  # 0.1.1 = #350: chaos-mesh 2.8.6
+appVersion: "2.8.6"

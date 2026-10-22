@@ -6,7 +6,7 @@
 # See README.md.
 corednsLab:
   # Multi-arch image (arm64 cluster). file + transfer plugins are in the default build.
-  image: coredns/coredns:1.11.3
+  image: coredns/coredns:1.14.7
   replicas: 3
   zone: lab.local
   # LoadBalancer VIP for LAN clients (DHCP hands this out as DNS1).
