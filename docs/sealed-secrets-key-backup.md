@@ -12,7 +12,7 @@ them in git, on the cluster's own NAS shares, or in a ticket or chat.
 
 ## Facts (2026-10-09)
 
-- Controller `bitnami/sealed-secrets-controller:0.38.4`, `--key-prefix sealed-secrets-key`.
+- Controller `bitnami/sealed-secrets-controller:0.40.0` (0.38.4 until #350, 2026-10-22), `--key-prefix sealed-secrets-key`.
 - **Keys rotate every 30 days** (the controller default). A new key is added, and
   the old keys are kept, because secrets sealed earlier still need them. On
   2026-10-09 there were 7 keys (2026-03-28 … 2026-09-24). The next one is due
