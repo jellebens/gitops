@@ -1,7 +1,7 @@
 repos:
   chaosMesh: 
    url: https://charts.chaos-mesh.org
-   targetRevision: 2.8.2
+   targetRevision: 2.8.6
 
   prometheus: 
     url: https://prometheus-community.github.io/helm-charts
@@ -9,19 +9,19 @@ repos:
 
   certManager:
     url: https://charts.jetstack.io
-    targetRevision: v1.18.3
+    targetRevision: v1.21.2
 
   csiDriverSmb:
     url: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/charts
-    targetRevision: 1.20.1
+    targetRevision: 1.20.3
 
   influxdb:
     url: https://helm.influxdata.com
     targetRevision: 2.1.2
-  # CloudNativePG operator (demeter ADR-0011, card #292): chart 0.29.0 = operator 1.30.0.
+  # CloudNativePG operator (demeter ADR-0011, card #292): chart 0.29.1 = operator 1.30.1 (#350; 0.29.0 = 1.30.0 at install).
   cnpg:
     url: https://cloudnative-pg.github.io/charts
-    targetRevision: 0.29.0
+    targetRevision: 0.29.1
 
   longhorn:
     url: https://charts.longhorn.io
@@ -29,7 +29,7 @@ repos:
 
   kyverno:
     url: https://kyverno.github.io/kyverno
-    targetRevision: 3.8.2
+    targetRevision: 3.9.2
 
   # Harbor registry. Chart 1.19.2 = Harbor v2.15.2, but the images are pinned
   # nightly dev-arm64 digests (no arm64 release images) — see .config/lab/harbor.yaml.

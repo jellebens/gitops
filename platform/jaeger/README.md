@@ -22,7 +22,7 @@ and cross-service timeouts are invisible without traces.
 | Namespace | `jaeger` |
 | App definition | [`applications/templates/jaeger/jaeger-app.yaml`](../../applications/templates/jaeger/jaeger-app.yaml) |
 | Env values | `.config/<env>/jaeger.yaml` |
-| Image | `jaegertracing/jaeger:2.19.0` — official multi-arch, **linux/arm64 verified** in the registry manifest list |
+| Image | `jaegertracing/jaeger:2.20.0` — official multi-arch, **linux/arm64 verified** in the registry manifest list (2.19.0 until #350; 2.21+ drops the v1 query API Grafana uses, see values.yaml) |
 
 ## Endpoints
 

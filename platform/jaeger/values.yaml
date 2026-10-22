@@ -15,7 +15,10 @@
 jaeger:
   # Official multi-arch image — linux/arm64 present in the manifest list
   # (verified against the Docker Hub registry API for this exact tag).
-  image: jaegertracing/jaeger:2.19.0
+  # 2.20.0 is the ceiling until the Grafana Jaeger datasource speaks /api/v3: Jaeger 2.21.0
+  # (jaegertracing/jaeger#9260) removed GET /api/services, /api/operations and the /api/traces
+  # search that the datasource uses (#350, 2026-10-22).
+  image: jaegertracing/jaeger:2.20.0
   # Badger span retention (TTL). Expired spans are dropped on compaction;
   # with ~7d the PVC below is generous for homelab trace volumes.
   retention: 168h # 7 days

@@ -2,5 +2,5 @@ apiVersion: v2
 name: kyverno-config
 description: A Helm chart for Kyverno baseline cluster policies
 type: application
-version: 0.1.0
-appVersion: "1.18.2"
+version: 0.1.1  # 0.1.1 = #350: kyverno 3.9.2 (1.19.2)
+appVersion: "1.19.2"
