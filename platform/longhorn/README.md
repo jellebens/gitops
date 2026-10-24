@@ -10,7 +10,7 @@ Two Argo apps (same split as `csi-driver-smb` / `csi-driver-smb-config`):
 
 | App | Source | Wave | Contents |
 |---|---|---|---|
-| `longhorn` | upstream chart `longhorn` **1.11.3** from `charts.longhorn.io`, values in [`.config/lab/longhorn.yaml`](../../.config/lab/longhorn.yaml) | 12 | Longhorn itself, ns `longhorn-system`, upstream ServiceMonitor |
+| `longhorn` | upstream chart `longhorn` **1.12.1** from `charts.longhorn.io` (1.11.3 until #350, 2026-10-22), values in [`.config/lab/longhorn.yaml`](../../.config/lab/longhorn.yaml) | 12 | Longhorn itself, ns `longhorn-system`, upstream ServiceMonitor |
 | `longhorn-config` | this chart (`platform/longhorn`) | 13 | CNP, PrometheusRule, Grafana dashboard, sealed backup-creds placeholder |
 
 **Deploying this is deliberately inert:** it adds the `longhorn`
@@ -277,8 +277,23 @@ all of this and is unchanged.
   the PVC, investigate cause. Until a backup target is configured the only
   fallback is application-level state reconstruction — configure the target
   before migrating anything important (phase 3 gate).
-- **Upgrades**: bump `repos.longhorn.targetRevision` in
-  `.config/shared/values.yaml` (one minor at a time — Longhorn does NOT
-  support skipping minors) and let Argo sync. Check the upstream upgrade
-  notes first; never downgrade.
+- **Upgrades** (procedure of record since #350, 1.11.3 -> 1.12.1 on 2026-10-22):
+  1. Read the upstream "Important Notes" for the target minor. **One minor at a
+     time** (Longhorn refuses to skip minors), **never downgrade** (unsupported;
+     the only way back is a restore). 1.12 needs Kubernetes >= 1.34.
+  2. Preconditions: no `Faulted` volume, no failed BackingImage, backup target
+     `AVAILABLE true`. Then take a **Longhorn system backup** to the backup target
+     (UI: Setting -> System Backup -> Create, or a `SystemBackup` CR with
+     `volumeBackupPolicy: if-not-present`) and wait for `Ready`.
+  3. Bump `repos.longhorn.targetRevision` in `.config/shared/values.yaml`, this
+     chart's `appVersion`, and the version in the table above; render the chart
+     with `.config/lab/longhorn.yaml`; PR into `develop`; release. Argo syncs the
+     managers (a rolling DaemonSet restart; volumes keep serving from their replicas).
+  4. Engines: `defaultSettings.concurrentAutomaticEngineUpgradePerNodeLimit: 1`
+     live-upgrades every attached healthy volume to the new engine image, one per
+     node at a time; detached volumes follow on their next attach. Watch
+     `kubectl -n longhorn-system get engineimages.longhorn.io` until the old image
+     has `refCount 0`, then it can be deleted in the UI.
+  5. Verify: every volume `attached healthy` again, no rebuilds stuck, the
+     `nas-daily` recurring job still runs, Grafana Longhorn dashboard populated.
 - **What lives on Longhorn vs elsewhere**: see [`docs/storage.md`](../../docs/storage.md).
