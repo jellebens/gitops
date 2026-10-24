@@ -3,6 +3,13 @@ crds:
 
 grafana:
   enabled: true
+  # kube-prometheus-stack 92.x bundles the grafana chart 14.x: distroless image with a
+  # read-only root FS, /tmp an emptyDir, the `plugins` list below preinstalled through
+  # GF_PLUGINS_PREINSTALL_SYNC (GF_INSTALL_PLUGINS no longer works on distroless). The
+  # Helm test hook (a bats Pod) is off: Argo runs no Helm tests, the Pod would only sit
+  # in the app (#352).
+  testFramework:
+    enabled: false
   defaultDashboardsEnabled: true
 
   # Business Charts (Apache ECharts) panel — needed for the categorical
