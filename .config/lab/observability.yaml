@@ -10,6 +10,14 @@ grafana:
   # in the app (#352).
   testFramework:
     enabled: false
+  # Grafana keeps its SQLite on a ReadWriteOnce Longhorn PVC. The chart default
+  # RollingUpdate starts the new pod before the old one stops; scheduled on another
+  # node it waits forever for the volume ("Volume is already used by pod ...") and
+  # the old pod is never terminated (#352 rollout, 2026-10-24). Recreate stops the
+  # old pod first, like platform/jaeger (same storage pattern). ~1 min of Grafana
+  # downtime per upgrade is the price.
+  deploymentStrategy:
+    type: Recreate
   defaultDashboardsEnabled: true
 
   # Business Charts (Apache ECharts) panel — needed for the categorical
