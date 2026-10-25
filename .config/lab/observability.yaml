@@ -18,6 +18,11 @@ grafana:
   # downtime per upgrade is the price.
   deploymentStrategy:
     type: Recreate
+    # Explicit null: with ServerSideApply the live Deployment keeps the API-defaulted
+    # rollingUpdate block, and the apply then fails with "spec.strategy.rollingUpdate:
+    # Forbidden: may not be specified when strategy type is Recreate" (the #517 sync
+    # retried 5 times and stayed OutOfSync). A null in the manifest removes the field.
+    rollingUpdate: null
   defaultDashboardsEnabled: true
 
   # Business Charts (Apache ECharts) panel — needed for the categorical

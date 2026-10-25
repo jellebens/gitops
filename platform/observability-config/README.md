@@ -60,7 +60,7 @@ sidecar (`grafana_folder` annotation).
    the InfluxDB static-mount datasource present; remote write to telemetry-archive
    flowing (`prometheus_remote_storage_samples_total`).
 
-Rules learned on the way: `grafana.deploymentStrategy.type: Recreate` (RWO Longhorn PVC + RollingUpdate deadlocks the rollout when the new pod lands on another node — seen on the 92.11.0 release); `grafana.testFramework.enabled: false` (Helm test hook
+Rules learned on the way: `grafana.deploymentStrategy: {type: Recreate, rollingUpdate: null}` (RWO Longhorn PVC + RollingUpdate deadlocks the rollout when the new pod lands on another node — seen on the 92.11.0 release; the explicit `rollingUpdate: null` is needed under ServerSideApply, or the apply is rejected because the live object keeps the defaulted rollingUpdate block); `grafana.testFramework.enabled: false` (Helm test hook
 Pod, useless under Argo); the grafana chart 13+/14+ runs distroless with a read-only
 root FS — plugins only via the `plugins` list (preinstall), never `GF_INSTALL_PLUGINS`,
 no `GF_*__FILE` env; the Business Charts plugin (volkovlabs-echarts-panel) declares
