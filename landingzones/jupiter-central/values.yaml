@@ -15,7 +15,9 @@ image:
   # removed (ADR-0025 supersedes ADR-0011). Validated 96/96 slots identical to
   # the last ENTSO-E curve; /v1/curve contract unchanged (lar untouched).
   # Jump from 0.13.0 is behaviorally just this migration (only reformats since).
-  tag: "0.19.0"
+  # 0.22.1 (#327): GET /v1/curve refuses an unknown zone with 400 before any
+  # per-zone state exists (no cache entry, refresh or phantom metric series).
+  tag: "0.22.1"
   pullPolicy: IfNotPresent
 
 # Central singleton. The last-good cache PVC is RWO (local-path pins it to a
@@ -442,7 +444,9 @@ reporting:
     # (ADR-0031) and the PostgreSQL day-ledger writer (ADR-0030; reads PG* from
     # jupiter-pg-app, best-effort — without the Cluster/secret the refresh still
     # succeeds and stage=ledger_write failures are counted).
-    tag: "0.22.0"
+    # 0.22.1 (#328): the ledger re-applies the grafana read grants on every
+    # connection (gauge jupiter_reporting_ledger_grafana_grants_ok).
+    tag: "0.22.1"
     pullPolicy: IfNotPresent
 
   # Central singleton, single writer of the durable jupiter_* series (see the
