@@ -252,4 +252,136 @@ spec:
               more than EUR 2 per cycle on average over 2 hours. On 2026-07-30
               this pattern came with 3.2 battery cycles in a day. Check
               jupiter_lar_mode_writes_total and the forecast inputs.
+
+    # Dead battery-telemetry feed (card #333, from the 10-07 review L6).
+    #
+    # WHY THIS EXISTS: on 2026-10-05 (84 min) and 2026-10-07 (2 h) the Bluetti
+    #   feed went blind and nobody was paged. On 2026-10-31 08:46Z -> 11-01
+    #   17:39Z the lar rejected the integration's placeholder reading
+    #   (51 % / 2008 W / 607 W) every planning cycle for 33 h while
+    #   jupiter_lar_battery_telemetry_stale stayed 0 the whole time: every
+    #   self-heal reload re-stamps the entities, so the #211 age check never
+    #   trips (10-07 postmortem, gitops docs/incidents/2026-10-07-*). Three
+    #   signals cover the three failure shapes:
+    #     - the stale gauge        -> integration frozen, timestamps not moving
+    #     - placeholder rejects    -> integration reloading onto placeholders
+    #                                 (the stale gauge is blind to this one)
+    #     - JupiterLarSocUnknown   -> cold start with no last-good SoC (the
+    #       (mode-writes group)       11-01 09:10Z pod restart mid-blackout)
+    #
+    # NOT USED: jupiter_lar_ha_read_ok. Its `ac` read (entities.ac_power =
+    #   sensor.office_a_c_power) has failed every cycle since at least 10-17
+    #   (~95 errors/day), so the all-reads gauge is 0 about 95 % of the time
+    #   and `== 0 for 20m` would be a permanently-firing alert. Fix the entity
+    #   (or give the gauge a `read` label) first - separate card.
+    #
+    # CADENCE: one placeholder reject per 15-min planning cycle while a hold
+    #   lasts (4/h). Windows are sized so that a sustained hold keeps the
+    #   expression true at every evaluation (a window of N cycles always holds
+    #   N-1..N increments, never fewer): no flapping, so no `for` needed.
+    #
+    # BASELINE (Prometheus 2026-10-17 -> 11-01; retention is 15 days, so the
+    #   10-07/10-08/10-14 episodes are gone): EVERY day has one run of 6-8
+    #   consecutive rejects at ~15:30-17:45Z with jupiter_lar_soc_pct flat for
+    #   the stretch, i.e. the 10-14 15:15-16:45Z "episode" is the daily
+    #   pattern. The warning therefore fires once a day by design (the 90-min
+    #   10-14 hold had to be caught). From 10-26 a second evening run
+    #   (19:30-22:00Z) grew from 9 cycles to 22 on 10-29/10-30 and became the
+    #   10-31 blackout: the critical was silent 10-17..10-25 and would have
+    #   fired every evening from 10-26 - five days before the blackout.
+    - name: jupiter-tervuren-telemetry-feed
+      rules:
+        - alert: JupiterLarTelemetryStale
+          # The #211 age check: every Bluetti entity's HA last_updated is
+          # older than ha.battery_stale_after_seconds. 15m = one planning
+          # cycle of margin over the lar's own hold.
+          expr: |
+            max by (site_id) (jupiter_lar_battery_telemetry_stale) == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: battery telemetry feed is stale - lar holding last-good values
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} - the Bluetti SoC/grid/AC
+              entities on HA (vesta) have not updated for 15 minutes; the lar
+              is holding its last-good SoC (jupiter_lar_battery_telemetry_age_seconds
+              shows how old). Check the Bluetti integration on vesta
+              (Settings -> Devices & Services) and whether the Apex 300 is on
+              the LAN; the self-heal reload automation should have kicked in.
+            runbook: >-
+              landingzones/jupiter-tervuren/README.md (Alerting -> Dead
+              battery-telemetry feed); gitops
+              docs/incidents/2026-09-12-bluetti-all-zero-freeze-and-reload-only-values.md
+
+        - alert: JupiterLarTelemetryStaleLong
+          expr: |
+            max by (site_id) (jupiter_lar_battery_telemetry_stale) == 1
+          for: 2h
+          labels:
+            severity: critical
+          annotations:
+            summary: battery telemetry feed stale for more than 2 hours
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} - the battery feed has been
+              stale for over 2 hours: the self-heal reload did not recover it.
+              The lar is blind to SoC; consider control.enabled: false until
+              the Apex 300 is back on the network.
+            runbook: >-
+              landingzones/jupiter-tervuren/README.md (Alerting -> Dead
+              battery-telemetry feed); gitops
+              docs/incidents/2026-10-07-bluetti-wifi-drop-and-ac-power-cut.md
+
+        - alert: JupiterLarPlaceholderHold
+          # Three consecutive planning cycles rejected the placeholder for the
+          # SoC consumer: 30 min of hold. A 1h window of a sustained hold
+          # always holds 3 or 4 increments, so this is stable while it lasts.
+          expr: |
+            sum by (site_id) (
+              increase(jupiter_lar_battery_placeholder_rejected_total{consumer="soc"}[1h])
+            ) >= 3
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: lar is rejecting the Bluetti placeholder every cycle - SoC on hold
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} - the lar has rejected the
+              Bluetti integration's placeholder reading (51 % / 2008 W /
+              607 W) for three consecutive planning cycles. The integration is
+              reloading onto placeholders instead of real pushes, the stale
+              gauge cannot see it (each reload re-stamps the entities), and
+              the lar is holding its last-good SoC. A ~90-min run at
+              15:30-17:45Z happens daily (README); anything else means the
+              Apex 300 is off the LAN. Check the Bluetti integration on vesta.
+            runbook: >-
+              landingzones/jupiter-tervuren/README.md (Alerting -> Dead
+              battery-telemetry feed); gitops
+              docs/incidents/2026-10-07-bluetti-wifi-drop-and-ac-power-cut.md
+
+        - alert: JupiterLarPlaceholderHoldLong
+          # Nine consecutive rejected cycles = the 9th reject lands 2 h after
+          # the first. A 2h30m window of a sustained hold holds 9 or 10, so it
+          # stays true. Silent on 10-17..10-25; fires on the 10-26 -> 10-31
+          # evening runs and the blackout.
+          expr: |
+            sum by (site_id) (
+              increase(jupiter_lar_battery_placeholder_rejected_total{consumer="soc"}[2h30m])
+            ) >= 9
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: battery telemetry on placeholder hold for more than 2 hours
+            description: >-
+              Site {{ "{{ $labels.site_id }}" }} - every planning cycle for
+              more than 2 hours rejected the Bluetti placeholder: the lar has
+              had no real SoC for that long and is still acting on its
+              last-good value. This is the 10-31 blackout shape (33 h). Get
+              the Apex 300 back on the LAN (vesta Bluetti integration; the
+              module's WiFi) and consider control.enabled: false meanwhile.
+            runbook: >-
+              landingzones/jupiter-tervuren/README.md (Alerting -> Dead
+              battery-telemetry feed); gitops
+              docs/incidents/2026-10-07-bluetti-wifi-drop-and-ac-power-cut.md
 {{- end }}
