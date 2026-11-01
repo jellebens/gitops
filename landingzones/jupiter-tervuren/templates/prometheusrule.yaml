@@ -281,14 +281,16 @@ spec:
     #   N-1..N increments, never fewer): no flapping, so no `for` needed.
     #
     # BASELINE (Prometheus 2026-10-17 -> 11-01; retention is 15 days, so the
-    #   10-07/10-08/10-14 episodes are gone): EVERY day has one run of 6-8
+    #   10-07/10-08/10-14 episodes are gone): EVERY day has one run of 6-10
     #   consecutive rejects at ~15:30-17:45Z with jupiter_lar_soc_pct flat for
     #   the stretch, i.e. the 10-14 15:15-16:45Z "episode" is the daily
     #   pattern. The warning therefore fires once a day by design (the 90-min
     #   10-14 hold had to be caught). From 10-26 a second evening run
     #   (19:30-22:00Z) grew from 9 cycles to 22 on 10-29/10-30 and became the
-    #   10-31 blackout: the critical was silent 10-17..10-25 and would have
-    #   fired every evening from 10-26 - five days before the blackout.
+    #   10-31 blackout. The critical fired on the 2h+ afternoon runs of 10-18
+    #   (10 cycles) and 10-23 (9), was silent 10-19..10-22 and 10-24/25, and
+    #   would have fired every evening from 10-26 - five days before the
+    #   blackout.
     - name: jupiter-tervuren-telemetry-feed
       rules:
         - alert: JupiterLarTelemetryStale
@@ -362,8 +364,9 @@ spec:
         - alert: JupiterLarPlaceholderHoldLong
           # Nine consecutive rejected cycles = the 9th reject lands 2 h after
           # the first. A 2h30m window of a sustained hold holds 9 or 10, so it
-          # stays true. Silent on 10-17..10-25; fires on the 10-26 -> 10-31
-          # evening runs and the blackout.
+          # stays true. Silent on 10-19..10-22 and 10-24/25; fires on the 2h+
+          # afternoon runs of 10-18 and 10-23, the 10-26 -> 10-30 evening
+          # runs and the blackout.
           expr: |
             sum by (site_id) (
               increase(jupiter_lar_battery_placeholder_rejected_total{consumer="soc"}[2h30m])
