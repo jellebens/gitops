@@ -176,6 +176,60 @@ sum by (mode, source) (increase(jupiter_lar_mode_writes_total{site_id="tervuren"
 The two `info` alerts are observe-first; retune them after the #228 re-judge
 (three clean days including one wide-spread day).
 
+### Dead battery-telemetry feed (card #333)
+
+A third group, `jupiter-tervuren-telemetry-feed`. On 2026-10-05 (84 min) and
+2026-10-07 (2 h) the Bluetti feed went blind and nobody was paged; on
+2026-10-31 08:46Z → 11-01 17:39Z the lar rejected the integration's placeholder
+reading (51 % / 2008 W / 607 W) every planning cycle for 33 h while
+`jupiter_lar_battery_telemetry_stale` stayed 0 throughout — every self-heal
+reload re-stamps the entity timestamps, so the #211 age check never trips
+([10-07 postmortem](../../docs/incidents/2026-10-07-bluetti-wifi-drop-and-ac-power-cut.md)).
+Three signals cover the three failure shapes:
+
+| Alert | Severity | Fires when | Normal |
+|---|---|---|---|
+| `JupiterLarTelemetryStale` | warning | `jupiter_lar_battery_telemetry_stale == 1` for 15 min (integration frozen, timestamps not moving) | 0 — never 1 in the 10-17 → 11-01 window |
+| `JupiterLarTelemetryStaleLong` | critical | the same for 2 h | — |
+| `JupiterLarPlaceholderHold` | warning | 3 or more placeholder rejects (`consumer="soc"`) in 1 h = three consecutive 15-min cycles on the placeholder (30 min of hold) | one 6–10-cycle run per day at ~15:20–17:45Z (below) |
+| `JupiterLarPlaceholderHoldLong` | critical | 9 or more in 2 h 30 min = the 9th consecutive rejected cycle, 2 h after the first | silent 10-19..10-22 and 10-24/25; fires on any run of 9+ cycles (10-18, 10-23, every evening from 10-26) |
+| `JupiterLarSocUnknown` (mode-writes group, not duplicated) | warning | no SoC reading for 20 min | the cold-start shape: a pod restart during a hold has no last-good SoC (11-01 09:10Z → 17:50Z) |
+
+**Routing: jupiter alerts still go to the null receiver (card #250).** This
+card makes the signals exist; wiring them to a pager is #250.
+
+Placeholder rejects come one per 15-min planning cycle while a hold lasts, so
+the windows are sized so that a sustained hold keeps the expression true at
+every evaluation (a window of N cycles always contains N−1..N increments) and
+the two placeholder rules need no `for`. To see a hold:
+
+```promql
+sum by (site_id) (increase(jupiter_lar_battery_placeholder_rejected_total{site_id="tervuren",consumer="soc"}[1h]))
+```
+
+What the 15-day retention window (2026-10-17 → 11-01) showed when the
+thresholds were tuned; the 10-07, 10-08 and 10-14 episodes are already gone:
+
+- **Every day** has one run of 6–10 consecutive rejects at ~15:20–17:45Z with
+  `jupiter_lar_soc_pct` flat for the stretch — the 10-14 15:15–16:45Z
+  "episode" is this daily pattern, so `JupiterLarPlaceholderHold` fires once a
+  day by design (the owner asked for the 90-min hold to be caught). If that
+  turns out to be noise, raise it towards the critical's shape rather than
+  muting it; the daily run itself deserves a card.
+- From 10-26 a second evening run (19:30–22:00Z) grew: 9 cycles on 10-26,
+  2 × 10 on 10-27, 13 on 10-28, 22 on 10-29, 21 on 10-30, then the 10-31
+  blackout (rejects from 08:46Z, 3.5 h before the first HA-side sign at
+  12:25Z). `JupiterLarPlaceholderHoldLong` would have fired every evening from
+  10-26 — five days before the blackout — and on the two afternoon runs that
+  reached 9+ cycles (10-18, 10-23). If four firings in the 10-20..10-28
+  stretch is too many, 13 in 3 h 30 min keeps only 10-28 onwards.
+- `jupiter_lar_ha_read_ok == 0 for 20m` (the card's original second rule) is
+  **not shipped**: the `ac` read (`entities.ac_power` =
+  `sensor.office_a_c_power`) fails every cycle (~95 errors/day since at least
+  10-17), so the all-reads gauge is 0 about 95 % of the time and the rule would
+  fire permanently. Fix the entity (or give the gauge a `read` label in the
+  lar) first — separate card.
+
 ## Known gotchas
 
 - **`capacity_peak`** (`sensor.fluvius_meter_..._peak_power`) is intermittently

@@ -23,6 +23,13 @@ grafana:
     # Forbidden: may not be specified when strategy type is Recreate" (the #517 sync
     # retried 5 times and stayed OutOfSync). A null in the manifest removes the field.
     rollingUpdate: null
+  # Even with the null, Argo's ServerSideApply still failed the same way (#519 live,
+  # SyncError unchanged): the null does not survive to the apply. Client-side apply for
+  # this one Deployment: kubectl's strategic merge honours the retainKeys directive on
+  # spec.strategy, which drops the rollingUpdate block when the type changes. Every
+  # other resource of the app stays server-side.
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=false
   defaultDashboardsEnabled: true
 
   # Business Charts (Apache ECharts) panel — needed for the categorical
