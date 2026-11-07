@@ -25,10 +25,16 @@ jaeger:
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 512Mi
     limits:
       cpu: 500m
-      memory: 1Gi
+      # 2Gi since incident 2026-11-02 (was 1Gi). Badger mmaps its SST files, so
+      # the container's working set tracks the on-disk store (~660 MiB for 7d
+      # of spans) plus compaction buffers: it sat at 0.95-1.07 GiB and was
+      # OOM-killed every 2-3 days (10 kills 10-10 -> 11-01); the 11-02 kill tore
+      # the Badger MANIFEST and crash-looped jaeger for 5 days. Nodes have 8 GiB.
+      # Raise this together with retention/PVC size if look-back is extended.
+      memory: 2Gi
   persistence:
     # Badger needs POSIX/block semantics -> block storage (longhorn since #238,
     # 2026-08-14; previously node-local local-path), NOT the SMB share. RWO
