@@ -231,6 +231,14 @@ siteConfig:
     # (51 % alone is a legitimate SoC).
     battery_placeholder_signatures:
       - {soc: 51, grid_input_power: 2008, ac_output_power: 607}
+      # 2026-11-07 (#358): the Bluetti integration was re-added in BLUETOOTH control
+      # mode (home-assitant/bluetti-ble.md). The new entry's stateList snapshot was
+      # taken during the daily cloud cutoff and is ALL ZEROS, so the seed values a
+      # BLE-mode (re)load could expose before its first poll are 0 % / 0 W / 0 W.
+      # Matched as a triple only; SoC 0 with 0 W both ways is never a real operating
+      # state here (the rack is always on AC-out). The 51/2008/607 triple stays for
+      # the Cloud-Control rollback path.
+      - {soc: 0, grid_input_power: 0, ac_output_power: 0}
     # Push-aware freshness, OBSERVE first (owner 2026-10-04): a legitimately
     # constant value (grid-in = 0 W while discharging) is not re-stamped by HA, so
     # the 150 s REST-age rule calls it stale and starves the spike path's #178
