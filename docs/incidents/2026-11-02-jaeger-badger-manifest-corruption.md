@@ -173,7 +173,7 @@ commit.
 
 ## References
 
-gitops PR (this branch `fix/jaeger-badger-recovery` → `develop`) · platform
+gitops PR #528 (`fix/jaeger-badger-recovery` → `develop`) · platform
 chart `platform/jaeger` 0.1.3 · cards #162 (jaeger stood up), #238 (PVC moved
 to Longhorn), #350 (jaeger 2.20.0) · `platform/jaeger/README.md` "Storage,
 retention & sizing" · corrupt manifest copy: WSL `/tmp/jaeger-MANIFEST.corrupt`
