@@ -2,6 +2,11 @@
 # all-in-one: OTLP receivers -> batch processor -> Badger storage, plus the
 # query UI and storage as collector extensions). Schema follows the upstream
 # v2.19.0 example (cmd/jaeger/config-badger.yaml).
+#
+# Also carries entrypoint.sh, the self-healing start wrapper the Deployment
+# runs instead of the bare binary (incident 2026-11-02: a torn Badger MANIFEST
+# after an OOM kill crash-looped jaeger for 5 days). Both keys are covered by
+# the Deployment's checksum/config annotation, so editing either rolls the pod.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -75,3 +80,47 @@ data:
     exporters:
       jaeger_storage_exporter:
         trace_storage: badger_main
+  entrypoint.sh: |
+    #!/bin/sh
+    # Jaeger entrypoint wrapper: self-healing Badger start (platform/jaeger,
+    # incident docs/incidents/2026-11-02-jaeger-badger-manifest-corruption.md).
+    #
+    # Runs the real binary. If it exits because the Badger store on /badger cannot
+    # be opened (torn MANIFEST after an OOM kill or an unclean node shutdown), the
+    # keys/ and values/ directories are wiped so the NEXT start initialises a fresh
+    # store instead of crash-looping forever. Traces are diagnostic data with a
+    # 7-day TTL: losing them beats a permanent CrashLoopBackOff that also floods
+    # every OTLP emitter (the live lar included) with export errors.
+    #
+    # Any other failure (config error, OOM kill, ...) is passed through untouched.
+    set -u
+    BIN=/cmd/jaeger/jaeger-linux
+    DATA=/badger
+    LOG=/tmp/jaeger-startup.log
+
+    : > "$LOG"
+    # Jaeger runs as a background job so this shell can forward SIGTERM (kubelet
+    # stop) to it; a foreground pipeline would defer the trap until it finished.
+    # awk copies only the first 400 log lines into $LOG (the storage-open error is
+    # logged at startup) and passes everything through to the container log.
+    ( set -o pipefail; "$BIN" "$@" 2>&1 | awk -v f="$LOG" 'NR <= 400 { print >> f; close(f) } { print; fflush() }' ) &
+    job=$!
+    got_signal=""
+    trap 'got_signal=1; kill -TERM "$(pidof jaeger-linux)" 2>/dev/null' TERM INT
+    wait "$job"
+    rc=$?
+    # A trapped signal interrupts wait before the job is reaped: wait once more
+    # for the real exit status (0 after a clean collector shutdown).
+    if [ -n "$got_signal" ]; then
+      wait "$job"
+      rc=$?
+    fi
+
+    if [ "$rc" -ne 0 ] \
+      && grep -q "failed to initialize storage 'badger_main'" "$LOG" \
+      && grep -q -i -E "manifest|checksum|corrupt|truncat|replay|bad magic|unable to open|no such file" "$LOG"; then
+      echo "jaeger-entrypoint: Badger store on $DATA is unreadable (exit $rc): wiping $DATA/keys and $DATA/values so the next start initialises a fresh store (see platform/jaeger/README.md)" >&2
+      find "$DATA/keys" "$DATA/values" -mindepth 1 -delete 2>/dev/null
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) wiped after exit $rc" >> "$DATA/wipes.log" 2>/dev/null
+    fi
+    exit "$rc"
