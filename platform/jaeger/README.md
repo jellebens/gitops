@@ -66,9 +66,10 @@ already allowed here for `zeus`, `jupiter-central`, `jupiter-tervuren` —
 
 ## Storage, retention & sizing
 
-- **Badger** (embedded key-value store) on a **`local-path` PVC (5Gi)** —
-  node-local POSIX storage like InfluxDB/EMQX, not the SMB share. No
-  Elasticsearch/Cassandra: overkill for a homelab.
+- **Badger** (embedded key-value store) on a **Longhorn RWO PVC `jaeger-badger`
+  (5Gi)** (block storage since #238; `local-path` before that) — POSIX
+  semantics like InfluxDB/EMQX, not the SMB share. No Elasticsearch/Cassandra:
+  overkill for a homelab.
 - **Retention = Badger span TTL = `168h` (7d)** (`jaeger.retention` in
   `.config/<env>/jaeger.yaml`); expired spans drop out during compaction, so
   disk stays bounded. 5Gi is generous for homelab trace volume — bump both
@@ -77,6 +78,75 @@ already allowed here for `zeus`, `jupiter-central`, `jupiter-tervuren` —
   (directory lock) and the PVC is RWO. Tracing is a diagnostic aid, not on any
   control path — a pod restart loses only in-flight spans. There is no HA
   story short of switching backends (see Tempo below).
+- **Memory: request 512Mi / limit 2Gi** (1Gi until the 2026-11-02 incident).
+  Badger mmaps its SST files, so the container's working set tracks the
+  on-disk store (~660 MiB for 7 days of spans) plus compaction buffers; at 1Gi
+  it was OOM-killed every 2–3 days. Raise the limit together with
+  `jaeger.retention` / the PVC size if look-back is ever extended.
+
+### Self-healing start (incident 2026-11-02)
+
+The Deployment does not exec the binary directly: it runs
+`/etc/jaeger/entrypoint.sh` (key `entrypoint.sh` of the `jaeger-config`
+ConfigMap, `templates/configmap-config.yaml`), which
+
+1. runs `/cmd/jaeger/jaeger-linux --config /etc/jaeger/config.yaml` and
+   forwards SIGTERM to it, so a pod stop still closes Badger cleanly
+   (`Shutdown complete.`, exit 0);
+2. if the binary exits non-zero **and** its startup log says
+   `failed to initialize storage 'badger_main'` with a storage-shaped reason
+   (`manifest has checksum mismatch`, `bad magic`, truncated/corrupt files),
+   wipes `/badger/keys` and `/badger/values`, appends a line to
+   `/badger/wipes.log`, and exits — the kubelet's restart then initialises a
+   fresh store (`All 0 tables opened`) instead of crash-looping forever.
+
+Why wipe instead of repair: Badger has no offline repair for a torn MANIFEST,
+the data is diagnostic with a 7-day TTL, and a crash-looping collector also
+floods every OTLP emitter (the live lar included) with export errors every
+cycle. Any other failure (config error, OOM kill, …) is passed through
+untouched. Badger's `ephemeral: true` mode was considered and rejected: it is
+a temp directory on the container's ephemeral disk, not RAM, it loses all
+traces on every pod restart (every release, since the strategy is `Recreate`),
+and it does nothing about the OOM kills that caused the corruption.
+
+Evidence a wipe happened: `kubectl -n jaeger logs deploy/jaeger --previous |
+grep jaeger-entrypoint` and `kubectl -n jaeger exec deploy/jaeger -- cat
+/badger/wipes.log`. Post-mortem:
+[`docs/incidents/2026-11-02-jaeger-badger-manifest-corruption.md`](../../docs/incidents/2026-11-02-jaeger-badger-manifest-corruption.md).
+
+### Manual recovery (if the wrapper is bypassed or the volume is damaged)
+
+```sh
+# 1. confirm it is the store, not something else
+kubectl -n jaeger logs deploy/jaeger --previous | grep -E "badger_main|manifest"
+# 2. helper pod on the SAME node as the jaeger pod (RWO volume), root, PVC at /badger
+kubectl -n jaeger get pod -l app.kubernetes.io/name=jaeger -o wide   # -> node
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: jaeger-badger-wipe, namespace: jaeger }
+spec:
+  nodeName: <that node>
+  restartPolicy: Never
+  securityContext: { runAsUser: 0 }
+  containers:
+    - name: shell
+      image: jaegertracing/jaeger:2.20.0
+      command: ["/bin/sh", "-c", "sleep 3600"]
+      volumeMounts: [{ name: badger, mountPath: /badger }]
+  volumes:
+    - name: badger
+      persistentVolumeClaim: { claimName: jaeger-badger }
+EOF
+kubectl -n jaeger exec jaeger-badger-wipe -- sh -c 'rm -rf /badger/keys/* /badger/values/*'
+kubectl -n jaeger delete pod jaeger-badger-wipe
+# 3. skip the 5-min CrashLoopBackOff wait
+kubectl -n jaeger delete pod -l app.kubernetes.io/name=jaeger
+kubectl -n jaeger rollout status deploy/jaeger
+```
+
+The PVC itself is Argo-managed (`templates/pvc.yaml`); deleting and recreating
+it is never necessary for a corrupt store — wiping the directories is enough.
 
 ## Security / network policy
 
@@ -113,7 +183,7 @@ so instrumented services would not change.
 
 ```sh
 kubectl -n jaeger rollout status deploy/jaeger
-kubectl -n jaeger get pvc jaeger-badger              # Bound (local-path)
+kubectl -n jaeger get pvc jaeger-badger              # Bound (longhorn)
 dig @192.168.50.180 jaeger.lab.local +short          # -> 192.168.50.200
 curl -s http://jaeger.lab.local/api/services | jq    # jupiter-lar/jupiter-price/jupiter-forecast/jupiter-reporting/zeus (#183 names; pre-#183 spans show as lar/price-service/... until the 7d retention ages them out)
 # smoke-test ingest from an allowed namespace (zeus/jupiter-*):

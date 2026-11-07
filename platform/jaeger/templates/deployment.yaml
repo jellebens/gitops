@@ -29,6 +29,13 @@ spec:
       containers:
         - name: jaeger
           image: {{ .Values.jaeger.image }}
+          # Self-healing start (incident 2026-11-02): entrypoint.sh (in the
+          # jaeger-config ConfigMap) runs the real binary and, if it exits
+          # because the Badger store cannot be opened (torn MANIFEST after an
+          # OOM kill / unclean shutdown), wipes /badger/keys + /badger/values so
+          # the next restart initialises a fresh store instead of crash-looping.
+          # It forwards SIGTERM, so pod stops still close Badger cleanly.
+          command: ["/bin/sh", "/etc/jaeger/entrypoint.sh"]
           args: ["--config", "/etc/jaeger/config.yaml"]
           ports:
             - { name: otlp-grpc, containerPort: 4317, protocol: TCP }
@@ -62,9 +69,14 @@ spec:
         - name: config
           configMap:
             name: jaeger-config
+            # Read-only mount; 0555 so the wrapper is executable (it is invoked
+            # through /bin/sh anyway).
+            defaultMode: 0555
             items:
               - key: config.yaml
                 path: config.yaml
+              - key: entrypoint.sh
+                path: entrypoint.sh
         - name: badger
           persistentVolumeClaim:
             claimName: jaeger-badger
