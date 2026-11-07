@@ -75,7 +75,10 @@ image:
   # incentive on NET discharge, so it no longer plans a charge+discharge wash
   # (side effect accepted by the owner 2026-10-06: grid charging on a flagged
   # slot is priced at price + incentive). Lives in this image (packages/dispatch).
-  tag: "0.22.0"
+  # 0.22.2 (#359, jupiter #157): Bluetti BLE zero-flap guard for the #178 spike
+  # correction + measured mode, enabled below via
+  # spike_responder.battery_grid_input_zero_guard. Tag and flag ship together.
+  tag: "0.22.2"
   pullPolicy: IfNotPresent
 
 # Single control loop per site. NEVER run two side by side — two cells for one
@@ -231,6 +234,14 @@ siteConfig:
     # (51 % alone is a legitimate SoC).
     battery_placeholder_signatures:
       - {soc: 51, grid_input_power: 2008, ac_output_power: 607}
+      # 2026-11-07 (#358): the Bluetti integration was re-added in BLUETOOTH control
+      # mode (home-assitant/bluetti-ble.md). The new entry's stateList snapshot was
+      # taken during the daily cloud cutoff and is ALL ZEROS, so the seed values a
+      # BLE-mode (re)load could expose before its first poll are 0 % / 0 W / 0 W.
+      # Matched as a triple only; SoC 0 with 0 W both ways is never a real operating
+      # state here (the rack is always on AC-out). The 51/2008/607 triple stays for
+      # the Cloud-Control rollback path.
+      - {soc: 0, grid_input_power: 0, ac_output_power: 0}
     # Push-aware freshness, OBSERVE first (owner 2026-10-04): a legitimately
     # constant value (grid-in = 0 W while discharging) is not re-stamped by HA, so
     # the 150 s REST-age rule calls it stale and starves the spike path's #178
@@ -313,6 +324,17 @@ siteConfig:
     trigger_consecutive: 2
     release_consecutive: 3
     cooldown_seconds: 120
+    # #359 (2026-11-08): the Bluetti integration runs in Bluetooth Control mode
+    # (#358) and its grid-in / AC-out readings alternate true value <-> 0 on
+    # consecutive polls (#360). With the guard on, a battery grid-in below
+    # battery_grid_input_zero_floor_w (50 W) while CHARGING is commanded is
+    # UNKNOWN: the last plausible reading is held <= battery_grid_input_hold_seconds
+    # (60 s), else NO spike sample (never a 0 subtrahend that paints the battery's
+    # own charge as a house spike); the measured mode withholds a classification a
+    # flapped 0 would contradict. Needs image >= 0.22.2 (0.22.0 rejects the key).
+    # Off = byte-identical pre-#359 behaviour. Counter
+    # jupiter_lar_battery_grid_input_zero_guard_total{reason}.
+    battery_grid_input_zero_guard: "on"
     discharge_min_soc_pct: 20   # #177: below this SoC a spike -> PASSTHROUGH (stop charge, no drain); at/above -> DISCHARGE
     max_sample_age_seconds: 150   # #213: grid_input_power (Bluetti cloud) updates ~median 57s/p90 118s; 45s default flagged it stale 68% of the time (responder under-fired). HEM is poked every 15s so its check is unchanged in practice. Real freezes still flagged; #211 900s guard backstops.
 
