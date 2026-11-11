@@ -25,8 +25,14 @@ dashboard:
 
 # Prometheus recording + alerting rules (kube-prometheus-stack ruleSelector
 # picks these up by label). The recording rules are the harness itself.
+#
+# RETIRED 2026-11-11 (enabled: false, and gateBlind below): the harness joins
+# zeus_* against jupiter_lar_*, and zeus has been at replicas:0 since 2026-07-30
+# (#169), so every jupiter_shadow_* series is absent and JupiterShadowHarnessNoData
+# fired from 2026-09-10 on as pure noise. The dashboard stays as the historical
+# view. Re-enable only together with a zeus rollback.
 prometheusRule:
-  enabled: true
+  enabled: false
   releaseLabel: kube-prometheus-stack
   # JupiterShadowSetpointDelta warning threshold (kW): the absolute net-setpoint
   # gap |zeus_net - cell_net| that, sustained 2h, means the shadow plan and live
@@ -52,7 +58,7 @@ prometheusRule:
   # 0 proves NOTHING. Becomes moot at zeus decommission (#169) — which is
   # exactly why it is kept separable.
   gateBlind:
-    enabled: true
+    enabled: false  # retired 2026-11-11 with the harness (see above)
     releaseLabel: kube-prometheus-stack
     # Sustained window before the guard fires. Long enough that a brief feed
     # blip (one stack momentarily on cache/fallback while the other is primary)
