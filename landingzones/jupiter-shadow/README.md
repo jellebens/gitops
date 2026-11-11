@@ -108,6 +108,14 @@ logic-divergence minutes, max |delta| over the selected window).
 
 ## Alerts (warning only — the harness never actuates; these are P4-readiness)
 
+> **RETIRED 2026-11-11.** `prometheusRule.enabled` and
+> `prometheusRule.gateBlind.enabled` are `false`: the harness joins `zeus_*`,
+> and zeus has been at `replicas: 0` since 2026-07-30 (#169), so every series
+> was absent and `JupiterShadowHarnessNoData` fired continuously from
+> 2026-09-10 on. No rules (recording or alerting) are deployed any more; the
+> dashboard is kept for the historical soak data. Flip both flags back only
+> with a zeus rollback.
+
 `JupiterShadowHarnessNoData`, `JupiterShadowLogicDivergence` (the gate; its
 description points at the #147 strict/per-input series for attribution),
 `JupiterShadowSetpointDelta` (`values.yaml prometheusRule.setpointDeltaKw`,
