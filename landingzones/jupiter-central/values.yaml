@@ -651,8 +651,14 @@ reporting:
   # deliberately CONSERVATIVE (loose tolerance + long `for:`) and the panels/rule
   # are labelled "cross-check (independence pending)" so a green result now is
   # not over-interpreted.
+  #
+  # RETIRED 2026-11-11 (enabled: false): every series here joins zeus_savings_*,
+  # and zeus has been at replicas:0 since 2026-07-30 (#169), so the parity was
+  # permanently absent and JupiterReportingSavingsParityNoData fired from
+  # 2026-09-10 on as pure noise. Re-enable only together with a zeus rollback.
+  # The jupiter-only savingsSource guard below keeps watching.
   savingsParity:
-    enabled: true
+    enabled: false
     releaseLabel: kube-prometheus-stack
     # SavingsParityDiverged warning threshold (EUR): the absolute daily-savings
     # gap |jupiter_savings_today_eur - zeus_savings_today_eur| that, sustained,
