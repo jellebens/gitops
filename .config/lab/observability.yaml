@@ -153,6 +153,13 @@ prometheus:
   enabled: true
   prometheusSpec:
     retention: 15d
+    # Size cap next to the 15 d time cap, on the 25Gi volume below. Prometheus
+    # counts blocks + WAL + head chunks against it and drops the oldest blocks
+    # once the total passes the cap. 2026-11-11: a corrupt WAL segment blocked
+    # WAL truncation, the WAL grew from ~0.35Gi to 10Gi in two days and filled
+    # the volume (blocks alone are ~13.5Gi), so ingestion stopped. With the cap
+    # that failure costs old history instead of all new samples.
+    retentionSize: 18GB
     scrapeInterval: 30s
     evaluationInterval: 30s
     # Long-term archive (card #290, ADR-0002 "all telemetry, forever"): ship
