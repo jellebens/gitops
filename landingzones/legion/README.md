@@ -58,6 +58,37 @@ has data. That is the state of Legion's first increment, not a fault here. What
 this deployment does prove is the image, the probes, the gateway route, the
 certificate and Harbor, end to end.
 
+## Legate, and its two interims
+
+`legate.enabled` adds legate, the API the view reads from (legion TSK-14): a
+Deployment `legion-legate` (2 replicas on separate worker nodes, probes on
+8081), a ConfigMap with its configuration, a Service, a PodDisruptionBudget, a
+CiliumNetworkPolicy, and the rule `/api` on the HTTPRoute, above the catch-all
+that goes to the interface. With it the pages show Legion's own documents and
+backlog.
+
+Two things about it are interim, both the owner's decisions of 2026-11-23:
+
+- **No sign-in.** Anyone on the LAN who opens `legion.lab.local` reads Legion's
+  documents and backlog. Legion's own requirement is a credential on every call
+  (PRD-LEG-005/REQ-01); authentication is not designed yet. Legate has no call
+  that writes. It goes when Legion has its sign-in.
+- **A snapshot, not GitHub.** Legate reads a folder until it can read the main
+  branch on GitHub (legion TSK-15, which waits for Legion's GitHub App). The
+  image `legate-snapshot` is legate with Legion's `docs/` at one commit in it
+  ([`snapshot/Dockerfile`](snapshot/Dockerfile)). The view is frozen at that
+  commit, which every page names, and nothing on it is live: the event stream
+  is not built, so a page also says that it may be out of date.
+
+To move the snapshot to a newer commit of legion: build `legate` (if it
+changed) and then `legate-snapshot` from the root of the legion repository at
+that commit, push both with `robot$legion+push`, and bump `legate.image.tag`
+and `legate.snapshot.commit` together.
+
+`avoidNodes` (in `.config/lab/legion.yaml`) keeps the pods off `k3s-node03`,
+which cannot pull from Harbor at the moment. The chart keeps them off the
+control-plane node already.
+
 ## Rules from Legion's own documents
 
 - **Every image comes from Harbor** (ADR-LEG-016). Legion's own are in the
