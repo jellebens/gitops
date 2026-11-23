@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: legion
+  labels:
+    app.kubernetes.io/name: legion
+    app.kubernetes.io/part-of: legion

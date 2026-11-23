@@ -1,0 +1,80 @@
+{{- if and .Values.interface.enabled .Values.gateway.enabled }}
+# legion.lab.local -> the praetor's view, through the shared Cilium gateway
+# (the hermes / ceres-janus pattern). legion ADR-LEG-009/DEC-04 and DEC-05: on
+# the trusted network only, encrypted, by HTTPRoutes of the Gateway API.
+#
+# One address, two routes (legion HLD-LEG-003, block 5): everything goes to the
+# interface; `/api` will go to legate when legate is deployed, as a rule ABOVE
+# the catch-all here. Until then `/api/...` reaches the interface, which answers
+# with its entry page, and the page says that Legion does not answer.
+#
+# AGENTS.md, the rule this obeys: HTTPS needs its OWN listener + lab-CA
+# certificate per hostname (`legion-https` in .config/<env>/gateway.yaml), and
+# an A record `legion IN A 192.168.50.200` in .config/<env>/coredns-lab.yaml
+# with the zone serial bumped.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: legion
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-interface
+    app.kubernetes.io/part-of: legion
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.gateway.parentRef.name }}
+      {{- with .Values.gateway.parentRef.namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      {{- with .Values.gateway.parentRef.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  hostnames:
+    {{- toYaml .Values.gateway.hostnames | nindent 4 }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: legion-interface
+          port: {{ .Values.service.port }}
+          weight: 1
+{{- if .Values.gateway.httpToHttpsRedirect.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: legion-http-to-https
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-interface
+    app.kubernetes.io/part-of: legion
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.gateway.parentRef.name }}
+      {{- with .Values.gateway.parentRef.namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      sectionName: {{ .Values.gateway.httpToHttpsRedirect.sectionName }}
+  hostnames:
+    {{- toYaml .Values.gateway.hostnames | nindent 4 }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 302
+{{- end }}
+{{- end }}
