@@ -142,6 +142,7 @@ ConfigMap) and the manifest is [`templates/bootstrap.yaml`](templates/bootstrap.
 | `ghcr` | proxy cache of registry `ghcr` (`https://ghcr.io`) | yes | 10Gi | keep what was pulled in the last 14 days | `harbor.lab.local/ghcr/actions/actions-runner:<tag>` |
 | `actions` | normal | yes | 8Gi | keep the 5 most recently pushed per repository | ARC controller/runner images and the ARC Helm charts (OCI) |
 | `ci` | normal, **scan on push** | no | 12Gi | keep the 10 most recently pushed per repository | images built by the runners |
+| `legion` | normal, **scan on push** | yes | 4Gi | keep the 10 most recently pushed per repository | Legion's own images, e.g. `harbor.lab.local/legion/interface:<tag>`; base images of its builds come through `dockerhub` |
 
 **Vulnerability scanning (#340).** Harbor runs Trivy (`trivy-adapter`, enabled in
 `.config/lab/harbor.yaml`). The project `ci` has `autoScan: true`, which the
@@ -221,7 +222,7 @@ for that namespace (a SealedSecret only decrypts in the namespace it was sealed
 for), as `dockerconfigjson` for `harbor.lab.local` with user `robot$ci+push`.
 
 **Storage budget.** The registry PVC is 50Gi on Longhorn. The quotas add up to
-44Gi, so a full proxy cache gets push/pull errors on its own project instead of
+48Gi, so a full proxy cache gets push/pull errors on its own project instead of
 filling the volume for everyone. Retention runs at 23:00 and GC at 00:00 (Harbor
 crons have six fields, seconds first). Both stay clear of the 04:00 DB dump and
 the 04:30 Longhorn layer backup, whether Harbor reads the cron as UTC or local

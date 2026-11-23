@@ -75,7 +75,7 @@ bootstrap:
   # around midnight so they never overlap the 04:00 DB dump / 04:30 Longhorn
   # layer backup window (README "Backups"); retention first, so GC frees what
   # it removed. Retention keeps what a rule matches and deletes the rest.
-  # Quotas add up to 44Gi, under the 50Gi registry PVC.
+  # Quotas add up to 48Gi, under the 50Gi registry PVC.
   projects:
     - name: dockerhub
       public: true
@@ -113,6 +113,20 @@ bootstrap:
       public: false
       autoScan: true
       storageLimitGi: 12
+      retention:
+        cron: "0 0 23 * * *"
+        rules:
+          - template: latestPushedK
+            value: 10
+    # Legion's own images (amarok-consulting/legion, ADR-LEG-016): the
+    # interface now, legate, the receiver, the centurion and the fabrica
+    # images later. Public like `actions`, so the nodes pull without a pull
+    # secret; nothing secret is built into an image. Scanned on push. No robot
+    # yet: nothing pushes by itself until Legion has a build of its own.
+    - name: legion
+      public: true
+      autoScan: true
+      storageLimitGi: 4
       retention:
         cron: "0 0 23 * * *"
         rules:
