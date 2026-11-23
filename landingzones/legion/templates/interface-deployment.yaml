@@ -51,6 +51,14 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       affinity:
+        {{- if .Values.interface.avoidControlPlane }}
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+        {{- end }}
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - topologyKey: kubernetes.io/hostname

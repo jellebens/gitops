@@ -19,7 +19,7 @@ built; they get their own templates here when they are.
 | Resource | Name | What |
 |---|---|---|
 | Namespace | `legion` | |
-| Deployment | `legion-interface` | 2 replicas on separate nodes (required anti-affinity), rolled one at a time. Static files and the interface's own Go file server on an empty base image. Runs as uid 65532, read-only root filesystem, no capabilities, no service-account token |
+| Deployment | `legion-interface` | 2 replicas on separate worker nodes (required anti-affinity, and never the control-plane node), rolled one at a time. Static files and the interface's own Go file server on an empty base image. Runs as uid 65532, read-only root filesystem, no capabilities, no service-account token |
 | PodDisruptionBudget | `legion-interface` | at least one instance during a drain |
 | Service | `legion-interface` | ClusterIP, port 80 to the pages' port 8080. The probe port is not in it |
 | HTTPRoute | `legion`, `legion-http-to-https` | `legion.lab.local` on the shared Cilium gateway; plain http redirects |
