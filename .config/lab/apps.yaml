@@ -9,3 +9,12 @@
 arc:
   runners:
     enabled: true
+
+# Legion (landingzones/legion): the praetor's view of amarok-consulting/legion.
+# ON since the `legion-https` listener (.config/lab/gateway.yaml) and the
+# `legion` A record (.config/lab/coredns-lab.yaml) were added in the same PR.
+# The image harbor.lab.local/legion/interface:<tag> must be in Harbor, or the
+# pods wait in ImagePullBackOff until it is. Turning it off again:
+# landingzones/legion/README.md "Rollback".
+legion:
+  enabled: true

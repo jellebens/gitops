@@ -1,0 +1,19 @@
+# Legion lab overrides (landingzones/legion).
+#
+# HTTPS through the shared gateway: the `legion-https` listener is declared in
+# .config/lab/gateway.yaml and the certificate is emitted by the landing zone.
+
+gateway:
+  parentRef:
+    name: cilium-gateway
+    namespace: gateway
+    sectionName: legion-https
+  httpToHttpsRedirect:
+    enabled: true
+    sectionName: http
+
+tlsCertificate:
+  enabled: true
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer

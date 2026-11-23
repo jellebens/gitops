@@ -1,0 +1,83 @@
+# Legion (amarok-consulting/legion): the praetor's view. Only the interface
+# exists so far; legate (the API), the receiver, NATS and PostgreSQL come with
+# Legion's later work packages and get their own blocks here.
+#
+# Rules this chart follows, from Legion's own documents:
+#   - ADR-LEG-016: every image comes from Harbor. Legion's own are in the
+#     project `legion`; nothing is pulled from another registry.
+#   - ADR-LEG-009/DEC-05: published through the Cilium gateway with HTTPRoutes.
+#     No Ingress object, and no nginx anywhere.
+#   - HLD-LEG-003, block 4 and 5: two or more instances on separate nodes; the
+#     file server answers /livez and /readyz on a port of its own (8081) and
+#     drains for 5 s on a stop.
+
+interface:
+  enabled: true
+  # Two or more, on separate nodes (PRD-LEG-002/REQ-16): the page keeps loading
+  # when a node fails. The anti-affinity below is REQUIRED, so replicas must
+  # not exceed the number of schedulable nodes.
+  replicas: 2
+  image:
+    repository: harbor.lab.local/legion/interface
+    # The interface's version (interface/package.json in the legion repo). The
+    # image must be pushed under this tag first: build from the legion repo's
+    # root with --platform linux/arm64 --provenance=false (README "Image").
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  # The file server's own ports (interface/README.md in the legion repo).
+  port: 8080        # the pages; the only port the Service and the route reach
+  probePort: 8081   # /livez and /readyz; never in the Service, never routed
+  # The server is not ready at once on SIGTERM and serves for 5 s more (its
+  # default drain), then gives calls under way 10 s. The grace period must be
+  # longer than the two together.
+  terminationGracePeriodSeconds: 30
+  # The image runs as this numeric user on an empty base (scratch).
+  runAsUser: 65532
+  runAsGroup: 65532
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy (docs/network-policies.md, the
+# hermes pattern): only the Cilium gateway (reserved `ingress` identity) may
+# reach the pages' port. Egress stays open; the interface makes no outbound
+# call anyway. Kubelet probes come from the host identity, which Cilium admits
+# by default under ingress enforcement. Disable with this one flag.
+networkPolicy:
+  enabled: true
+
+# Through the SHARED GATEWAY (the hermes / ceres-janus pattern): the route, the
+# redirect and the certificate ship together so the view is never half-exposed.
+# HTTPS needs its own listener per hostname in .config/<env>/gateway.yaml
+# (`legion-https`) and an A record in .config/<env>/coredns-lab.yaml; see the
+# README "Enable".
+gateway:
+  enabled: true
+  parentRef:
+    name: cilium-gateway
+    namespace: gateway
+    sectionName: http
+  hostnames:
+    - legion.lab.local
+  httpToHttpsRedirect:
+    enabled: false
+    sectionName: http
+
+tlsCertificate:
+  enabled: false
+  secretName: legion-server-tls
+  commonName: legion.lab.local
+  dnsNames:
+    - legion.lab.local
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: lab-ca-issuer
+    kind: ClusterIssuer
