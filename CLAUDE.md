@@ -65,6 +65,9 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
   optimizer (LIVE, controlling the battery). See its README for wiring, metrics,
   the Grafana dashboard, MQTT, secrets, and the arm64 image build.
 - `landingzones/hermes` — see the directory.
+- [`landingzones/legion`](landingzones/legion/README.md) — Legion's praetor's
+  view (amarok-consulting/legion): the interface only, at `legion.lab.local`,
+  image from Harbor project `legion`. No data until Legion's API (legate) exists.
 - [`landingzones/arc-runners`](landingzones/arc-runners/README.md) — GitHub
   Actions runners (ARC, kubernetes mode) for the private `ceres` repo, charts and
   images from Harbor only (#339). Controller app `arc` is live-able now; the

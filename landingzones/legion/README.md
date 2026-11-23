@@ -4,9 +4,11 @@ Landing zone for **Legion** ([amarok-consulting/legion](https://github.com/amaro
 the praetor's view, the pages in which a praetor sees how the building of their
 products stands.
 
-**State: drafted, not enabled.** The Argo CD Application `legion` is gated by
-`legion.enabled` in `.config/lab/apps.yaml` and is off. Nothing of this chart is
-in the cluster until the steps under [Enable](#enable) are done.
+**State: enabled.** The Argo CD Application `legion` is gated by
+`legion.enabled` in `.config/lab/apps.yaml`, which is on, together with the
+`legion-https` listener and the `legion` DNS record. It reaches the cluster with
+the release that carries that change. The pods wait in ImagePullBackOff until
+the image is in Harbor ([Image](#image)).
 
 ## What it deploys
 
@@ -80,8 +82,18 @@ on the building machine must trust the lab CA
 The tag is `interface.image.tag` in [`values.yaml`](values.yaml); a mutable tag
 such as `latest` is refused by Kyverno.
 
-As of this draft: no image has been pushed, no build has gone through Harbor,
-and the arm64 image has never run.
+The builder inside Docker Desktop does not trust the lab CA when it looks up a
+base image, though `docker pull` does. Pull the two base images through Harbor
+first, and build with Docker's own builder:
+
+```sh
+docker pull harbor.lab.local/dockerhub/library/node:24-alpine
+docker pull harbor.lab.local/dockerhub/library/golang:1.27.4-alpine
+docker buildx build --builder default --load ...   # the build above
+```
+
+Built that way on 2026-11-23 for `linux/arm64`. It has not been pushed and has
+never run on arm64.
 
 ## Enable
 

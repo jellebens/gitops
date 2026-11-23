@@ -11,9 +11,10 @@ arc:
     enabled: true
 
 # Legion (landingzones/legion): the praetor's view of amarok-consulting/legion.
-# OFF until the interface's image is pushed to harbor.lab.local/legion/interface.
-# Flip to true in the same PR that adds the `legion-https` listener to
-# .config/lab/gateway.yaml and the `legion` A record to .config/lab/coredns-lab.yaml.
-# Procedure: landingzones/legion/README.md "Enable".
+# ON since the `legion-https` listener (.config/lab/gateway.yaml) and the
+# `legion` A record (.config/lab/coredns-lab.yaml) were added in the same PR.
+# The image harbor.lab.local/legion/interface:<tag> must be in Harbor, or the
+# pods wait in ImagePullBackOff until it is. Turning it off again:
+# landingzones/legion/README.md "Rollback".
 legion:
-  enabled: false
+  enabled: true

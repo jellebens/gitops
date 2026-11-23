@@ -97,6 +97,22 @@ gateway:
             kind: Secret
             name: harbor-server-tls
             namespace: harbor
+    # Legion: the praetor's view (landingzones/legion). The certificate is
+    # emitted by the landing zone (lab-ca-issuer); this chart emits the
+    # cross-namespace ReferenceGrant for it. LAN only, like every listener
+    # here: Legion's own rule is the trusted network and never the internet
+    # (legion ADR-LEG-009/DEC-04). No data yet: legate, which answers /api, is
+    # not built, so every page shows its frame and says it may be out of date.
+    - name: legion-https
+      port: 443
+      hostname: legion.lab.local
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: legion-server-tls
+            namespace: legion
   annotations:
     lbipam.cilium.io/ips: "192.168.50.200"
 
