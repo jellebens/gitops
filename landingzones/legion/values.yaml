@@ -17,6 +17,9 @@ interface:
   # when a node fails. The anti-affinity below is REQUIRED, so replicas must
   # not exceed the number of schedulable nodes.
   replicas: 2
+  # Keep the pods off the control-plane node (owner decision, 2026-11-23).
+  # The count of schedulable nodes for the anti-affinity is then the workers.
+  avoidControlPlane: true
   image:
     repository: harbor.lab.local/legion/interface
     # The interface's version (interface/package.json in the legion repo). The
