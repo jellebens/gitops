@@ -18,7 +18,7 @@ corednsLab:
     $ORIGIN lab.local.
     $TTL 86400
     @   IN SOA ns.lab.local. hostmaster.lab.local. (
-            2026100801 ; serial — BUMP on every change (YYYYMMDDnn)
+            2026112301 ; serial — BUMP on every change (YYYYMMDDnn)
             3600       ; refresh (1h backstop if NOTIFY to the slave is missed)
             180        ; retry
             1209600    ; expire
@@ -38,6 +38,7 @@ corednsLab:
     longhorn     IN A   192.168.50.200
     janus        IN A   192.168.50.200   ; ceres ADR-0015: the operator console (decisions, alerts, hand dosing) — https via the ceres-janus-https listener
     harbor       IN A   192.168.50.200   ; Harbor container registry + UI — https only (harbor-https listener)
+    legion       IN A   192.168.50.200   ; Legion, the praetor's view — https via the legion-https listener (landingzones/legion)
     ; platform services (dedicated Cilium LB VIPs, platform pool .180-.199)
     mqtt         IN A   192.168.50.181   ; EMQX HA broker (platform/mqtt)
     ; infra / hosts
