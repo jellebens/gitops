@@ -58,6 +58,12 @@ spec:
               - matchExpressions:
                   - key: node-role.kubernetes.io/control-plane
                     operator: DoesNotExist
+                  {{- with .Values.avoidNodes }}
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      {{- toYaml . | nindent 22 }}
+                  {{- end }}
         {{- end }}
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
