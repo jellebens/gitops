@@ -157,12 +157,14 @@ needs no `scan create` right on the CI robot and covers every image pushed to
 vulnerability DB from the internet; at an airgapped site that DB must be mirrored
 too (not done yet).
 
-Robots (project robots, `repository` push + pull, never expire):
+Robots (project robots, `repository` push + pull unless said otherwise, never expire):
 
 | Robot | Project | SealedSecret (key `secret`) | Used by |
 |---|---|---|---|
 | `robot$ci+push` | `ci` | `harbor-ci-robot` | CI runners pushing built images (ARC, #339/#340); also `artifact` read, for the scan summary |
 | `robot$actions+push` | `actions` | `harbor-actions-robot` | the ARC mirror, `.scripts/arc-mirror/mirror.sh` (#338): `HARBOR_USERNAME='robot$actions+push'` |
+| `robot$legion+push` | `legion` | `harbor-legion-push-robot` | pushing Legion's images: by hand today, a build of Legion's later |
+| `robot$legion+pull` | `legion` | `harbor-legion-pull-robot` | the legion landing zone; pull only. Its `dockerconfigjson` is sealed into namespace `legion` as `legion-harbor-pull` |
 
 Get the mirror's password with
 `kubectl -n harbor get secret harbor-actions-robot -o jsonpath='{.data.secret}' | base64 -d`.

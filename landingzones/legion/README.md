@@ -25,8 +25,32 @@ built; they get their own templates here when they are.
 | HTTPRoute | `legion`, `legion-http-to-https` | `legion.lab.local` on the shared Cilium gateway; plain http redirects |
 | Certificate | `legion-server-tls` | lab CA, for the `legion-https` listener |
 | CiliumNetworkPolicy | `legion-interface` | ingress only: the gateway (`ingress` identity) to port 8080 |
+| SealedSecret | `legion-harbor-pull` | the pods' pull credential: `robot$legion+pull` of Harbor, pull only, as a dockerconfigjson |
 
-It holds no secret and no state.
+It holds no state, and one secret: the pull credential.
+
+## Harbor accounts
+
+Two robots of the Harbor project `legion`, declared in
+[`platform/harbor-config`](../../platform/harbor-config/README.md), each with a
+random secret that was sealed when it was generated:
+
+| Robot | May | Used by |
+|---|---|---|
+| `robot$legion+push` | push and pull | whoever pushes Legion's images: by hand today |
+| `robot$legion+pull` | pull | this landing zone, through `imagePullSecrets` |
+
+They are two so that what the cluster pulls with cannot push. To push by hand:
+
+```sh
+kubectl -n harbor get secret harbor-legion-push-robot -o jsonpath='{.data.secret}' | base64 -d \
+  | docker login harbor.lab.local -u 'robot$legion+push' --password-stdin
+```
+
+The pull robot's secret is sealed twice: for Harbor's bootstrap
+(`.config/lab/harbor-config.yaml`, `legionPullRobot`) and, as a dockerconfigjson,
+for this namespace (`.config/lab/legion.yaml`, `imagePullSecret`). Rotate the
+two together.
 
 **What you see once it runs:** the frame of each page and the line "This page
 may be out of date". Nothing answers `/api` until legate is deployed, so no page

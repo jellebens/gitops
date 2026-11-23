@@ -40,6 +40,21 @@ actionsRobot:
   name: harbor-actions-robot
   encryptedData: {}
 
+# The two accounts of the `legion` project (Legion, amarok-consulting/legion;
+# its ADR-LEG-016). Two, so that what the cluster pulls with cannot push:
+#   robot$legion+push  pushes Legion's images (by hand today, a build later)
+#   robot$legion+pull  is what the legion landing zone pulls with; its
+#                      dockerconfigjson is sealed into namespace legion
+#                      (landingzones/legion, imagePullSecret).
+# Same generation/sealing rules as ciRobot: random, 40 chars, never in
+# plaintext outside the cluster.
+legionPushRobot:
+  name: harbor-legion-push-robot
+  encryptedData: {}
+legionPullRobot:
+  name: harbor-legion-pull-robot
+  encryptedData: {}
+
 # Declarative Harbor state (card #337): proxy-cache endpoints, projects, quotas,
 # tag retention, robots and the GC schedule. A CronJob reconciles it through
 # the Harbor API (templates/bootstrap.yaml, script files/harbor-bootstrap.py).
@@ -121,8 +136,8 @@ bootstrap:
     # Legion's own images (amarok-consulting/legion, ADR-LEG-016): the
     # interface now, legate, the receiver, the centurion and the fabrica
     # images later. Public like `actions`, so the nodes pull without a pull
-    # secret; nothing secret is built into an image. Scanned on push. No robot
-    # yet: nothing pushes by itself until Legion has a build of its own.
+    # secret; nothing secret is built into an image. Scanned on push. Two
+    # robots below: one pushes, one is what the landing zone pulls with.
     - name: legion
       public: true
       autoScan: true
@@ -157,6 +172,27 @@ bootstrap:
         key: secret
       access:
         - {resource: repository, action: push}
+        - {resource: repository, action: pull}
+    # Legion's images are pushed with this one (legionPushRobot above).
+    - project: legion
+      name: push
+      description: Pushes Legion's images (amarok-consulting/legion ADR-LEG-016)
+      secretEnv: LEGION_PUSH_ROBOT_SECRET
+      secretRef:
+        name: harbor-legion-push-robot
+        key: secret
+      access:
+        - {resource: repository, action: push}
+        - {resource: repository, action: pull}
+    # The legion landing zone pulls with this one, and it can do nothing else.
+    - project: legion
+      name: pull
+      description: The legion landing zone pulls Legion's images (landingzones/legion)
+      secretEnv: LEGION_PULL_ROBOT_SECRET
+      secretRef:
+        name: harbor-legion-pull-robot
+        key: secret
+      access:
         - {resource: repository, action: pull}
   gc:
     cron: "0 0 0 * * *"

@@ -39,6 +39,10 @@ spec:
         app.kubernetes.io/part-of: legion
     spec:
       automountServiceAccountToken: false
+      {{- if .Values.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.name }}
+      {{- end }}
       terminationGracePeriodSeconds: {{ .Values.interface.terminationGracePeriodSeconds }}
       securityContext:
         runAsNonRoot: true

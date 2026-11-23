@@ -41,6 +41,17 @@ interface:
     limits:
       memory: 64Mi
 
+# What the pods pull with: the pull-only robot of the Harbor project `legion`
+# (robot$legion+pull, platform/harbor-config). Its dockerconfigjson is sealed
+# per environment for namespace legion / secret `name`, key .dockerconfigjson.
+# The project is public, so pulls also work without it; with it, the project
+# can be made private by one line in platform/harbor-config/values.yaml.
+imagePullSecret:
+  enabled: false
+  name: legion-harbor-pull
+  sealedSecret:
+    encryptedData: {}   # { .dockerconfigjson: "Ag..." }
+
 service:
   type: ClusterIP
   port: 80
