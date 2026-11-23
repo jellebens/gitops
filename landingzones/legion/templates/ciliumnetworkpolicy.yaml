@@ -1,0 +1,32 @@
+{{- if and .Values.interface.enabled .Values.networkPolicy.enabled }}
+# Scoped, INGRESS-ONLY CiliumNetworkPolicy for the interface (the hermes
+# pattern, docs/network-policies.md). A policy with only `ingress` rules puts
+# the endpoint into default-deny for ingress only; egress stays open, and the
+# interface makes no outbound call.
+#
+# Inbound allowed: the Cilium gateway only (reserved `ingress` identity), to the
+# pages' port. The probe port is not opened to anything: kubelet probes come
+# from the host identity, which Cilium admits by default under ingress
+# enforcement.
+#
+# Rollback: networkPolicy.enabled=false; Argo prunes the CNP.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: legion-interface
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-interface
+    app.kubernetes.io/part-of: legion
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: legion-interface
+  ingress:
+    - fromEntities:
+        - ingress
+      toPorts:
+        - ports:
+            - port: {{ .Values.interface.port | quote }}
+              protocol: TCP
+{{- end }}

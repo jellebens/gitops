@@ -1,0 +1,45 @@
+{{- /*
+  Legion landing zone: the praetor's view of amarok-consulting/legion. GATED:
+  this Application only exists when .Values.legion.enabled is true
+  (.config/lab/apps.yaml). It stays off until the interface's image is in
+  Harbor (harbor.lab.local/legion/interface:<tag>), or every pod would sit in
+  ImagePullBackOff. Flip it in the same PR that adds the `legion-https`
+  listener and the DNS record. See landingzones/legion/README.md "Enable".
+*/ -}}
+{{- if and .Values.legion .Values.legion.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: legion
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  project: landing-zones
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: legion
+  sources:
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      path: landingzones/legion
+      helm:
+        releaseName: legion
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/legion.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+{{- end }}

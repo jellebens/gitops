@@ -1,0 +1,118 @@
+{{- if .Values.interface.enabled }}
+# legion-interface: the praetor's view in the browser (legion PRD-LEG-002,
+# HLD-LEG-003). Static files and the interface's own small Go file server on an
+# empty base image; no nginx (legion ADR-LEG-009/DEC-05). It holds no state and
+# no secret, and reads nothing but its own files: every value on a page comes
+# from legate's API, which the browser calls under the same address (/api).
+#
+# Until legate is deployed nothing answers /api, so every page shows its frame
+# and the line "This page may be out of date". That is the honest state of the
+# first increment, not a fault of this Deployment.
+#
+# Two replicas on separate nodes, rolled one at a time and never below two
+# ready. The file server answers its probes on a port of its own, so no address
+# of a page is taken and the probes cannot be reached through the gateway.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legion-interface
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-interface
+    app.kubernetes.io/part-of: legion
+spec:
+  replicas: {{ .Values.interface.replicas }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: legion-interface
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: legion-interface
+        app.kubernetes.io/part-of: legion
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.interface.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.interface.runAsUser }}
+        runAsGroup: {{ .Values.interface.runAsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: legion-interface
+      containers:
+        - name: interface
+          image: "{{ .Values.interface.image.repository }}:{{ .Values.interface.image.tag }}"
+          imagePullPolicy: {{ .Values.interface.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PORT
+              value: {{ .Values.interface.port | quote }}
+            - name: PROBE_PORT
+              value: {{ .Values.interface.probePort | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.interface.port }}
+              protocol: TCP
+            - name: probes
+              containerPort: {{ .Values.interface.probePort }}
+              protocol: TCP
+          # Live: the process serves. Ready: it can read the entry page, and it
+          # has not been told to stop. On SIGTERM /readyz is 503 at once while
+          # the pages are served for 5 s more, so the gateway stops sending
+          # calls before the port closes.
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: probes
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: probes
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 1
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: probes
+            periodSeconds: 1
+            failureThreshold: 30
+          resources:
+            {{- toYaml .Values.interface.resources | nindent 12 }}
+---
+# Never fewer than one instance during a node drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: legion-interface
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-interface
+    app.kubernetes.io/part-of: legion
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: legion-interface
+{{- end }}

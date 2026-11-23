@@ -1,0 +1,20 @@
+{{- if .Values.interface.enabled }}
+# The pages only. The probe port is deliberately not here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: legion-interface
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-interface
+    app.kubernetes.io/part-of: legion
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/name: legion-interface
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
