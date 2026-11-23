@@ -35,6 +35,20 @@ spec:
   hostnames:
     {{- toYaml .Values.gateway.hostnames | nindent 4 }}
   rules:
+    {{- if .Values.legate.enabled }}
+    # /api goes to legate, with the path as it is; the longer prefix wins over
+    # the catch-all below.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: legion-legate
+          port: {{ .Values.service.port }}
+          weight: 1
+    {{- end }}
     - matches:
         - path:
             type: PathPrefix
