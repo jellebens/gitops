@@ -37,6 +37,13 @@ imagePullSecret:
 # below. The chart refuses to render legate while any of them is empty.
 legate:
   enabled: true
+  # Legion's own fabrica image, the stub its manifest names for every
+  # component (legion legion.yaml). The digest is the one Harbor holds for
+  # harbor.lab.local/legion/fabrica-stub:0.2-1, pushed 2026-11-25.
+  images:
+    - name: legion/fabrica-stub
+      tag: "0.2-1"
+      digest: sha256:57eb7f6a876922f9ef91f2855f28f127fa4b624eed91caf24e4f74d7ed561f58
   secrets:
     # Sealed for namespace legion by .scripts/seal-legion-secrets.sh.
     adminToken:
