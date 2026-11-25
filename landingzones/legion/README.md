@@ -76,6 +76,14 @@ legion's `legate/README.md`, "What a deployment has to set"; this chart sets
 all of it but the admission of fabrica images (`HARBOR_URL` and a read-only
 Harbor account), which waits until Legion has a fabrica image of its own.
 
+**Interim, `legate.caBundle`:** legate's image is empty but for the binary
+and holds no certificate authorities, so legate 0.2.0 cannot check GitHub's
+certificate; it logs "GitHub was asked ... and did not answer", reads no
+repository and ends no sign-in. An init container copies the public
+authorities of a stock Alpine image, taken through Harbor, into
+`/etc/ssl/certs` of legate. It goes with the first legate image that brings
+them itself.
+
 The chart refuses to render legate without its database or with one of its
 three secrets unsealed. That is on purpose: Argo then reports a comparison
 error and leaves the running view as it is, where a half-given legate would
