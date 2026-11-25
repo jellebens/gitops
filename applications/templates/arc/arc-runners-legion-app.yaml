@@ -1,0 +1,65 @@
+{{- /*
+  ARC runner scale set for Legion (amarok-consulting/legion, its ADR-LEG-020:
+  the tag of a release builds its images on runners inside the cluster).
+  A second scale set beside arc-ceres, in a namespace of its own, so that
+  neither repository's jobs can read the other's credentials. GATED: this
+  Application only exists when .Values.arc.legionRunners.enabled is true
+  (.config/lab/apps.yaml). It stays off until the owner has created the
+  GitHub App on amarok-consulting and sealed its credential into
+  .config/lab/arc-runners-legion-config.yaml. See
+  landingzones/arc-runners/README.md "A second scale set: Legion".
+*/ -}}
+{{- if and .Values.arc .Values.arc.legionRunners .Values.arc.legionRunners.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc-runners-legion
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Same wave as arc-runners: after the controller (20) and arc-config (19).
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  project: landing-zones
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-runners-legion
+  sources:
+    # The upstream scale-set chart, from Harbor (#338). The values are the
+    # ceres scale set's, with only what differs laid over them.
+    - repoURL: {{ .Values.repos.arc.url | quote }}
+      chart: gha-runner-scale-set
+      targetRevision: {{ .Values.repos.arc.targetRevision | quote }}
+      helm:
+        releaseName: arc-runners-legion
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/arc-runners.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/arc-runners-legion.yaml
+    # Our landing-zone chart, a second release of it: the SealedSecrets, the
+    # lab CA and the hook template of this scale set.
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      path: landingzones/arc-runners
+      helm:
+        releaseName: arc-runners-legion-config
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/.config/shared/values.yaml
+          - $values/.config/{{ .Values.environment | default "lab" }}/values.yaml
+          # Not over arc-runners-config.yaml: its sealed values are ceres's.
+          - $values/.config/{{ .Values.environment | default "lab" }}/arc-runners-legion-config.yaml
+    - repoURL: {{ .Values.repos.config.url | quote }}
+      targetRevision: {{ .Values.repos.config.targetRevision | default "HEAD" }}
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+{{- end }}

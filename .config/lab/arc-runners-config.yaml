@@ -7,7 +7,8 @@
 # arc-runners/lab-root-ca, key ca.crt. Source: homelab
 # roles/k3s/files/lab-root-ca.crt (origin/main 50d623e; CN=lab-root-ca, valid
 # to 2036-05-31, SHA-256 0E:24:2E:25:…:55:49:22:65), the same CA the nodes
-# trust and that issued harbor.lab.local's certificate. Update both together.
+# trust and that issued harbor.lab.local's certificate. Update both together,
+# and the copy in .config/lab/arc-runners-legion-config.yaml.
 labCA:
   cert: |
     -----BEGIN CERTIFICATE-----

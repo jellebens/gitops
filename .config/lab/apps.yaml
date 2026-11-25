@@ -9,6 +9,13 @@
 arc:
   runners:
     enabled: true
+  # A second scale set, for amarok-consulting/legion (runs-on: arc-legion),
+  # in namespace arc-runners-legion. OFF until its GitHub App credential and
+  # its Harbor push credential are sealed into
+  # .config/lab/arc-runners-legion-config.yaml. Procedure:
+  # landingzones/arc-runners/README.md "A second scale set: Legion".
+  legionRunners:
+    enabled: false
 
 # Legion (landingzones/legion): the praetor's view of amarok-consulting/legion.
 # ON since the `legion-https` listener (.config/lab/gateway.yaml) and the
