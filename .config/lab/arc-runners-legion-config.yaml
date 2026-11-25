@@ -1,0 +1,71 @@
+# arc-runners landing-zone chart, second release (Legion's scale set) — lab
+# values. NOT laid over .config/lab/arc-runners-config.yaml: Helm merges maps,
+# so the ceres scale set's sealed values would come along. This file stands
+# alone, and repeats the lab CA. Everything sealed here is sealed for namespace
+# arc-runners-legion and opens nowhere else.
+# See landingzones/arc-runners/README.md "A second scale set: Legion".
+
+namespace: arc-runners-legion
+
+# Lab root CA (public cert, not a secret) for the job pods (#340): ConfigMap
+# arc-runners-legion/lab-root-ca, key ca.crt. Source: homelab
+# roles/k3s/files/lab-root-ca.crt (origin/main 50d623e; CN=lab-root-ca, valid
+# to 2036-05-31, SHA-256 0E:24:2E:25:…:55:49:22:65), the same CA the nodes
+# trust and that issued harbor.lab.local's certificate. Update both together.
+labCA:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIC+DCCAeCgAwIBAgIQX/P0p24aeQK03MkrMzj90TANBgkqhkiG9w0BAQsFADAW
+    MRQwEgYDVQQDEwtsYWItcm9vdC1jYTAeFw0yNjA2MDMxODAxMjVaFw0zNjA1MzEx
+    ODAxMjVaMBYxFDASBgNVBAMTC2xhYi1yb290LWNhMIIBIjANBgkqhkiG9w0BAQEF
+    AAOCAQ8AMIIBCgKCAQEAucvQDLCDSCItQtvDTjKOiVe8jpu+3m787WOBSmIOEdF4
+    Ihk2qjOOqR8Dwg/VVWeOdFQVNml7sN+bjkyH5MGvHwI2KKOQys7Ny7p7vqGyG4uN
+    E2wKMCOIiIWy+7Y/l/POXLIFycRq9BpEp4IJuCLntzbu6MI9hxwKbS10F3pAd1Li
+    p5lVQmE7ZdcObfIdGkehQXNoHbKvvY6h2YPMhk1lggLyvVz4dL//xV5IxYGhQavi
+    99D0WDKJIAbuNhcZAb6sc5NBjz4KLU200Qvhuv47jyMrHuQmH2HlV0zadTUR6c7l
+    ANKuDTS9C2QLdn8Xgqmby+3RzhxkzAWpX7O7f7U+AQIDAQABo0IwQDAOBgNVHQ8B
+    Af8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUibdpxZ3wD0dLpLu2
+    Bb7GrDU++qgwDQYJKoZIhvcNAQELBQADggEBACrksL3qewkV1EG20fHfHm465dUj
+    Wvf8WfCd38d0O5RxytSItInoA4BmWAw/OfVS9DspCD699y8M/jertaq4dzU5dcm3
+    sx2diFaGLTumMMuCjBbPuu7koMZbBt/aMi5wJjQivVtxaDJSYSR/NAkK97NXCmz9
+    9Luv5U1z6gvTbkmh0rMfVGYOZrrGi/LIrOiFVbct7rnKVvc+rGzAAoAu8tz1qAKZ
+    1rCo8X6dDwUeuYboul0GaN21u6U50M4updX2fcGd8AiWZu3dB+9QZKNA8uAGy9uR
+    z49WS6y/eoIDgu6hfQU+m/Nvc6QC4DKmS0e5lGvB5J9+p63aQXIy55DKT80=
+    -----END CERTIFICATE-----
+
+# Docker config for robot$legion+push on harbor.lab.local (push + pull on the
+# Harbor project `legion`): what the build of a release pushes with. A copy of
+# harbor/harbor-legion-push-robot (key `secret`), sealed 2026-11-25 straight
+# from the cluster secret (never printed). If the robot secret rotates, re-seal
+# this (README "A second scale set: Legion").
+harborPush:
+  name: harbor-legion-push
+  encryptedData:
+    .dockerconfigjson: "AgBPzY8rbyfbUZr4OImtwWobsjbrFtRGL3Yca9BJpP4BDoMgwaT1PkFIB2vbO1pHdONB/QECmYdSdSCLiEJgNYHXiDWvc3Hs3JXwI4Qrk82yheOea4856+6kEGB0Z10iRW28j4LaPxPnbWmYRnW1sRl6ee2izhrZ+/joCtppIRvGMYn7u4YdAscKUsZggEJKfGAAo3ysqBuhkGkxPnWav6hgSeJAfAl+l0iLzvAmT5X3YYQvIMcr1HA4wqa603col+UqOhq+7GdW9AmMnFQtDFkXxKvkZsxy+TCreieU7TExTIZ6gKndpsExbrRVUUC4WOluLxtJKiC1f+TCKLLqHw507n7rbwwVGhgcd6nvE6Fy28YM9r81mZ86Te3vj3X9ekOVQVJz1u9In8gHGbEsUGaRBlP0uGQ1FRn37dSTYVGWVjZhueXA85YXtw1oyDdlmZgmr2I8FiIMvK9niaivcPx9f1OXwIBgHbAbNUS5ht6dYvlv+NiMLo5ym2qwzJWFq2oBAq1CZwwFVpK/qZeekbj+cL5vmwU//+qSOs70Cuht6l8yJypTRvDyZi7EP5OXMOco54Qq9PnHoHOVzcP/LKSxLK74vh6hogLDngOi5VDsL5h8jlKY7AMq/Bdvap6yNaeiwY7Te95z97WbeUZ+ygfNpjHlZk31gjW7qnh07Gf27Enwy4cYLRzC7t8Vb56mBBu2SxUbOxS/Nd2um3LTJ/fvab8bwsNAcfStj5Ae3JW8/PbCMVLnTRHXhembWkCHOKiOpeTpRZeUEyAXqvRYRZj2vgJGhgyBFk8/ii3p/t/AAyRp0Z2gkyaDXqhd+FdFcxnNBuYT+bLIoHmxaH8l38l4NGwLnsautbCddNriuYYnM7N6Oxk6eJpSjz8pLB0hNlSBPR2fA5sp2LRGrdqDNfIcQGFtk8GMFPZ6U3+gwdfeR+tubLnN6wiemBYbbrSd6qcv64C6eV496srVcEAPA21E"
+
+hookTemplate:
+  name: arc-legion-hook-template
+  template:
+    spec:
+      # Lists replace: the whole `volumes` list again. The volume keeps the
+      # name the job container's mount refers to (chart values.yaml); only the
+      # secret behind it is Legion's.
+      volumes:
+        - name: harbor-ci-push
+          secret:
+            secretName: harbor-legion-push
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: lab-root-ca
+          configMap:
+            name: lab-root-ca
+
+# GitHub App credential of the App installed on amarok-consulting/legion.
+# Not sealed yet. Seal with
+#   ARC_NAMESPACE=arc-runners-legion \
+#   ARC_CONFIG_FILE=.config/lab/arc-runners-legion-config.yaml \
+#     .scripts/seal-arc-github-app.sh <app>.private-key.pem
+# which appends the block below this line. Keep this the last block.
+githubApp:
+  encryptedData: {}

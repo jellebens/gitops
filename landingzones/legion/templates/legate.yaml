@@ -1,12 +1,30 @@
 {{- if .Values.legate.enabled }}
-# legion-legate: the API the praetor's view reads from (legion HLD-LEG-003,
-# TSK-14). It reads Legion's backlog and documents and answers the seven read
-# calls under /api. It holds no state and no credential, and has no call that
-# writes.
+{{- /*
+  Legate does not start with a product on GitHub and no database or no app key,
+  and without the admin token's digest and the sign-in it answers nobody. So
+  the chart refuses to render it half-given: Argo then keeps what runs.
+*/ -}}
+{{- if not .Values.postgres.enabled }}
+{{- fail "legion: legate.enabled needs postgres.enabled (legate reads GitHub and signs people in through its database)" }}
+{{- end }}
+{{- range $key, $secret := .Values.legate.secrets }}
+{{- if not $secret.encryptedData }}
+{{- fail (printf "legion: legate.secrets.%s.encryptedData is empty; seal it first (landingzones/legion/README.md, Secrets)" $key) }}
+{{- end }}
+{{- end }}
+# legion-legate: the API the praetor's view reads from (legion HLD-LEG-003 to
+# HLD-LEG-006), at the version in values.yaml. Every call passes its gate: the
+# operator's admin token, or the cookie of a person signed in through Legion's
+# GitHub App. It reads each product's main branch on GitHub as the app, and
+# keeps sign-ins and what it last read in PostgreSQL (postgres-cluster.yaml).
 #
-# INTERIM, see values.yaml: no sign-in, and a snapshot of Legion's docs/ in the
-# image instead of the main branch on GitHub. Each instance reads the same
-# files from its own image, so the two agree.
+# What is mounted, each read-only and as a folder:
+#   /etc/legate                 the configuration (no credential in it)
+#   /etc/legate/admin-token     the admin token's digest
+#   /etc/legate/github-app      client-id, client-secret: the sign-in
+#   /etc/legate/github-app-key  app-id, private-key: reading GitHub
+#   /etc/legate/database        host, port, dbname, username, password
+#   /etc/legate/database-ca     ca.crt of the database's certificate
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -19,11 +37,7 @@ metadata:
 data:
   legate.yaml: |
     products:
-      - name: legion
-        directory: /products/legion
-        commit: {{ .Values.legate.snapshot.commit }}
-    caller:
-      products: [legion]
+      {{- toYaml .Values.legate.products | nindent 6 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,7 +64,9 @@ spec:
         app.kubernetes.io/name: legion-legate
         app.kubernetes.io/part-of: legion
       annotations:
-        checksum/config: {{ .Values.legate.snapshot | toYaml | sha256sum }}
+        # The configuration is read at the start only; the secrets are read
+        # as they are needed and want no restart.
+        checksum/config: {{ .Values.legate.products | toYaml | sha256sum }}
     spec:
       automountServiceAccountToken: false
       {{- if .Values.imagePullSecret.enabled }}
@@ -62,6 +78,8 @@ spec:
         runAsNonRoot: true
         runAsUser: {{ .Values.legate.runAsUser }}
         runAsGroup: {{ .Values.legate.runAsGroup }}
+        # The secrets' files are readable by the group, and by nobody else.
+        fsGroup: {{ .Values.legate.runAsGroup }}
         seccompProfile:
           type: RuntimeDefault
       affinity:
@@ -97,6 +115,22 @@ spec:
               value: {{ .Values.legate.port | quote }}
             - name: PROBE_PORT
               value: {{ .Values.legate.probePort | quote }}
+            - name: ADMIN_DIGEST_FILE
+              value: /etc/legate/admin-token/digest
+            - name: DATABASE_DIR
+              value: /etc/legate/database
+            - name: DATABASE_CA_FILE
+              value: /etc/legate/database-ca/ca.crt
+            - name: OWN_ADDRESS
+              value: {{ .Values.legate.ownAddress | quote }}
+            - name: SIGN_IN_CALLBACK
+              value: "{{ .Values.legate.ownAddress }}/api/sign-in/callback"
+            - name: GITHUB_APP_DIR
+              value: /etc/legate/github-app
+            - name: GITHUB_APP_KEY_DIR
+              value: /etc/legate/github-app-key
+            - name: KEEPER
+              value: {{ .Values.legate.keeper | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.legate.port }}
@@ -108,8 +142,26 @@ spec:
             - name: config
               mountPath: /etc/legate
               readOnly: true
-          # Ready once it has tried to read every product; not ready from the
-          # moment it is told to stop, while it answers for 5 s more.
+            - name: admin-token
+              mountPath: /etc/legate/admin-token
+              readOnly: true
+            - name: github-app
+              mountPath: /etc/legate/github-app
+              readOnly: true
+            - name: github-app-key
+              mountPath: /etc/legate/github-app-key
+              readOnly: true
+            - name: database
+              mountPath: /etc/legate/database
+              readOnly: true
+            - name: database-ca
+              mountPath: /etc/legate/database-ca
+              readOnly: true
+          # Ready once it has asked for every product, whatever came of it,
+          # and its database answers with the schema up to date; not ready
+          # from the moment it is told to stop, while it answers for 5 s more.
+          # The first instance to start makes the schema, so the start may
+          # take longer than a snapshot's did.
           livenessProbe:
             httpGet:
               path: /livez
@@ -129,13 +181,45 @@ spec:
               path: /livez
               port: probes
             periodSeconds: 1
-            failureThreshold: 30
+            failureThreshold: 60
           resources:
             {{- toYaml .Values.legate.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: legion-legate
+        - name: admin-token
+          secret:
+            secretName: {{ .Values.legate.secrets.adminToken.name }}
+            defaultMode: 0440
+        - name: github-app
+          secret:
+            secretName: {{ .Values.legate.secrets.githubApp.name }}
+            defaultMode: 0440
+        - name: github-app-key
+          secret:
+            secretName: {{ .Values.legate.secrets.githubAppKey.name }}
+            defaultMode: 0440
+        # The secret CloudNativePG writes for the application's role. Only the
+        # keys legate reads; the secret also holds whole connection strings.
+        - name: database
+          secret:
+            secretName: {{ .Values.postgres.name }}-app
+            defaultMode: 0440
+            items:
+              - { key: host, path: host }
+              - { key: port, path: port }
+              - { key: dbname, path: dbname }
+              - { key: username, path: username }
+              - { key: password, path: password }
+        # The authority only: the same secret holds its key, which is not
+        # mounted.
+        - name: database-ca
+          secret:
+            secretName: {{ .Values.postgres.name }}-ca
+            defaultMode: 0440
+            items:
+              - { key: ca.crt, path: ca.crt }
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -172,8 +256,8 @@ spec:
 {{- if .Values.networkPolicy.enabled }}
 ---
 # Ingress only, the hermes pattern: the gateway (reserved `ingress` identity)
-# to the API's port, and nothing else. Egress stays open; legate makes no
-# outbound call while it reads a snapshot.
+# to the API's port, and nothing else. Egress stays open: legate calls
+# github.com and api.github.com over TLS, and its database.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

@@ -66,13 +66,16 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
   the Grafana dashboard, MQTT, secrets, and the arm64 image build.
 - `landingzones/hermes` — see the directory.
 - [`landingzones/legion`](landingzones/legion/README.md) — Legion's praetor's
-  view (amarok-consulting/legion): the interface only, at `legion.lab.local`,
-  image from Harbor project `legion`. No data until Legion's API (legate) exists.
+  view (amarok-consulting/legion): the interface, legate (the API) and its
+  PostgreSQL, at `legion.lab.local`, images from Harbor project `legion`. Sign-in
+  through Legion's GitHub App; three owner-sealed secrets (README "Secrets").
 - [`landingzones/arc-runners`](landingzones/arc-runners/README.md) — GitHub
   Actions runners (ARC, kubernetes mode) for the private `ceres` repo, charts and
   images from Harbor only (#339). Controller app `arc` is live-able now; the
   scale set app `arc-runners` is gated by `arc.runners.enabled` in
-  `.config/lab/apps.yaml` until the GitHub App is sealed.
+  `.config/lab/apps.yaml` until the GitHub App is sealed. A second scale set `arc-legion` for
+  amarok-consulting/legion (app `arc-runners-legion`, gate `arc.legionRunners.enabled`)
+  is prepared and off (README "A second scale set: Legion").
 - [`landingzones/ceres`](landingzones/ceres/README.md) — Ceres's per-unit
   Vertumnus instances (one `ceres-vertumnus-<unit_id>` Deployment per hydroponic unit, card
   #291) plus Annona, Robigus, Carmenta, the `ceres` Telegraf archive and `ceres-pg`. The
