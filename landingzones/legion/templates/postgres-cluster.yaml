@@ -1,0 +1,64 @@
+{{- if .Values.postgres.enabled }}
+# Legate's database (legion ADR-LEG-013/DEC-07): PostgreSQL 18 as a small
+# CloudNativePG Cluster in the landing zone (the operator is the platform
+# service `cnpg`). Bootstrap makes the database `legate`, owned by the role
+# `legate`, which may therefore change its schema; legate makes the schema
+# `legate` itself at its first start (ADR-LEG-013/DEC-08). The operator writes
+# the credential to the Secret `{{ .Values.postgres.name }}-app` and the
+# authority of the server's certificate to `{{ .Values.postgres.name }}-ca`;
+# no password passes through git.
+#
+# What is in it: sign-ins, the list of admitted images, and the commit each
+# product was last read at. Losing it signs everybody out and nothing more;
+# the documents are on GitHub.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.postgres.name }}
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-postgres
+    app.kubernetes.io/part-of: legion
+spec:
+  instances: {{ .Values.postgres.instances }}
+  {{- with .Values.postgres.inheritedLabels }}
+  inheritedMetadata:
+    labels:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  imageName: {{ .Values.postgres.image | quote }}
+  {{- if .Values.imagePullSecret.enabled }}
+  imagePullSecrets:
+    - name: {{ .Values.imagePullSecret.name }}
+  {{- end }}
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: legate
+      owner: legate
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+              {{- with .Values.avoidNodes }}
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                  {{- toYaml . | nindent 18 }}
+              {{- end }}
+  storage:
+    storageClass: {{ .Values.postgres.storageClass }}
+    size: {{ .Values.postgres.size }}
+  resources:
+    {{- toYaml .Values.postgres.resources | nindent 4 }}
+  monitoring:
+    enablePodMonitor: {{ .Values.postgres.podMonitor }}
+  postgresql:
+    parameters:
+      # Each instance of legate holds at most eight connections.
+      max_connections: "50"
+      shared_buffers: "64MB"
+{{- end }}

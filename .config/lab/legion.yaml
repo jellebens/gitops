@@ -28,10 +28,29 @@ imagePullSecret:
     encryptedData:
       .dockerconfigjson: AgAuR1UwkzbFTLVmtqAgnSWcFWFd/GGJoqLh49C6w//p3HfJ9dCWnPTuV/qsFeDoxhuf0Lb4GfjRF2guiBQo8vOsAKS1RqtVFfqGd1ht/iIzJctulTXURrlczwXiAzivEWSTd4sICWHdAKD2OWbcxuKELiLd526WraQ6YqdZnBTKL33FL9xRtVt5jwaUroT78Mx6WcuJ1nkd9v0JWdu6NiMfnrGt3RV3rwW40duhICGkZiyIXzlBEP4q18A2ieSQiEEEc+/nNdG1FPbgH5sFCyvWAD1/lNY5AVFsSwXq4P7pVQ10OzGTDbF6OS1yjKkAAbF/BpNAat8vik85tOBRMHTmOn1vGJvLHLGGrPFW3wMwPp/F+oBER+sbhmNov6ulnmzl8d15Es3WciacOaaPzcgpBiIco897b74EJpzu5RPOLBoiRPs6ulzNkOwLl9OFx58jUv6/55Db3EAbBK3owIwrJaB1mXezy3rKt3C8a3E2StElvM4o4iQvoGTcGqynBH4lCK3EVOzHRNmphuRW4dQGCZZK3uuEGLaH/C7WzKq0SpR4S3xR95tW9kD7UOgY20QM0fVleqgs85gy2n9gxPxVV+78kWCdqyQsgis4sRlaqhoHnlOApSaKmmESKWJKMxRDtozbpXGeXqyKxqXj4toalfkMdrsZllWqZ1R3xSEblfgQZXigESebtPxEmxNogHwNcYx+ZlSmGXr8gd8TIJu3SImiHgJMoX6cU2FfiF7FFJe7R+ZbTWLr5g8dW5BTg+XnpKcbrHYsZs4b1qrqLVXzdEyYrtSpMc1uCWRMz0WKPB33JnHQteGWl/YaoQQmI/UYaTyUaGgCjGdeCLdAhqJ3MHw6c0Y8Qg7eKQOZuoWoRLcAd4KvNPo2ZWmOC/STLgSKChvbJD7KTbZ/iXmAumBGlLn6hnBRznoN7a9gRmnEJXQ3yulhKTlbizA6zR9Zeq/9YNa7KSdLasIZYouCD42eFQXdDPEW
 
-# Legate on: the view shows Legion's own documents and backlog. Interim in two
-# ways, see landingzones/legion/values.yaml: no sign-in, and a snapshot.
+# Legate on, with its database: the view asks for a sign-in with GitHub, and
+# shows Legion's documents and backlog as they stand on master, live.
+#
+# OWNER PRE-DEPLOY, before this is released (landingzones/legion/README.md,
+# "Secrets"): register Legion's GitHub App and install it on
+# amarok-consulting/legion, make an admin token, and seal the three secrets
+# below. The chart refuses to render legate while any of them is empty.
 legate:
   enabled: true
+  secrets:
+    adminToken:
+      encryptedData: {}        # digest
+    githubApp:
+      encryptedData: {}        # client-id, client-secret
+    githubAppKey:
+      encryptedData: {}        # app-id, private-key
+
+postgres:
+  enabled: true
+  # Both volumes in the nightly Longhorn backup to the NAS, as ceres-pg's are.
+  inheritedLabels:
+    recurring-job.longhorn.io/source: enabled
+    recurring-job-group.longhorn.io/nas-daily: enabled
 
 # k3s-node03 cannot pull from Harbor: it has no /etc/hosts entry for
 # harbor.lab.local, and containerd does not resolve a *.local name through DNS
