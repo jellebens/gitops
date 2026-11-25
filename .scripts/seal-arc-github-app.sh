@@ -11,14 +11,18 @@
 # (ns argocd). Procedure: landingzones/arc-runners/README.md "Enable the scale set".
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-F=.config/lab/arc-runners-config.yaml
+# A second scale set (Legion) seals for its own namespace and file:
+#   ARC_NAMESPACE=arc-runners-legion ARC_CONFIG_FILE=.config/lab/arc-runners-legion-config.yaml
+NS=${ARC_NAMESPACE:-arc-runners}
+F=${ARC_CONFIG_FILE:-.config/lab/arc-runners-config.yaml}
+[ -w "$F" ] || { echo "cannot write $F" >&2; exit 1; }
 KEY=${1:?usage: $0 <path-to-app-private-key.pem>}
 [ -r "$KEY" ] || { echo "cannot read $KEY" >&2; exit 1; }
 grep -q 'BEGIN .*PRIVATE KEY' "$KEY" || { echo "$KEY does not look like a PEM private key" >&2; exit 1; }
 
 seal() {
   kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd \
-    --namespace arc-runners --name arc-github-app --from-file=/dev/stdin
+    --namespace "$NS" --name arc-github-app --from-file=/dev/stdin
 }
 
 read -rp "GitHub App ID (or Client ID): " app_id
@@ -34,7 +38,7 @@ s_key=$(seal < "$KEY")
 sed -i '/^# --- sealed GitHub App credential ---$/,$d' "$F"
 cat >> "$F" <<EOF
 # --- sealed GitHub App credential ---
-# Sealed for arc-runners/arc-github-app by .scripts/seal-arc-github-app.sh.
+# Sealed for $NS/arc-github-app by .scripts/seal-arc-github-app.sh.
 githubApp:
   encryptedData:
     github_app_id: "$s_app"
@@ -42,4 +46,4 @@ githubApp:
     github_app_private_key: "$s_key"
 EOF
 echo "sealed into $F"
-echo "next: set arc.runners.enabled: true in .config/lab/apps.yaml, commit both on a card branch, PR into develop."
+echo "next: set the scale set's gate to true in .config/lab/apps.yaml, commit both on a card branch, PR into develop."

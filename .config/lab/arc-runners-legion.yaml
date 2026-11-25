@@ -1,0 +1,26 @@
+# ARC runner scale set for Legion (amarok-consulting/legion) — lab values, laid
+# OVER .config/lab/arc-runners.yaml (the ceres scale set): only what differs is
+# here. Only deployed when arc.legionRunners.enabled is true
+# (.config/lab/apps.yaml). Docs: landingzones/arc-runners/README.md
+# "A second scale set: Legion".
+
+# ONE private repo, as for ceres. Never point self-hosted runners at a public
+# repo (fork PRs would run code on the LAN).
+githubConfigUrl: https://github.com/amarok-consulting/legion
+
+# Workflows use `runs-on: arc-legion`.
+runnerScaleSetName: arc-legion
+
+# A release builds two images, one after the other; one job at a time is
+# enough, and with arc-ceres (2) keeps CI at three jobs at most.
+minRunners: 0
+maxRunners: 1
+
+# Lists replace: the whole `volumes` list of the runner pod again, with this
+# scale set's hook template (landingzones/arc-runners, second release).
+template:
+  spec:
+    volumes:
+      - name: hook-template
+        configMap:
+          name: arc-legion-hook-template

@@ -371,6 +371,62 @@ this copy too**: read `harbor/harbor-ci-robot` into a variable, build the
 `{"auths":{"harbor.lab.local":{username,password,auth}}}` JSON with `jq`, and pipe
 it to `kubeseal --raw … --namespace arc-runners --name harbor-ci-push`.
 
+## A second scale set: Legion
+
+`arc-legion`, for the private repository `amarok-consulting/legion`: by
+Legion's ADR-LEG-020 the tag of a release builds its images on runners inside
+the cluster and pushes them to the Harbor project `legion`. Owner decision of
+2026-11-25.
+
+| | ceres | Legion |
+|---|---|---|
+| Argo app, gate in `.config/lab/apps.yaml` | `arc-runners`, `arc.runners.enabled` | `arc-runners-legion`, `arc.legionRunners.enabled` |
+| Namespace | `arc-runners` | `arc-runners-legion` |
+| `runs-on` | `arc-ceres` | `arc-legion` |
+| Jobs at once | 2 | 1 |
+| Scale-set values | `.config/lab/arc-runners.yaml` | the same file, with `.config/lab/arc-runners-legion.yaml` over it |
+| This chart's values | `.config/lab/arc-runners-config.yaml` | `.config/lab/arc-runners-legion-config.yaml` alone (it repeats the lab CA; update both when the CA changes) |
+| Pushes with | `robot$ci+push` (project `ci`) | `robot$legion+push` (project `legion`) |
+
+It is the same controller, the same runner and job images, the same hook
+template and the same lab CA. A namespace of its own, so that a job of one
+repository cannot mount the other's push credential or GitHub App key. What
+changes in `.config/lab/arc-runners.yaml` reaches both scale sets.
+
+**Enable it** (owner):
+
+1. **Create a GitHub App owned by the organisation `amarok-consulting`**
+   (Organisation settings → Developer settings → GitHub Apps → New GitHub
+   App). The ceres App cannot be used: it is "Only on this account". Same
+   settings as above: webhook not active, repository permissions
+   **Administration: Read and write** and **Metadata: Read-only**, "Only on
+   this account". This is not Legion's own GitHub App (the sign-in and the
+   reading of repositories, `landingzones/legion`); keep the two apart.
+2. **Generate a private key**, and **install the App** on the organisation
+   with "Only select repositories" → `legion`. Note the App ID and the
+   Installation ID
+   (`https://github.com/organizations/amarok-consulting/settings/installations/<id>`).
+3. **Seal it** (WSL, repo root, on a branch off `develop`):
+
+   ```sh
+   ARC_NAMESPACE=arc-runners-legion \
+   ARC_CONFIG_FILE=.config/lab/arc-runners-legion-config.yaml \
+     .scripts/seal-arc-github-app.sh ~/Downloads/<app>.private-key.pem
+   ```
+
+   The script replaces the last block of that file, `githubApp`.
+4. The Harbor push credential is already sealed in that file
+   (`harborPush`, `robot$legion+push` as a docker config, a copy of
+   `harbor/harbor-legion-push-robot`, sealed 2026-11-25 straight from the
+   cluster secret). Re-seal it when that robot's secret rotates, as under
+   "Harbor push credential" above, with `--namespace arc-runners-legion --name
+   harbor-legion-push`.
+5. **Flip the gate** `arc.legionRunners.enabled` to `true`, PR into `develop`,
+   release.
+6. **Check**: a listener `arc-legion-*-listener` in `arc-systems`,
+   `kubectl -n arc-runners-legion get autoscalingrunnerset`, and the runner set
+   `arc-legion` under amarok-consulting/legion → Settings → Actions → Runners.
+
 ## Argo CD notes / what to watch on the first sync
 
 - **`arc` is the first Argo CD chart pull from Harbor** (repo-creds

@@ -72,7 +72,9 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
   Actions runners (ARC, kubernetes mode) for the private `ceres` repo, charts and
   images from Harbor only (#339). Controller app `arc` is live-able now; the
   scale set app `arc-runners` is gated by `arc.runners.enabled` in
-  `.config/lab/apps.yaml` until the GitHub App is sealed.
+  `.config/lab/apps.yaml` until the GitHub App is sealed. A second scale set `arc-legion` for
+  amarok-consulting/legion (app `arc-runners-legion`, gate `arc.legionRunners.enabled`)
+  is prepared and off (README "A second scale set: Legion").
 - [`landingzones/ceres`](landingzones/ceres/README.md) — Ceres's per-unit
   Vertumnus instances (one `ceres-vertumnus-<unit_id>` Deployment per hydroponic unit, card
   #291) plus Annona, Robigus, Carmenta, the `ceres` Telegraf archive and `ceres-pg`. The
