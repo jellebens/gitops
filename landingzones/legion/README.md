@@ -6,15 +6,14 @@ products stands.
 
 **State: enabled.** The Argo CD Application `legion` is gated by
 `legion.enabled` in `.config/lab/apps.yaml`, which is on, together with the
-`legion-https` listener and the `legion` DNS record. It reaches the cluster with
-the release that carries that change. The pods wait in ImagePullBackOff until
-the image is in Harbor ([Image](#image)).
+`legion-https` listener and the `legion` DNS record.
 
 ## What it deploys
 
-Only the interface exists so far. Legate (the API), the webhook receiver, NATS
-and PostgreSQL are designed in Legion's HLD-LEG-002 and HLD-LEG-003 and are not
-built; they get their own templates here when they are.
+The interface, legate (the API) and legate's PostgreSQL, at one version of
+Legion (`interface.image.tag` and `legate.image.tag`, the tag `v<version>` in
+the legion repository). The webhook receiver and NATS are designed in Legion's
+HLD-LEG-002 and are not built; they get their own templates here when they are.
 
 | Resource | Name | What |
 |---|---|---|
@@ -27,7 +26,17 @@ built; they get their own templates here when they are.
 | CiliumNetworkPolicy | `legion-interface` | ingress only: the gateway (`ingress` identity) to port 8080 |
 | SealedSecret | `legion-harbor-pull` | the pods' pull credential: `robot$legion+pull` of Harbor, pull only, as a dockerconfigjson |
 
-It holds no state, and one secret: the pull credential.
+With `legate.enabled` and `postgres.enabled`, also:
+
+| Resource | Name | What |
+|---|---|---|
+| Deployment, Service, PodDisruptionBudget, ConfigMap | `legion-legate` | 2 replicas on separate worker nodes, probes on 8081. The ConfigMap names the products and holds no credential |
+| CiliumNetworkPolicy | `legion-legate` | ingress only: the gateway to port 8080. Egress is open, for GitHub and the database |
+| Cluster (CloudNativePG) | `legion-pg` | PostgreSQL 18, 2 instances on Longhorn, database and role `legate`. The operator makes the secrets `legion-pg-app` and `legion-pg-ca` |
+| SealedSecret | `legion-admin-token`, `legion-github-app`, `legion-github-app-key` | see [Secrets](#secrets) |
+
+The rule `/api` on the HTTPRoute goes to legate, above the catch-all that goes
+to the interface.
 
 ## Harbor accounts
 
@@ -52,38 +61,85 @@ The pull robot's secret is sealed twice: for Harbor's bootstrap
 for this namespace (`.config/lab/legion.yaml`, `imagePullSecret`). Rotate the
 two together.
 
-**What you see once it runs:** the frame of each page and the line "This page
-may be out of date". Nothing answers `/api` until legate is deployed, so no page
-has data. That is the state of Legion's first increment, not a fault here. What
-this deployment does prove is the image, the probes, the gateway route, the
-certificate and Harbor, end to end.
+**What you see once it runs:** the panel "Sign in", and after a sign-in with
+GitHub the pages of every product you are an admin of, with the version of
+Legion in the footer.
 
-## Legate, and its two interims
+## Legate
 
-`legate.enabled` adds legate, the API the view reads from (legion TSK-14): a
-Deployment `legion-legate` (2 replicas on separate worker nodes, probes on
-8081), a ConfigMap with its configuration, a Service, a PodDisruptionBudget, a
-CiliumNetworkPolicy, and the rule `/api` on the HTTPRoute, above the catch-all
-that goes to the interface. With it the pages show Legion's own documents and
-backlog.
+Legate is the API the view reads from. Since Legion 0.2.0 it is no snapshot and
+it is not open: every call passes its gate, as the operator (the admin token)
+or as a person signed in through Legion's GitHub App, and it reads each
+product's main branch on GitHub as that app, live. A praetor is whoever GitHub
+says is an admin of the product repository. What a deployment has to set is
+legion's `legate/README.md`, "What a deployment has to set"; this chart sets
+all of it but the admission of fabrica images (`HARBOR_URL` and a read-only
+Harbor account), which waits until Legion has a fabrica image of its own.
 
-Two things about it are interim, both the owner's decisions of 2026-11-23:
+The chart refuses to render legate without its database or with one of its
+three secrets unsealed. That is on purpose: Argo then reports a comparison
+error and leaves the running view as it is, where a half-given legate would
+replace it with a page on which nobody can sign in.
 
-- **No sign-in.** Anyone on the LAN who opens `legion.lab.local` reads Legion's
-  documents and backlog. Legion's own requirement is a credential on every call
-  (PRD-LEG-005/REQ-01); authentication is not designed yet. Legate has no call
-  that writes. It goes when Legion has its sign-in.
-- **A snapshot, not GitHub.** Legate reads a folder until it can read the main
-  branch on GitHub (legion TSK-15, which waits for Legion's GitHub App). The
-  image `legate-snapshot` is legate with Legion's `docs/` at one commit in it
-  ([`snapshot/Dockerfile`](snapshot/Dockerfile)). The view is frozen at that
-  commit, which every page names, and nothing on it is live: the event stream
-  is not built, so a page also says that it may be out of date.
+## Secrets
 
-To move the snapshot to a newer commit of legion: build `legate` (if it
-changed) and then `legate-snapshot` from the root of the legion repository at
-that commit, push both with `robot$legion+push`, and bump `legate.image.tag`
-and `legate.snapshot.commit` together.
+Three, all the owner's to make and seal. None of them is ever in git, in a
+terminal's history or in an agent's session in the clear.
+
+**1. Legion's GitHub App** (legion ADR-LEG-014). Register it once, on the
+account that owns it, under Settings, Developer settings, GitHub Apps:
+
+- Homepage URL `https://legion.lab.local`, callback URL
+  `https://legion.lab.local/api/sign-in/callback`, exactly.
+- "Expire user authorization tokens" off: legate ends each token itself and
+  uses no refresh token.
+- "Enable Device Flow" on (the `legion` tool signs in by a code).
+- Webhook off for now: the receiver is not built.
+- Repository permissions: Contents read and write, Pull requests read and
+  write, Metadata read. No organisation permission.
+- Then generate a client secret and a private key, and **install the app on
+  amarok-consulting/legion**. A repository without the app is not read.
+
+**2. The admin token.** On your own machine, `legion admin-token new`. The tool
+is offered at `https://legion.lab.local/download/` once the interface runs;
+before that, take it out of the interface's image:
+
+```sh
+id=$(docker create harbor.lab.local/legion/interface:<version>)
+docker cp "$id":/site/download/legion-linux-amd64 ~/legion && docker rm "$id" && chmod +x ~/legion
+```
+
+Keep the token; only the digest it prints is sealed.
+
+**3. Seal them**, in WSL at the repository's root, on a branch off `develop`:
+
+```sh
+.scripts/seal-legion-secrets.sh <path-to-app>.private-key.pem
+```
+
+It asks for the digest, the App's Client ID and its client secret (not shown
+as you type), seals each for namespace `legion`, and writes
+`legate.secrets.*.encryptedData` in `.config/lab/legion.yaml`. The Client ID
+also serves as `app-id`. Delete the `.pem` afterwards. To replace a secret
+later, run it again and release; legate reads the files as it needs them and
+is not restarted.
+
+The database has no secret of the owner's: CloudNativePG makes the role's
+password and writes it to `legion-pg-app`.
+
+## Releasing a version of Legion
+
+1. In the legion repository, at the commit to release: tag it `v<version>`,
+   build both images with `--build-arg VERSION=<version>` and push them under
+   the tag `<version>` ([Image](#image)).
+2. Here, on a branch off `develop`: set `interface.image.tag` and
+   `legate.image.tag` to `<version>`, and take over what the release notes of
+   legion's `legate/README.md` ask of a deployment.
+3. Release `develop` to `master`. Argo rolls both Deployments, one pod at a
+   time.
+
+The footer of every page shows the interface's version and, signed in,
+legate's; they are the build argument, not the tag, so keep the two equal.
 
 `avoidNodes` (in `.config/lab/legion.yaml`) keeps the pods off `k3s-node03`,
 which cannot pull from Harbor at the moment. The chart keeps them off the
@@ -123,19 +179,26 @@ Built from the root of the legion repository, for arm64, with base images
 through Harbor's `dockerhub` proxy cache:
 
 ```sh
+V=0.2.0
 docker build --platform linux/arm64 --provenance=false \
-  --build-arg DOCKERHUB_PROXY=harbor.lab.local/dockerhub \
-  -f interface/Dockerfile \
-  -t harbor.lab.local/legion/interface:0.1.0 .
-docker push harbor.lab.local/legion/interface:0.1.0
+  --build-arg DOCKERHUB_PROXY=harbor.lab.local/dockerhub --build-arg VERSION=$V \
+  -f interface/Dockerfile -t harbor.lab.local/legion/interface:$V .
+docker build --platform linux/arm64 --provenance=false \
+  --build-arg DOCKERHUB_PROXY=harbor.lab.local/dockerhub --build-arg VERSION=$V \
+  -f legate/Dockerfile -t harbor.lab.local/legion/legate:$V legate
+docker push harbor.lab.local/legion/interface:$V
+docker push harbor.lab.local/legion/legate:$V
 ```
+
+Without `VERSION` an image is built as `dev`, and its footer says so.
 
 The build fails without `DOCKERHUB_PROXY`; it has no default on purpose. Docker
 on the building machine must trust the lab CA
 (`/etc/docker/certs.d/harbor.lab.local/ca.crt`, see
 [`platform/harbor-config`](../../platform/harbor-config/README.md) "Using it").
-The tag is `interface.image.tag` in [`values.yaml`](values.yaml); a mutable tag
-such as `latest` is refused by Kyverno.
+The tags are `interface.image.tag` and `legate.image.tag` in
+[`values.yaml`](values.yaml); a mutable tag such as `latest` is refused by
+Kyverno.
 
 The builder inside Docker Desktop does not trust the lab CA when it looks up a
 base image, though `docker pull` does. Pull the two base images through Harbor
@@ -144,11 +207,8 @@ first, and build with Docker's own builder:
 ```sh
 docker pull harbor.lab.local/dockerhub/library/node:24-alpine
 docker pull harbor.lab.local/dockerhub/library/golang:1.27.4-alpine
-docker buildx build --builder default --load ...   # the build above
+docker --context=default buildx build --load ...   # the builds above
 ```
-
-Built that way on 2026-11-23 for `linux/arm64`. It has not been pushed and has
-never run on arm64.
 
 ## Enable
 

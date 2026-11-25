@@ -1,6 +1,6 @@
-# Legion (amarok-consulting/legion): the praetor's view. Only the interface
-# exists so far; legate (the API), the receiver, NATS and PostgreSQL come with
-# Legion's later work packages and get their own blocks here.
+# Legion (amarok-consulting/legion): the praetor's view. The interface, legate
+# (the API) and legate's PostgreSQL. The receiver and NATS come with Legion's
+# later work packages and get their own blocks here.
 #
 # Rules this chart follows, from Legion's own documents:
 #   - ADR-LEG-016: every image comes from Harbor. Legion's own are in the
@@ -22,10 +22,13 @@ interface:
   avoidControlPlane: true
   image:
     repository: harbor.lab.local/legion/interface
-    # The interface's version (interface/package.json in the legion repo). The
+    # The version of the release of Legion (the tag v<tag> in the legion repo),
+    # the same as legate's. The
     # image must be pushed under this tag first: build from the legion repo's
-    # root with --platform linux/arm64 --provenance=false (README "Image").
-    tag: "0.1.0"
+    # root with --platform linux/arm64 --provenance=false and
+    # --build-arg VERSION=<tag> (README "Image"). The footer of every page
+    # shows that version.
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   # The file server's own ports (interface/README.md in the legion repo).
   port: 8080        # the pages; the only port the Service and the route reach
@@ -44,32 +47,41 @@ interface:
     limits:
       memory: 64Mi
 
-# Legate: the API the view reads from (legion HLD-LEG-003). INTERIM in two ways,
-# both the owner's decisions of 2026-11-23:
+# Legate: the API the view reads from (legion HLD-LEG-003 to HLD-LEG-006), as
+# legion's master stands at v0.2.0. Since 0.1.0 it has the gate (every call
+# carries a credential), the sign-in through Legion's GitHub App, a database,
+# and it reads the product repository's main branch on GitHub, live. The two
+# interims of 0.1.0 (no sign-in, a snapshot of docs/ in the image) are gone.
 #
-#   1. NO SIGN-IN. Legion's own requirement is a credential on every call
-#      (PRD-LEG-005/REQ-01), and authentication is not designed yet. Until it
-#      is, anyone on the LAN who opens legion.lab.local reads Legion's
-#      documents and backlog. Read only: legate has no call that writes. Same
-#      posture, and the same reason, as the Longhorn and Janus interims in
-#      .config/lab/gateway.yaml; it goes when Legion has its sign-in.
-#   2. A SNAPSHOT, NOT GITHUB. Legate reads a folder until it can read the main
-#      branch on GitHub (legion TSK-15, which waits for Legion's GitHub App).
-#      The image below is legate with Legion's docs/ at one commit in it
-#      (snapshot/Dockerfile). What the view shows is frozen at `snapshot.commit`
-#      until the image is rebuilt and both values are bumped.
+# What it needs is legion's legate/README.md, "What a deployment has to set".
+# Three secrets are the owner's to seal (README here, "Secrets"); the chart
+# refuses to render legate without them, so that an unfinished release leaves
+# the running view as it is instead of replacing it with one nobody can use.
 legate:
   enabled: false
   replicas: 2
   image:
-    repository: harbor.lab.local/legion/legate-snapshot
-    # <legate's version>-<the commit of legion the snapshot holds, 7 chars>
-    tag: "0.1.0-6d7d613"
+    repository: harbor.lab.local/legion/legate
+    # The version the image was built as (build argument VERSION) and its tag
+    # are the same text by convention: one version for a release, the same for
+    # the interface's image. The commit is tagged v<tag> in the legion repo.
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
-  snapshot:
-    # The commit of amarok-consulting/legion whose docs/ are in the image. It
-    # is what every answer names as `as_of.commit`. Keep it equal to the tag.
-    commit: 6d7d613cbacc4ab4eb2b16d298fc8b0ecee5472a
+  # The products of the installation and where each one's product repository
+  # lies on GitHub. Legion's GitHub App must be installed on each
+  # (ADR-LEG-014/DEC-03). `branch` is named where it is not `main`.
+  products:
+    - name: legion
+      github:
+        owner: amarok-consulting
+        repository: legion
+        branch: master
+  # Legion's own address, as a browser names it in `Origin`. The sign-in's
+  # cookie is bound to it. The callback is this address + /api/sign-in/callback,
+  # and the app's registration on GitHub must name exactly that.
+  ownAddress: https://legion.lab.local
+  # How often GitHub is asked what stands, for every product (10s at least).
+  keeper: 1m
   port: 8080        # the API, under /api; the only port the Service and the route reach
   probePort: 8081   # /livez and /readyz; never in the Service, never routed
   terminationGracePeriodSeconds: 30
@@ -81,6 +93,52 @@ legate:
       memory: 32Mi
     limits:
       memory: 128Mi
+  # The three secrets legate is given, each a SealedSecret for namespace legion
+  # and the name below, mounted read-only as a folder (never by subPath, so a
+  # replaced value reaches the running container). Sealed per environment in
+  # .config/<env>/legion.yaml. No value of any of them is in git in the clear.
+  secrets:
+    # The digest of the admin token: the 64 characters `legion admin-token new`
+    # prints. The token itself never reaches the cluster; the operator keeps it.
+    adminToken:
+      name: legion-admin-token
+      encryptedData: {}   # { digest: "Ag..." }
+    # The sign-in: the client id and client secret of Legion's GitHub App.
+    githubApp:
+      name: legion-github-app
+      encryptedData: {}   # { client-id: "Ag...", client-secret: "Ag..." }
+    # Reading GitHub: the app's id and its private key. The most valuable
+    # secret of the installation (ADR-LEG-014/NEG-02): in a secret of its own,
+    # mounted into legate and nothing else.
+    githubAppKey:
+      name: legion-github-app-key
+      encryptedData: {}   # { app-id: "Ag...", private-key: "Ag..." }
+
+# Legate's database (legion ADR-LEG-013): PostgreSQL 18, one database `legate`
+# owned by the role `legate`, as a CloudNativePG Cluster (the operator is the
+# platform service `cnpg`). The operator writes the credential to the Secret
+# `<name>-app` and the authority of the server's certificate to `<name>-ca`;
+# legate mounts both, and connects with verify-full. Legate makes and changes
+# its own schema at its start; nothing here does.
+postgres:
+  enabled: false
+  name: legion-pg
+  # Through Harbor's `ghcr` proxy cache (ADR-LEG-016: every image from Harbor).
+  # Pin the minor.
+  image: harbor.lab.local/ghcr/cloudnative-pg/postgresql:18.3
+  instances: 2
+  storageClass: longhorn
+  size: 2Gi
+  podMonitor: false
+  # Labels the operator copies onto every object of the Cluster, the PVCs
+  # included (the Longhorn backup group, per environment).
+  inheritedLabels: {}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 384Mi
 
 # Nodes the pods of this landing zone are kept off, by name
 # (kubernetes.io/hostname). For a node that cannot pull from Harbor.
