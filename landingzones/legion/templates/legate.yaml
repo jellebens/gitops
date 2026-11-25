@@ -15,8 +15,9 @@
 # legion-legate: the API the praetor's view reads from (legion HLD-LEG-003 to
 # HLD-LEG-006), at the version in values.yaml. Every call passes its gate: the
 # operator's admin token, or the cookie of a person signed in through Legion's
-# GitHub App. It reads each product's main branch on GitHub as the app, and
-# keeps sign-ins and what it last read in PostgreSQL (postgres-cluster.yaml).
+# GitHub App. It reads each enlisted product's main branch on GitHub as the
+# app, and keeps the registry, sign-ins and what it last read in PostgreSQL
+# (postgres-cluster.yaml).
 #
 # What is mounted, each read-only and as a folder:
 #   /etc/legate                 the configuration (no credential in it)
@@ -36,9 +37,17 @@ metadata:
     app.kubernetes.io/name: legion-legate
     app.kubernetes.io/part-of: legion
 data:
+  # No product is named here: from Legion 0.3.0 a product is enlisted, and
+  # legate does not start with `products` in this file. `images` are
+  # Legion's own fabrica images, which every instance writes to the list of
+  # admitted images at its start.
   legate.yaml: |
-    products:
-      {{- toYaml .Values.legate.products | nindent 6 }}
+    {{- if .Values.legate.images }}
+    images:
+      {{- toYaml .Values.legate.images | nindent 6 }}
+    {{- else }}
+    {}
+    {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -67,7 +76,7 @@ spec:
       annotations:
         # The configuration is read at the start only; the secrets are read
         # as they are needed and want no restart.
-        checksum/config: {{ .Values.legate.products | toYaml | sha256sum }}
+        checksum/config: {{ .Values.legate.images | toYaml | sha256sum }}
     spec:
       automountServiceAccountToken: false
       {{- if .Values.imagePullSecret.enabled }}

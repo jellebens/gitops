@@ -69,6 +69,7 @@ available to every agent. Use the `consolidate-memory` skill to tidy memory.
   view (amarok-consulting/legion): the interface, legate (the API) and its
   PostgreSQL, at `legion.lab.local`, images from Harbor project `legion`. Sign-in
   through Legion's GitHub App; three owner-sealed secrets (README "Secrets").
+  Products are enlisted by their praetor (`legion enlist`), not configured.
 - [`landingzones/arc-runners`](landingzones/arc-runners/README.md) — GitHub
   Actions runners (ARC, kubernetes mode) for the private `ceres` repo, charts and
   images from Harbor only (#339). Controller app `arc` is live-able now; the

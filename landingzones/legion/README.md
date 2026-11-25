@@ -67,17 +67,32 @@ Legion in the footer.
 
 ## Legate
 
-Legate is the API the view reads from. Since Legion 0.2.0 it is no snapshot and
-it is not open: every call passes its gate, as the operator (the admin token)
-or as a person signed in through Legion's GitHub App, and it reads each
-product's main branch on GitHub as that app, live. A praetor is whoever GitHub
-says is an admin of the product repository. What a deployment has to set is
-legion's `legate/README.md`, "What a deployment has to set"; this chart sets
-all of it but the admission of fabrica images (`HARBOR_URL` and a read-only
-Harbor account), which waits until Legion has a fabrica image of its own.
+Legate is the API the view reads from. Every call passes its gate, as the
+operator (the admin token) or as a person signed in through Legion's GitHub
+App. It names no product in its configuration: **a product is enlisted**, by
+the person who is to be its praetor, and legate then reads its main branch on
+GitHub as the app, live. What a deployment has to set is legion's
+`legate/README.md`, "What a deployment has to set"; this chart sets all of it
+but the admission of other people's fabrica images (`HARBOR_URL` and a
+read-only Harbor account), which nothing needs yet.
+
+**To enlist a product** (once for each, by its praetor): Legion's GitHub App
+is installed on the product repository, the repository has a `legion.yaml`,
+every image that names is on the list of admitted images, and the person is an
+admin of the repository on GitHub. Then, with the `legion` tool from
+`https://legion.lab.local/download/`:
+
+```sh
+export LEGION_URL=https://legion.lab.local
+legion enlist <owner>/<repository>     # signs in by a code first, where needed
+```
+
+A refusal lists every fault of the manifest. Legion's own images get on the
+list through `legate.images` (values, with their digests); the chart writes
+them into legate's configuration and legate admits them at its start.
 
 **Interim, `legate.caBundle`:** legate's image is empty but for the binary
-and holds no certificate authorities, so legate 0.2.0 cannot check GitHub's
+and holds no certificate authorities, so legate cannot check GitHub's
 certificate; it logs "GitHub was asked ... and did not answer", reads no
 repository and ends no sign-in. An init container copies the public
 authorities of a stock Alpine image, taken through Harbor, into
@@ -187,7 +202,7 @@ Built from the root of the legion repository, for arm64, with base images
 through Harbor's `dockerhub` proxy cache:
 
 ```sh
-V=0.2.0
+V=0.3.0
 docker build --platform linux/arm64 --provenance=false \
   --build-arg DOCKERHUB_PROXY=harbor.lab.local/dockerhub --build-arg VERSION=$V \
   -f interface/Dockerfile -t harbor.lab.local/legion/interface:$V .
