@@ -25,6 +25,7 @@
 #   /etc/legate/github-app-key  app-id, private-key: reading GitHub
 #   /etc/legate/database        host, port, dbname, username, password
 #   /etc/legate/database-ca     ca.crt of the database's certificate
+#   /etc/ssl/certs              the public authorities, INTERIM (caBundle)
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -101,6 +102,33 @@ spec:
               labelSelector:
                 matchLabels:
                   app.kubernetes.io/name: legion-legate
+      {{- if .Values.legate.caBundle.enabled }}
+      # INTERIM: legate's image is empty but for the binary, and so holds no
+      # certificate authorities; legate 0.2.0 then cannot check GitHub's
+      # certificate, and neither reads a repository nor ends a sign-in. This
+      # copies the public authorities of a stock image into a volume that
+      # legate finds where Go looks for them. It goes when legate's image
+      # brings them itself (values.yaml, legate.caBundle).
+      initContainers:
+        - name: ca-bundle
+          image: {{ .Values.legate.caBundle.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["cp", "/etc/ssl/certs/ca-certificates.crt", "/ca/ca-certificates.crt"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: ca-bundle
+              mountPath: /ca
+      {{- end }}
       containers:
         - name: legate
           image: "{{ .Values.legate.image.repository }}:{{ .Values.legate.image.tag }}"
@@ -157,6 +185,11 @@ spec:
             - name: database-ca
               mountPath: /etc/legate/database-ca
               readOnly: true
+            {{- if .Values.legate.caBundle.enabled }}
+            - name: ca-bundle
+              mountPath: /etc/ssl/certs
+              readOnly: true
+            {{- end }}
           # Ready once it has asked for every product, whatever came of it,
           # and its database answers with the schema up to date; not ready
           # from the moment it is told to stop, while it answers for 5 s more.
@@ -220,6 +253,11 @@ spec:
             defaultMode: 0440
             items:
               - { key: ca.crt, path: ca.crt }
+        {{- if .Values.legate.caBundle.enabled }}
+        - name: ca-bundle
+          emptyDir:
+            sizeLimit: 2Mi
+        {{- end }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
