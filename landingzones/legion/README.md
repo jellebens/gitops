@@ -91,6 +91,8 @@ account that owns it, under Settings, Developer settings, GitHub Apps:
 
 - Homepage URL `https://legion.lab.local`, callback URL
   `https://legion.lab.local/api/sign-in/callback`, exactly.
+- "Expire user authorization tokens" off: legate ends each token itself and
+  uses no refresh token.
 - "Enable Device Flow" on (the `legion` tool signs in by a code).
 - Webhook off for now: the receiver is not built.
 - Repository permissions: Contents read and write, Pull requests read and
@@ -98,28 +100,32 @@ account that owns it, under Settings, Developer settings, GitHub Apps:
 - Then generate a client secret and a private key, and **install the app on
   amarok-consulting/legion**. A repository without the app is not read.
 
-**2. The admin token.** On your own machine, `legion admin-token new` (the tool
-is offered at `https://legion.lab.local/download/` once the interface runs, or
-build it from `cli/`). Keep the token; only the digest it prints is sealed.
-
-**3. Seal them**, each value from a file or the clipboard, never as an
-argument:
+**2. The admin token.** On your own machine, `legion admin-token new`. The tool
+is offered at `https://legion.lab.local/download/` once the interface runs;
+before that, take it out of the interface's image:
 
 ```sh
-seal() {  # seal <secret name> <key>, the value on stdin
-  kubeseal --raw --controller-name sealed-secrets --controller-namespace argocd \
-    --namespace legion --name "$1" --from-file=/dev/stdin; echo
-}
-printf %s "<digest>"        | seal legion-admin-token digest
-printf %s "<client id>"     | seal legion-github-app client-id
-printf %s "<client secret>" | seal legion-github-app client-secret
-printf %s "<app id>"        | seal legion-github-app-key app-id
-seal legion-github-app-key private-key < legion.private-key.pem
+id=$(docker create harbor.lab.local/legion/interface:<version>)
+docker cp "$id":/site/download/legion-linux-amd64 ~/legion && docker rm "$id" && chmod +x ~/legion
 ```
 
-Put each output under `legate.secrets.<...>.encryptedData` in
-`.config/lab/legion.yaml`. To replace one later, seal the new value and
-release; legate reads the files as it needs them and is not restarted.
+Keep the token; only the digest it prints is sealed.
+
+**3. Seal them**, in WSL at the repository's root, on a branch off `develop`:
+
+```sh
+.scripts/seal-legion-secrets.sh <path-to-app>.private-key.pem
+```
+
+It asks for the digest, the App's Client ID and its client secret (not shown
+as you type), seals each for namespace `legion`, and writes
+`legate.secrets.*.encryptedData` in `.config/lab/legion.yaml`. The Client ID
+also serves as `app-id`. Delete the `.pem` afterwards. To replace a secret
+later, run it again and release; legate reads the files as it needs them and
+is not restarted.
+
+The database has no secret of the owner's: CloudNativePG makes the role's
+password and writes it to `legion-pg-app`.
 
 ## Releasing a version of Legion
 
