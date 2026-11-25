@@ -82,6 +82,18 @@ legate:
   ownAddress: https://legion.lab.local
   # How often GitHub is asked what stands, for every product (10s at least).
   keeper: 1m
+  # INTERIM (2026-11-25). Legate's image holds the binary and nothing else,
+  # so no certificate authorities: legate 0.2.0 cannot check the certificate
+  # of github.com or api.github.com, logs "GitHub ... did not answer", reads
+  # no repository and ends no sign-in. An init container copies the public
+  # authorities of a stock Alpine image (through Harbor's dockerhub proxy,
+  # pinned by digest) to where Go looks for them, /etc/ssl/certs. The
+  # database's and Harbor's authorities are given by their own files and are
+  # not touched. Switch this off with the first legate image that brings its
+  # own authorities.
+  caBundle:
+    enabled: true
+    image: harbor.lab.local/dockerhub/library/alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f
   port: 8080        # the API, under /api; the only port the Service and the route reach
   probePort: 8081   # /livez and /readyz; never in the Service, never routed
   terminationGracePeriodSeconds: 30
