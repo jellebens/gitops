@@ -201,7 +201,7 @@ Built from the root of the legion repository, for arm64, with base images
 through Harbor's `dockerhub` proxy cache:
 
 ```sh
-V=0.3.2
+V=0.4.0
 docker build --platform linux/arm64 --provenance=false \
   --build-arg DOCKERHUB_PROXY=harbor.lab.local/dockerhub --build-arg VERSION=$V \
   -f interface/Dockerfile -t harbor.lab.local/legion/interface:$V .
