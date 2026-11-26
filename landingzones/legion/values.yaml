@@ -28,7 +28,7 @@ interface:
     # root with --platform linux/arm64 --provenance=false and
     # --build-arg VERSION=<tag> (README "Image"). The footer of every page
     # shows that version.
-    tag: "0.5.0"
+    tag: "0.6.0"
     pullPolicy: IfNotPresent
   # The file server's own ports (interface/README.md in the legion repo).
   port: 8080        # the pages; the only port the Service and the route reach
@@ -48,7 +48,7 @@ interface:
       memory: 64Mi
 
 # Legate: the API the view reads from (legion HLD-LEG-003 to HLD-LEG-006), as
-# legion's master stands at v0.5.0. It has the gate (every call carries a
+# legion's master stands at v0.6.0. It has the gate (every call carries a
 # credential), the sign-in through Legion's GitHub App, a database, the
 # registry of enlisted products, and it reads each product repository's main
 # branch on GitHub, live. Since 0.4.0 the backlog of a product is kept in the
@@ -70,7 +70,7 @@ legate:
     # The version the image was built as (build argument VERSION) and its tag
     # are the same text by convention: one version for a release, the same for
     # the interface's image. The commit is tagged v<tag> in the legion repo.
-    tag: "0.5.0"
+    tag: "0.6.0"
     pullPolicy: IfNotPresent
   # Legion's own fabrica images (legion PRD-LEG-004/REQ-33): each with its
   # path in Harbor, its tag and its DIGEST. Every instance writes them to the
