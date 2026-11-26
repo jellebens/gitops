@@ -77,7 +77,11 @@ spec:
         # as they are needed and want no restart.
         checksum/config: {{ .Values.legate.images | toYaml | sha256sum }}
     spec:
-      automountServiceAccountToken: false
+      # Its own service account, whose token is mounted: legate lists the
+      # Deployments of the products with it, and nothing more
+      # (legate-rbac.yaml; legion ADR-LEG-031).
+      serviceAccountName: legion-legate
+      automountServiceAccountToken: true
       {{- if .Values.imagePullSecret.enabled }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecret.name }}
