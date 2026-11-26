@@ -28,7 +28,7 @@ interface:
     # root with --platform linux/arm64 --provenance=false and
     # --build-arg VERSION=<tag> (README "Image"). The footer of every page
     # shows that version.
-    tag: "0.3.0"
+    tag: "0.4.1"
     pullPolicy: IfNotPresent
   # The file server's own ports (interface/README.md in the legion repo).
   port: 8080        # the pages; the only port the Service and the route reach
@@ -48,11 +48,15 @@ interface:
       memory: 64Mi
 
 # Legate: the API the view reads from (legion HLD-LEG-003 to HLD-LEG-006), as
-# legion's master stands at v0.3.0. It has the gate (every call carries a
+# legion's master stands at v0.4.1. It has the gate (every call carries a
 # credential), the sign-in through Legion's GitHub App, a database, the
 # registry of enlisted products, and it reads each product repository's main
-# branch on GitHub, live. Whoever enlists a product, as an admin of its
-# repository on GitHub, is its praetor; before 0.3.0 nobody was one.
+# branch on GitHub, live. Since 0.4.0 the backlog of a product is kept in the
+# database (read in once from its backlog file), the products page has a panel
+# per kind of document, and the praetor works in personae; legate changes its
+# schema itself at its start, and asks nothing new of a deployment. Whoever
+# enlists a product, as an admin of its repository on GitHub, is its praetor;
+# before 0.3.0 nobody was one.
 #
 # What it needs is legion's legate/README.md, "What a deployment has to set".
 # Three secrets are the owner's to seal (README here, "Secrets"); the chart
@@ -66,7 +70,7 @@ legate:
     # The version the image was built as (build argument VERSION) and its tag
     # are the same text by convention: one version for a release, the same for
     # the interface's image. The commit is tagged v<tag> in the legion repo.
-    tag: "0.3.0"
+    tag: "0.4.1"
     pullPolicy: IfNotPresent
   # Legion's own fabrica images (legion PRD-LEG-004/REQ-33): each with its
   # path in Harbor, its tag and its DIGEST. Every instance writes them to the
@@ -85,17 +89,13 @@ legate:
   ownAddress: https://legion.lab.local
   # How often GitHub is asked what stands, for every product (10s at least).
   keeper: 1m
-  # INTERIM (2026-11-25). Legate's image holds the binary and nothing else,
-  # so no certificate authorities: legate (0.2.0 and 0.3.0) cannot check the certificate
-  # of github.com or api.github.com, logs "GitHub ... did not answer", reads
-  # no repository and ends no sign-in. An init container copies the public
-  # authorities of a stock Alpine image (through Harbor's dockerhub proxy,
-  # pinned by digest) to where Go looks for them, /etc/ssl/certs. The
-  # database's and Harbor's authorities are given by their own files and are
-  # not touched. Switch this off with the first legate image that brings its
-  # own authorities.
+  # OFF since Legion 0.3.2, whose legate image brings the public certificate
+  # authorities itself. Legate 0.2.0 and 0.3.0 had none in their image and
+  # could not check GitHub's certificate; this init container copied the
+  # authorities of a stock Alpine image to /etc/ssl/certs. Kept as a switch
+  # for a rollback to one of those two versions: turn it on with them.
   caBundle:
-    enabled: true
+    enabled: false
     image: harbor.lab.local/dockerhub/library/alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f
   port: 8080        # the API, under /api; the only port the Service and the route reach
   probePort: 8081   # /livez and /readyz; never in the Service, never routed

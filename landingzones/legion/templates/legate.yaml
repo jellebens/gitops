@@ -26,7 +26,6 @@
 #   /etc/legate/github-app-key  app-id, private-key: reading GitHub
 #   /etc/legate/database        host, port, dbname, username, password
 #   /etc/legate/database-ca     ca.crt of the database's certificate
-#   /etc/ssl/certs              the public authorities, INTERIM (caBundle)
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -112,12 +111,10 @@ spec:
                 matchLabels:
                   app.kubernetes.io/name: legion-legate
       {{- if .Values.legate.caBundle.enabled }}
-      # INTERIM: legate's image is empty but for the binary, and so holds no
-      # certificate authorities; legate 0.2.0 then cannot check GitHub's
-      # certificate, and neither reads a repository nor ends a sign-in. This
-      # copies the public authorities of a stock image into a volume that
-      # legate finds where Go looks for them. It goes when legate's image
-      # brings them itself (values.yaml, legate.caBundle).
+      # For legate 0.2.0 and 0.3.0 only, whose image held no certificate
+      # authorities: copies the public authorities of a stock image into a
+      # volume that legate finds where Go looks for them. Off since 0.3.2
+      # (values.yaml, legate.caBundle).
       initContainers:
         - name: ca-bundle
           image: {{ .Values.legate.caBundle.image | quote }}
