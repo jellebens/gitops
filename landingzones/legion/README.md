@@ -91,13 +91,10 @@ A refusal lists every fault of the manifest. Legion's own images get on the
 list through `legate.images` (values, with their digests); the chart writes
 them into legate's configuration and legate admits them at its start.
 
-**Interim, `legate.caBundle`:** legate's image is empty but for the binary
-and holds no certificate authorities, so legate cannot check GitHub's
-certificate; it logs "GitHub was asked ... and did not answer", reads no
-repository and ends no sign-in. An init container copies the public
-authorities of a stock Alpine image, taken through Harbor, into
-`/etc/ssl/certs` of legate. It goes with the first legate image that brings
-them itself.
+**`legate.caBundle`, off:** legate 0.2.0 and 0.3.0 had no certificate
+authorities in their image and could not check GitHub's certificate; an init
+container gave them a stock image's. Since 0.3.2 legate's image brings its own
+and the switch is off. Turn it on only with a rollback to one of those two.
 
 The chart refuses to render legate without its database or with one of its
 three secrets unsealed. That is on purpose: Argo then reports a comparison
@@ -152,9 +149,11 @@ password and writes it to `legion-pg-app`.
 
 ## Releasing a version of Legion
 
-1. In the legion repository, at the commit to release: tag it `v<version>`,
-   build both images with `--build-arg VERSION=<version>` and push them under
-   the tag `<version>` ([Image](#image)).
+1. In the legion repository, on its main branch: tag the commit `v<version>`
+   and push the tag. The workflow `release` builds both images on the
+   `arc-legion` runners and pushes them under the tag `<version>`; its
+   summary names the digests. ([Image](#image) is the build by hand, for when
+   the runners are away.)
 2. Here, on a branch off `develop`: set `interface.image.tag` and
    `legate.image.tag` to `<version>`, and take over what the release notes of
    legion's `legate/README.md` ask of a deployment.
@@ -202,7 +201,7 @@ Built from the root of the legion repository, for arm64, with base images
 through Harbor's `dockerhub` proxy cache:
 
 ```sh
-V=0.3.0
+V=0.4.1
 docker build --platform linux/arm64 --provenance=false \
   --build-arg DOCKERHUB_PROXY=harbor.lab.local/dockerhub --build-arg VERSION=$V \
   -f interface/Dockerfile -t harbor.lab.local/legion/interface:$V .
