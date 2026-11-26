@@ -1,0 +1,43 @@
+# Legate reads which version of each product runs (legion ADR-LEG-031,
+# legate/README.md "What a deployment has to set", "What runs"): it lists
+# the Deployments labelled app.kubernetes.io/part-of=<product> in its own
+# namespace, and may do nothing else with the cluster's API. Its own
+# service account carries this one Role; the token is mounted for it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: legion-legate
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-legate
+    app.kubernetes.io/part-of: legion
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: legate-reads-deployments
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-legate
+    app.kubernetes.io/part-of: legion
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: legate-reads-deployments
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-legate
+    app.kubernetes.io/part-of: legion
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: legate-reads-deployments
+subjects:
+  - kind: ServiceAccount
+    name: legion-legate
+    namespace: legion
