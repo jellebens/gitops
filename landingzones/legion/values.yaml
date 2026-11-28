@@ -128,6 +128,51 @@ legate:
     githubAppKey:
       name: legion-github-app-key
       encryptedData: {}   # { app-id: "Ag...", private-key: "Ag..." }
+  # Legate on the middleware (legion HLD-LEG-002 block 4; legate/README.md,
+  # "What a deployment has to set", "The middleware"). ON with nats.enabled:
+  # legate then takes the messages of the fabricae from LEGION_IN, answers
+  # NATS's auth callout for the centurions and the fabricae, and sends the
+  # launch, the command and the stop into LEGION_OUT. Off, legate logs that
+  # it launches no fabrica, as since 0.8.0. The three seeds are sealed by
+  # .scripts/seal-legion-nats.sh, which also writes their public halves into
+  # nats.keys; no seed is ever in git in the clear.
+  middleware:
+    # The account of NATS's the callout admits the centurions and the
+    # fabricae to, and legate's own user lives in (MIDDLEWARE_ACCOUNT).
+    account: LEGION
+    secrets:
+      # Legate's own user: its nkey seed (MIDDLEWARE_CREDENTIAL_FILE).
+      user:
+        name: legion-nats-legate
+        encryptedData: {}   # { seed: "Ag..." }
+      # The account key NATS names as the callout's issuer: its seed, which
+      # legate signs the users it admits with (MIDDLEWARE_CALLOUT_ISSUER_FILE).
+      calloutIssuer:
+        name: legion-nats-callout-issuer
+        encryptedData: {}   # { seed: "Ag..." }
+      # The curve key NATS encrypts the callout's requests to: its seed
+      # (MIDDLEWARE_CALLOUT_XKEY_FILE).
+      calloutXKey:
+        name: legion-nats-callout-xkey
+        encryptedData: {}   # { seed: "Ag..." }
+  # Admitting images (legate/README.md, "Harbor's address", "Harbor's
+  # credential", "Harbor's certificate"): legate asks Harbor for an image's
+  # digest before a praetor's image goes on the list of admitted images. Off,
+  # POST /images answers 503 and the images below are still admitted.
+  harbor:
+    enabled: false
+    # Harbor's own external_url: legate follows no redirect.
+    url: https://harbor.lab.local
+    # robot$legion+pull, which may only pull from project legion: enough for
+    # Legion's own fabrica images. An image of a proxy-cache project
+    # (dockerhub, ghcr) is not admitted with it; that wants a system robot.
+    # Sealed by .scripts/seal-legion-nats.sh from the robot's own secret.
+    secret:
+      name: legion-harbor-admit
+      encryptedData: {}   # { username: "Ag...", password: "Ag..." }
+    # Harbor's certificate is the lab CA's. Its authority is read from the
+    # ca.crt of the landing zone's own lab-CA certificate (tlsCertificate).
+    caSecret: legion-server-tls
 
 # Legate's database (legion ADR-LEG-013): PostgreSQL 18, one database `legate`
 # owned by the role `legate`, as a CloudNativePG Cluster (the operator is the
@@ -154,6 +199,63 @@ postgres:
       memory: 192Mi
     limits:
       memory: 384Mi
+
+# NATS with JetStream, the middleware between Legion and its fabricae (legion
+# HLD-LEG-002 blocks 3 and 7; ADR-LEG-010/DEC-03; ADR-LEG-032): three servers
+# in a cluster, on separate nodes, in namespace legion. OFF until the owner
+# has sealed the three seeds (README "NATS"); the chart refuses to render it
+# with any of them empty. Turning it on also turns legate's middleware on.
+#
+# Who may connect: legate's own user, by its nkey, in the account LEGION; and
+# whoever NATS's auth callout admits, which legate answers: a centurion by its
+# place's credential, a fabrica by its start's. Nobody else.
+nats:
+  enabled: false
+  replicas: 3
+  # Through Harbor's `dockerhub` proxy cache (ADR-LEG-016). Legion's tests
+  # ran against 2.15.3. Pin the digest once pulled.
+  image: harbor.lab.local/dockerhub/library/nats:2.15.3-alpine
+  # The NATS command line tool, for the job that makes the four streams.
+  boxImage: harbor.lab.local/dockerhub/natsio/nats-box:0.19.2
+  clientPort: 4222
+  clusterPort: 6222
+  monitorPort: 8222
+  storageClass: longhorn
+  # JetStream's file store per server. The four streams are replicated on
+  # all three.
+  size: 2Gi
+  # The public halves of the three keys, written by
+  # .scripts/seal-legion-nats.sh together with the sealed seeds. Not secret.
+  keys:
+    legateUser: ""      # U...: legate's own user
+    calloutIssuer: ""   # A...: the callout's issuer
+    calloutXKey: ""     # X...: the callout's curve key
+  # The four streams (HLD-LEG-002 block 3). Made, and kept as written here,
+  # by the job nats-streams after every sync; a stream is never deleted.
+  streams:
+    - name: LEGION_IN
+      subjects: ["legion.in.fabrica.*", "legion.in.centurion.*"]
+    - name: LEGION_OUT
+      subjects: ["legion.out.fabrica.*", "legion.out.centurion.*"]
+    - name: LEGION_LOG
+      subjects: ["legion.log.*"]
+    - name: LEGION_HINT
+      subjects: ["legion.hint.github"]
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# The namespace the fabricae run in, in the cluster (legion ADR-LEG-032;
+# HLD-LEG-002 block 5): apart from the control plane, and nothing may connect
+# into a pod there (DEC-04). The cluster's centurion will run here too; its
+# Deployment comes once its image is in Harbor (legion v0.9.0) and its place
+# is admitted (POST /places).
+fabricae:
+  enabled: false
+  namespace: legion-fabricae
 
 # Nodes the pods of this landing zone are kept off, by name
 # (kubernetes.io/hostname). For a node that cannot pull from Harbor.

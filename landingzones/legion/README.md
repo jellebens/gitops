@@ -147,6 +147,49 @@ is not restarted.
 The database has no secret of the owner's: CloudNativePG makes the role's
 password and writes it to `legion-pg-app`.
 
+## NATS
+
+NATS with JetStream is the middleware between Legion and its fabricae
+(legion HLD-LEG-002; ADR-LEG-032). It is three servers in namespace `legion`
+(`templates/nats.yaml`), with the four streams `LEGION_IN`, `LEGION_OUT`,
+`LEGION_LOG` and `LEGION_HINT`, which the job `legion-nats-streams` makes
+after every sync. Nobody connects without legate's say: legate's own user is
+named by its nkey, and every other client (a centurion, a fabrica) is
+admitted by legate's answer to NATS's auth callout.
+
+The fabricae run in namespace `legion-fabricae` (`templates/fabricae.yaml`),
+where a policy lets nothing connect in. The cluster's centurion will run
+there too; its Deployment is not here yet.
+
+All of it is **off** (`nats.enabled`, `fabricae.enabled` and
+`legate.harbor.enabled`, all false) until the owner has made and sealed the
+keys. The chart refuses to render NATS with a key or a seed missing.
+
+**To turn it on**, in WSL at the repository's root, on a branch off
+`develop`:
+
+```sh
+go install github.com/nats-io/nkeys/nk@latest    # once, if nk is missing
+.scripts/seal-legion-nats.sh
+```
+
+It makes three keys with `nk`, a user for legate, an account key that
+issues the callout's users and a curve key the callout's requests are
+encrypted to. It seals each seed for namespace `legion` and writes the
+public halves into `nats.keys`. It also reads the secret of
+`robot$legion+pull` from namespace `harbor` and seals it as legate's Harbor
+credential. Everything goes into `.config/lab/legion.yaml`, with all three
+switches on. No seed is printed or written in the clear. Commit, open a PR
+into `develop`, then release.
+
+Once it runs, legate logs that it takes the messages of the fabricae and
+answers the callout, and `kubectl -n legion get jobs` shows
+`legion-nats-streams` complete.
+
+What it does not do yet: admit images from the proxy-cache projects
+(`robot$legion+pull` reads project `legion` only), limit what a fabrica
+reaches outbound, or run the centurion.
+
 ## Releasing a version of Legion
 
 1. In the legion repository, on its main branch: tag the commit `v<version>`

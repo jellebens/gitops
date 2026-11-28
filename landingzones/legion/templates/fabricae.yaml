@@ -1,0 +1,27 @@
+{{- if .Values.fabricae.enabled }}
+# The namespace of the fabricae in the cluster (legion ADR-LEG-032; HLD-LEG-002
+# block 5). Each fabrica is a pod here, started by the cluster's centurion.
+# Nothing may connect into a pod here (ADR-LEG-032/DEC-04): a policy with one
+# empty ingress rule selects every pod and admits nothing. Out, a fabrica
+# reaches NATS and GitHub; egress is not limited yet.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.fabricae.namespace }}
+  labels:
+    app.kubernetes.io/name: legion-fabricae
+    app.kubernetes.io/part-of: legion
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: nothing-connects-in
+  namespace: {{ .Values.fabricae.namespace }}
+  labels:
+    app.kubernetes.io/name: legion-fabricae
+    app.kubernetes.io/part-of: legion
+spec:
+  endpointSelector: {}
+  ingress:
+    - {}
+{{- end }}

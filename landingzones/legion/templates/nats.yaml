@@ -1,0 +1,326 @@
+{{- if .Values.nats.enabled }}
+{{- /*
+  NATS without its keys admits nobody legate can answer for, and legate
+  without its seeds does not start on the middleware. So the chart refuses
+  to render either half-given: Argo then keeps what runs.
+*/ -}}
+{{- if not .Values.legate.enabled }}
+{{- fail "legion: nats.enabled needs legate.enabled (legate answers NATS's auth callout)" }}
+{{- end }}
+{{- range $key, $secret := .Values.legate.middleware.secrets }}
+{{- if not $secret.encryptedData }}
+{{- fail (printf "legion: legate.middleware.secrets.%s.encryptedData is empty; run .scripts/seal-legion-nats.sh (README, NATS)" $key) }}
+{{- end }}
+{{- end }}
+{{- range $key, $value := .Values.nats.keys }}
+{{- if not $value }}
+{{- fail (printf "legion: nats.keys.%s is empty; run .scripts/seal-legion-nats.sh (README, NATS)" $key) }}
+{{- end }}
+{{- end }}
+{{- $n := .Values.nats }}
+{{- $account := .Values.legate.middleware.account }}
+# legion-nats: NATS with JetStream, three servers (legion HLD-LEG-002 blocks 3
+# and 7). One account, LEGION, with JetStream; legate's own user is in it, by
+# its nkey, and is the one user the auth callout lets past without asking.
+# Every other client is admitted by legate's answer to the callout, which
+# names the subjects it may use.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: legion-nats
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-nats
+    app.kubernetes.io/part-of: legion
+data:
+  nats.conf: |
+    port: {{ $n.clientPort }}
+    http_port: {{ $n.monitorPort }}
+    server_name: $POD_NAME
+
+    jetstream {
+      store_dir: /data/jetstream
+      max_file_store: {{ $n.size | replace "Gi" "G" }}
+    }
+
+    cluster {
+      name: legion
+      port: {{ $n.clusterPort }}
+      routes: [
+        {{- range $i := until (int $n.replicas) }}
+        nats://legion-nats-{{ $i }}.legion-nats-cluster.legion.svc:{{ $n.clusterPort }}
+        {{- end }}
+      ]
+    }
+
+    accounts {
+      {{ $account }}: {
+        jetstream: enabled
+        users: [
+          {
+            nkey: {{ $n.keys.legateUser }}
+            permissions: {
+              # Legate sends the launch, the command and the stop into
+              # LEGION_OUT, works its consumer on LEGION_IN and the consumers
+              # of the fabricae and centurions on LEGION_OUT, and answers the
+              # callout and the centurions' asks.
+              publish: { allow: ["legion.out.>", "$JS.API.>", "$JS.ACK.>", "_INBOX.>"] }
+              subscribe: { allow: ["$SYS.REQ.USER.AUTH", "legion.ask.centurion.*", "_INBOX.>"] }
+              allow_responses: true
+            }
+          }
+        ]
+      }
+    }
+
+    authorization {
+      auth_callout {
+        issuer: {{ $n.keys.calloutIssuer }}
+        xkey: {{ $n.keys.calloutXKey }}
+        account: {{ $account }}
+        auth_users: [ {{ $n.keys.legateUser }} ]
+      }
+    }
+---
+# The servers find each other by name.
+apiVersion: v1
+kind: Service
+metadata:
+  name: legion-nats-cluster
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-nats
+    app.kubernetes.io/part-of: legion
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: legion-nats
+  ports:
+    - name: client
+      port: {{ $n.clientPort }}
+    - name: cluster
+      port: {{ $n.clusterPort }}
+---
+# What legate, the centurion and the fabricae connect to.
+apiVersion: v1
+kind: Service
+metadata:
+  name: legion-nats
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-nats
+    app.kubernetes.io/part-of: legion
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: legion-nats
+  ports:
+    - name: client
+      port: {{ $n.clientPort }}
+      targetPort: client
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: legion-nats
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-nats
+    app.kubernetes.io/part-of: legion
+spec:
+  serviceName: legion-nats-cluster
+  replicas: {{ $n.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: legion-nats
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: legion-nats
+        app.kubernetes.io/part-of: legion
+      annotations:
+        checksum/config: {{ toYaml $n | sha256sum }}
+    spec:
+      {{- if .Values.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.name }}
+      {{- end }}
+      terminationGracePeriodSeconds: 60
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+                  {{- with .Values.avoidNodes }}
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      {{- toYaml . | nindent 22 }}
+                  {{- end }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: legion-nats
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nats
+          image: {{ $n.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args: ["--config", "/etc/nats/nats.conf"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: client
+              containerPort: {{ $n.clientPort }}
+            - name: cluster
+              containerPort: {{ $n.clusterPort }}
+            - name: monitor
+              containerPort: {{ $n.monitorPort }}
+          # Ready once JetStream is up and the server has caught up.
+          startupProbe:
+            httpGet:
+              path: /healthz?js-enabled-only=true
+              port: monitor
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /healthz?js-enabled-only=true
+              port: monitor
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz?js-server-only=true
+              port: monitor
+            periodSeconds: 10
+          resources:
+            {{- toYaml $n.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nats
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          configMap:
+            name: legion-nats
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: legion-nats
+          app.kubernetes.io/part-of: legion
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ $n.storageClass }}
+        resources:
+          requests:
+            storage: {{ $n.size }}
+---
+# nats-streams: makes the four streams, or brings each to what values.yaml
+# says, after every sync. It connects as legate's own user, by its seed; it
+# deletes no stream and no message.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: legion-nats-streams
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-nats-streams
+    app.kubernetes.io/part-of: legion
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: legion-nats-streams
+        app.kubernetes.io/part-of: legion
+    spec:
+      restartPolicy: OnFailure
+      {{- if .Values.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.name }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: streams
+          image: {{ $n.boxImage | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: NATS_URL
+              value: nats://legion-nats.legion.svc:{{ $n.clientPort }}
+            - name: NATS_NKEY
+              value: /etc/nats-user/seed
+            - name: HOME
+              value: /tmp
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              {{- range $n.streams }}
+              subjects="{{ join "," .subjects }}"
+              if nats stream info {{ .name }} >/dev/null 2>&1; then
+                nats stream edit {{ .name }} --subjects "$subjects" --replicas {{ $n.replicas }} --force
+              else
+                nats stream add {{ .name }} --subjects "$subjects" --storage file \
+                  --replicas {{ $n.replicas }} --retention limits --discard old \
+                  --dupe-window 2m --max-age 0 --max-msgs=-1 --max-bytes=-1 \
+                  --max-msg-size=-1 --max-msgs-per-subject=-1 --no-allow-rollup \
+                  --deny-delete --deny-purge --defaults
+              fi
+              {{- end }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: user
+              mountPath: /etc/nats-user
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: user
+          secret:
+            secretName: {{ .Values.legate.middleware.secrets.user.name }}
+            defaultMode: 0444
+        - name: tmp
+          emptyDir: {}
+{{- end }}
