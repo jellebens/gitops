@@ -169,6 +169,28 @@ spec:
               value: /etc/legate/github-app-key
             - name: KEEPER
               value: {{ .Values.legate.keeper | quote }}
+            {{- if .Values.nats.enabled }}
+            # The middleware (values.yaml, legate.middleware; templates/nats.yaml).
+            - name: MIDDLEWARE_URL
+              value: "nats://legion-nats.legion.svc:{{ .Values.nats.clientPort }}"
+            - name: MIDDLEWARE_CREDENTIAL_FILE
+              value: /etc/legate/nats/seed
+            - name: MIDDLEWARE_CALLOUT_ISSUER_FILE
+              value: /etc/legate/nats-callout-issuer/seed
+            - name: MIDDLEWARE_CALLOUT_XKEY_FILE
+              value: /etc/legate/nats-callout-xkey/seed
+            - name: MIDDLEWARE_ACCOUNT
+              value: {{ .Values.legate.middleware.account | quote }}
+            {{- end }}
+            {{- if .Values.legate.harbor.enabled }}
+            # Admitting images (values.yaml, legate.harbor).
+            - name: HARBOR_URL
+              value: {{ .Values.legate.harbor.url | quote }}
+            - name: HARBOR_CREDENTIAL_DIR
+              value: /etc/legate/harbor
+            - name: HARBOR_CA_FILE
+              value: /etc/legate/harbor-ca/ca.crt
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.legate.port }}
@@ -195,6 +217,25 @@ spec:
             - name: database-ca
               mountPath: /etc/legate/database-ca
               readOnly: true
+            {{- if .Values.nats.enabled }}
+            - name: nats
+              mountPath: /etc/legate/nats
+              readOnly: true
+            - name: nats-callout-issuer
+              mountPath: /etc/legate/nats-callout-issuer
+              readOnly: true
+            - name: nats-callout-xkey
+              mountPath: /etc/legate/nats-callout-xkey
+              readOnly: true
+            {{- end }}
+            {{- if .Values.legate.harbor.enabled }}
+            - name: harbor
+              mountPath: /etc/legate/harbor
+              readOnly: true
+            - name: harbor-ca
+              mountPath: /etc/legate/harbor-ca
+              readOnly: true
+            {{- end }}
             {{- if .Values.legate.caBundle.enabled }}
             - name: ca-bundle
               mountPath: /etc/ssl/certs
@@ -263,6 +304,34 @@ spec:
             defaultMode: 0440
             items:
               - { key: ca.crt, path: ca.crt }
+        {{- if .Values.nats.enabled }}
+        - name: nats
+          secret:
+            secretName: {{ .Values.legate.middleware.secrets.user.name }}
+            defaultMode: 0440
+        - name: nats-callout-issuer
+          secret:
+            secretName: {{ .Values.legate.middleware.secrets.calloutIssuer.name }}
+            defaultMode: 0440
+        - name: nats-callout-xkey
+          secret:
+            secretName: {{ .Values.legate.middleware.secrets.calloutXKey.name }}
+            defaultMode: 0440
+        {{- end }}
+        {{- if .Values.legate.harbor.enabled }}
+        - name: harbor
+          secret:
+            secretName: {{ .Values.legate.harbor.secret.name }}
+            defaultMode: 0440
+        # The lab CA's authority, from the landing zone's own certificate;
+        # its key is not mounted.
+        - name: harbor-ca
+          secret:
+            secretName: {{ .Values.legate.harbor.caSecret }}
+            defaultMode: 0440
+            items:
+              - { key: ca.crt, path: ca.crt }
+        {{- end }}
         {{- if .Values.legate.caBundle.enabled }}
         - name: ca-bundle
           emptyDir:

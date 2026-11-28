@@ -30,3 +30,42 @@ spec:
             - port: {{ .Values.interface.port | quote }}
               protocol: TCP
 {{- end }}
+{{- if and .Values.nats.enabled .Values.networkPolicy.enabled }}
+---
+# INGRESS-ONLY policy for NATS: legate and the stream job from this
+# namespace, the centurion and the fabricae from theirs, and the servers
+# among themselves. The monitor port is reached by the kubelet's probes only.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: legion-nats
+  namespace: legion
+  labels:
+    app.kubernetes.io/name: legion-nats
+    app.kubernetes.io/part-of: legion
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: legion-nats
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: legion-legate
+        - matchLabels:
+            app.kubernetes.io/name: legion-nats-streams
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.fabricae.namespace }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.nats.clientPort | quote }}
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: legion-nats
+      toPorts:
+        - ports:
+            - port: {{ .Values.nats.clientPort | quote }}
+              protocol: TCP
+            - port: {{ .Values.nats.clusterPort | quote }}
+              protocol: TCP
+{{- end }}
