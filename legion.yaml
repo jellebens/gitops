@@ -1,0 +1,40 @@
+# The manifest of gitops as a Legion product (the format is Legion's
+# HLD-LEG-005, block 1).
+#
+# It names the product, its one repository and the parts of it an agent
+# works on, one component each. Legion keeps its registry equal to this
+# file as it stands on the main branch, master.
+#
+# Every component names the stub image, which speaks Legion's message
+# contract and runs no model. That stands until an image that runs an
+# agent is admitted: a launch on the stub builds nothing. The image is
+# named by its path in the installation's Harbor and a tag, without
+# Harbor's address.
+#
+# This file holds no credential, and has no field for one. Argo CD does
+# not read it: no Application has the repository's root as its path.
+
+product: gitops
+
+repositories:
+  - name: gitops
+    github: jellebens/gitops
+    role: product
+
+components:
+  - id: gitops:bootstrap               # the top-level Argo CD bootstrap Application
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:applications            # the child Applications, the app-of-apps layer
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:projects                # the Argo CD AppProjects
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:platform                # the charts of the platform services
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:landingzones            # the charts of the workloads
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:.config                 # the shared and per-environment values
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:.claude                 # the agent definitions and skills
+    image: legion/fabrica-stub:0.2-1
+  - id: gitops:.github                 # the workflows, agents, skills and hooks
+    image: legion/fabrica-stub:0.2-1
